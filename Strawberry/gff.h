@@ -13,9 +13,7 @@
 #include <unordered_map>
 #include <memory>
 #include "GBase.h"
-static const char strand_plus = '+';
-static const char strand_minus = '-';
-static const char strand_unknown = '.';
+
 
 #define GFF_LINELEN 2048
 // to do:
@@ -23,53 +21,6 @@ enum gffExonType { exGffUnknown = 0, exGffUTR = 1, exGffStop = 2,
    exGffStart =3, exGffCDS = 4, exGffExon=5};
 
 using namespace std;
-
-class GenomicInterval {
-   uint _start; //start<end always!
-   uint _end;
-   char* _chrom;
-   char _strand;
- public:
-   GenomicInterval();
-   GenomicInterval(const char* chr,uint s = 0,uint e = 0, char o = '.');
-   GenomicInterval( const GenomicInterval& other);
-   ~GenomicInterval(){
-      //free(chrom);
-      GFREE(_chrom);
-   }
-
-  uint getStart();
-  uint getEnd();
-  char getStrand();
-  char* getChrom();
-
-
-  //check for overlap with other segment
-  uint len();
-  bool overlap(GenomicInterval* d, bool nonStrandness = true);
-
-  bool isContainedIn(GenomicInterval *d, bool nonStrandness = true);
-
-  bool contain(GenomicInterval *d, bool nonStrandness = true);
-
-  //return the length of overlap between two segments
-  uint overlapLen(GenomicInterval* r) ;
-  //comparison operators required for sorting
-  bool operator==(GenomicInterval& d){
-     if ( strcmp(d._chrom, _chrom)) return false;
-     if( d._strand != strand_unknown && _strand != strand_unknown && d._strand != _strand) return false;
-     return (_start==d._start && _end==d._end);
-  }
-  bool operator>(GenomicInterval& d){
-     if ( strcmp(d._chrom, _chrom)) GError("cannot compare for different chrom");
-     return (_start==d._start)?(_end>d._end):(_start>d._start);
-  }
-  bool operator<(GenomicInterval& d){
-     if ( strcmp(d._chrom, _chrom)) GError("cannot compare for different chrom");
-     return (_start==d._start)?(_end<d._end):(_start<d._start);
-  }
-};
-
 
 class GffAttr{
    public:

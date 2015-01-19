@@ -7,11 +7,18 @@
 
 #include "read.h"
 #include <algorithm>
+#include<assert.h>
 #include <stdexcept>
+
+ReadHit::ReadHit():
+   _read_id(0),
+   _partner_pos(0),
+   _strand('.') {}
+
+
 ReadHit::ReadHit(
    ReadID readID,
-   string refID,
-   int pos,
+   GenomicInterval iv,
    const vector<CigarOp> & cigar,
    char strand,
    string partnerRef,
@@ -19,94 +26,112 @@ ReadHit::ReadHit(
    int numMismatch,
    int numHit,
    uint32_t samFlag,
-   bool paired
-   ) :_ref_id(refID),
+   float mass ):
       _read_id(readID),
-      _start(pos),
+      _iv(iv),
       _cigar(cigar),
       _strand(strand),
       _partner_ref(partnerRef),
       _partner_pos(partnerPos),
       _num_mismatch(numMismatch),
       _num_hit(numHit),
-      _paired(paired),
       _sam_flag(samFlag)
 {}
 
 
-ReadHit::ReadHit(const ReadHit& other):
-   _ref_id(other._ref_id),
-   _read_id(other._read_id),
-   _start(other._start),
-   _cigar(other._cigar),
-   _trans_left(other._trans_left),
-   _strand(other._strand),
-   _partner_ref(other._partner_ref),
-   _partner_pos(other._partner_pos),
-   _num_mismatch(other._num_mismatch),
-   _num_hit(other._num_hit),
-   _paired(other._paired),
-   _sam_flag(other._sam_flag)
-   {}
 
-int ReadHit::read_len() const{
-      int len = 0;
-      for (size_t i = 0; i < _cigar.size(); ++i)
-      {
-         const CigarOp& op = _cigar[i];
-         switch(op.opcode)
-         {
-            case MATCH:
-            case INS:
-            case SOFT_CLIP:
-               len += op.length;
-               break;
-            default:
-               break;
-         }
+int ReadHit::read_len() const {return _iv.len();}
+
+bool ReadHit::containsSplice()const{
+      for (size_t i = 0; i < _cigar.size(); ++i){
+
+            if (_cigar[i].opcode == REF_SKIP)
+               return true;
       }
-
-      return len;
-   }
-
-int ReadHit::getStart() const{
-   return _start;
+      return false;
 }
 
-int ReadHit::getEnd() const{
-      int r = _start;
-      for (size_t i = 0; i < _cigar.size(); ++i)
-      {
-         const CigarOp& op = _cigar[i];
+string ReadHit::ref() const {return _iv.chrom();}
 
-         switch(op.opcode)
-         {
-            case MATCH:
-            case REF_SKIP:
-                case SOFT_CLIP:
-            case DEL:
-               r += op.length;
-               break;
-                case INS:
-                case HARD_CLIP:
-            default:
-               break;
-         }
-      }
-      return r;
+string ReadHit::partner_ref() const { return _partner_ref;}
+
+int ReadHit::partner_pos() const { return _partner_pos;}
+
+int ReadHit::right() const {return _iv.right();}
+
+char ReadHit::strand() const {return _iv.strand();}
+
+int ReadHit::left() const { return _iv.left();}
+
+bool ReadHit::is_singleton() const
+{
+   return (partner_ref() == 0 ||
+         partner_ref() != ref() ||
+         abs(partner_pos() - left()) > max_partner_dist);
 }
 
-void ReadHit::setStrandness(char gene_strand){
-   if (gene_strand == '+'){
-      if(_strand == '+') _left_most = true;
-      else if (_strand ==  '-' ) _left_most = false;
-   }
-   else if(gene_strand == '-'){
-      if(_strand == '+') _left_most = false;
-      else if(_strand == '-') _left_most = true;
-   }
+
+
+
+ReadID ReadTable::get_id(const string& name)
+{
+   uint64_t id = hashString(name.c_str());
+   assert(id);
+   return id;
 }
 
+RefSequenceTable::RefSequenceTable(bool keep_seq):
+   _keep_seq(keep_seq),
+   _next_id(1){}
+
+RefID RefSequenceTable::init_id(const string& name, unique_ptr<string> seq){
+   uint64_t id = hashString(name.c_str());
+   pair<id2SeqInfo::iterator, bool> res = _by_id.insert(make_pair(id,
+         SequenceInfo(_next_id, name, nullptr) )  );
+   if(res.second){
+      if(_keep_seq) res.first->second._seq = seq;
+      ++_next_id;
+   }
+   assert (id);
+   return id;
+}
+
+const string RefSequenceTable::get_name(RefID ID) const{
+   auto it = _by_id.find(ID);
+   if( it != _by_id.end()) return it->second._name;
+   else GError("ID %d is not in the Reference Sequence Table\n", ID);
+}
+
+unique_ptr<string> RefSequenceTable::get_seq(RefID ID) const{
+   auto it = _by_id.find(ID);
+   if( it != _by_id.end()) return it->second._seq;
+   else GError("ID %d is not in the Reference Sequence Table\n", ID);
+}
+
+int RefSequenceTable::observation_order(RefID ID) const{
+   auto it = _by_id.find(ID);
+   if( it != _by_id.end()) return it->second._observation_order;
+   else GError("ID %d is not in the Reference Sequence Table\n", ID);
+}
+//const unique_ptr<RefSequenceTable::SequenceInfo> RefSequenceTable::get_info(RefID ID) const{
+//   auto it = _by_id.find(ID);
+//   if( it != _by_id.end()) return &(it->second);
+//   else GError("ID %d is not in the Reference Sequence Table\n", ID);
+//}
+
+HitFactory::HitFactory(ReadTable &reads_table, RefSequenceTable ref_table):
+   _reads_table(reads_table),_ref_table(ref_table){}
+
+HitFactory::HitFactory(HitFactory &&rhs):
+   _reads_table( move(rhs._reads_table)), _ref_table(move(rhs._ref_table)){}
+
+HitFactory& HitFactory::operator =(HitFactory &&rhs){
+   if(this != &rhs){
+      _reads_table = move(rhs._reads_table);
+      _ref_table = move(rhs._ref_table);
+   }
+   return *this;
+}
 BAMHitFactory::BAMHitFactory(const string& bam_file_name){
    _hit_file = samopen(bam_file_name.c_str(), "rb", 0);
    memset(&_next_hit, 0, sizeof(_next_hit));
@@ -312,3 +337,5 @@ bool PairedHit::paried_hit_lt (const PairedHit &rhs) const{
    assert ((_left_read == NULL) == (rhs.getLeftRead()==NULL) );
    assert ((_right_read ==NULL) == (rhs.getRightRead()==NULL) );
 }
+
+

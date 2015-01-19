@@ -11,8 +11,8 @@
 #include <algorithm>
 #include <stdio.h>
 #include "alignment.h"
+#include "gff.h"
 #include "read.h"
-#include "genome.h"
 using namespace std;
 /*
 void foo(GffGene &g1){
