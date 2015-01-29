@@ -1,4 +1,4 @@
-
+#include "gff.h"
 
 GffAttr::GffAttr(int an_id, const char* av ): _attr_id(an_id){
    _attr_val = NULL;
@@ -222,8 +222,8 @@ GffLine::GffLine(const char* l) {
          return;
    }
    _strand = *t[6];
-   if(_strand!=strand_plus && _strand!=strand_minus
-         && _strand!=strand_unknown){
+   if(_strand!=kStrandPlus && _strand!=kStrandMinus
+         && _strand!=kStrandUnknown){
       GMessage("Warning: parsing strand (%c) from GFF line:\n%s\n",_strand,l);
    }
    _phase=*t[7];
@@ -363,7 +363,7 @@ GffLine::GffLine(){
    _parents_len=0;
    _ID = NULL;
    _name = NULL;
-   _strand = strand_unknown;
+   _strand = kStrandUnknown;
    _skip = false;
    _exontype=0;
    //_is_cds=false; // for future

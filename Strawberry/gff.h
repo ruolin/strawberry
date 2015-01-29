@@ -13,7 +13,7 @@
 #include <unordered_map>
 #include <memory>
 #include "GBase.h"
-
+#include "contig.h"
 
 #define GFF_LINELEN 2048
 // to do:

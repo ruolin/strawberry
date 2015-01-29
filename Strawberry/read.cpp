@@ -5,22 +5,16 @@
  *      Author: RUOLIN LIU
  */
 
-#include "read.h"
 #include <algorithm>
 #include<assert.h>
 #include <stdexcept>
-
-ReadHit::ReadHit():
-   _read_id(0),
-   _partner_pos(0),
-   _strand('.') {}
+#include "read.h"
 
 
 ReadHit::ReadHit(
    ReadID readID,
    GenomicInterval iv,
    const vector<CigarOp> & cigar,
-   char strand,
    string partnerRef,
    int partnerPos,
    int numMismatch,
@@ -30,7 +24,6 @@ ReadHit::ReadHit(
       _read_id(readID),
       _iv(iv),
       _cigar(cigar),
-      _strand(strand),
       _partner_ref(partnerRef),
       _partner_pos(partnerPos),
       _num_mismatch(numMismatch),
@@ -40,9 +33,9 @@ ReadHit::ReadHit(
 
 
 
-int ReadHit::read_len() const {return _iv.len();}
+uint ReadHit::read_len() const { return _iv.len();}
 
-bool ReadHit::containsSplice()const{
+bool ReadHit::contains_splice()const{
       for (size_t i = 0; i < _cigar.size(); ++i){
 
             if (_cigar[i].opcode == REF_SKIP)
@@ -50,6 +43,8 @@ bool ReadHit::containsSplice()const{
       }
       return false;
 }
+
+ReadID ReadHit::read_id() const {return _read_id;}
 
 string ReadHit::ref() const {return _iv.chrom();}
 
@@ -59,13 +54,17 @@ int ReadHit::partner_pos() const { return _partner_pos;}
 
 int ReadHit::right() const {return _iv.right();}
 
+GenomicInterval ReadHit::interval() const { return _iv;}
+
 char ReadHit::strand() const {return _iv.strand();}
 
 int ReadHit::left() const { return _iv.left();}
 
+int ReadHit::num_mismatch() const { return _num_mismatch;}
+
 bool ReadHit::is_singleton() const
 {
-   return (partner_ref() == 0 ||
+   return (partner_pos() == 0 ||
          partner_ref() != ref() ||
          abs(partner_pos() - left()) > max_partner_dist);
 }
@@ -80,86 +79,86 @@ ReadID ReadTable::get_id(const string& name)
    return id;
 }
 
-RefSequenceTable::RefSequenceTable(bool keep_seq):
+RefSeqTable::RefSeqTable(bool keep_seq):
    _keep_seq(keep_seq),
-   _next_id(1){}
+   _next_obs_order(1){}
 
-RefID RefSequenceTable::init_id(const string& name, unique_ptr<string> seq){
-   uint64_t id = hashString(name.c_str());
-   pair<id2SeqInfo::iterator, bool> res = _by_id.insert(make_pair(id,
-         SequenceInfo(_next_id, name, nullptr) )  );
+bool RefSeqTable::insertIntoTable(const string name, unique_ptr<DNABitSet> seq){
+   pair<id2SeqInfo::iterator, bool> res = _by_id.insert(make_pair(name,
+         SequenceInfo(_next_obs_order, nullptr) )  );
    if(res.second){
-      if(_keep_seq) res.first->second._seq = seq;
-      ++_next_id;
+      if(_keep_seq)
+         res.first->second._seq = move(seq);
+      ++_next_obs_order;
    }
-   assert (id);
-   return id;
+   return res.second;
 }
 
-const string RefSequenceTable::get_name(RefID ID) const{
-   auto it = _by_id.find(ID);
-   if( it != _by_id.end()) return it->second._name;
-   else GError("ID %d is not in the Reference Sequence Table\n", ID);
+
+unique_ptr<DNABitSet> RefSeqTable::get_seq(const string name){
+   auto it = _by_id.find(name);
+   if( it != _by_id.end()) return move(it->second._seq);
+   fprintf(stderr,"reference name %d is not in the Reference Sequence Table\n", name.c_str());
+   return nullptr;
 }
 
-unique_ptr<string> RefSequenceTable::get_seq(RefID ID) const{
-   auto it = _by_id.find(ID);
-   if( it != _by_id.end()) return it->second._seq;
-   else GError("ID %d is not in the Reference Sequence Table\n", ID);
-}
-
-int RefSequenceTable::observation_order(RefID ID) const{
-   auto it = _by_id.find(ID);
+int RefSeqTable::observation_order(const string name) const{
+   auto it = _by_id.find(name);
    if( it != _by_id.end()) return it->second._observation_order;
-   else GError("ID %d is not in the Reference Sequence Table\n", ID);
+   fprintf(stderr, "reference name %d is not in the Reference Sequence Table\n", name.c_str());
+   return 0;
 }
-//const unique_ptr<RefSequenceTable::SequenceInfo> RefSequenceTable::get_info(RefID ID) const{
+//const unique_ptr<RefSeqTable::SequenceInfo> RefSeqTable::get_info(RefID ID) const{
 //   auto it = _by_id.find(ID);
 //   if( it != _by_id.end()) return &(it->second);
 //   else GError("ID %d is not in the Reference Sequence Table\n", ID);
 //}
 
-HitFactory::HitFactory(ReadTable &reads_table, RefSequenceTable ref_table):
+HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
    _reads_table(reads_table),_ref_table(ref_table){}
 
-HitFactory::HitFactory(HitFactory &&rhs):
-   _reads_table( move(rhs._reads_table)), _ref_table(move(rhs._ref_table)){}
 
-HitFactory& HitFactory::operator =(HitFactory &&rhs){
-   if(this != &rhs){
-      _reads_table = move(rhs._reads_table);
-      _ref_table = move(rhs._ref_table);
-   }
-   return *this;
-}
-BAMHitFactory::BAMHitFactory(const string& bam_file_name){
+BAMHitFactory::BAMHitFactory(const string& bam_file_name,
+                            ReadTable &read_table,
+                            RefSeqTable &ref_table) throw(runtime_error):
+                 HitFactory(read_table, ref_table)
+{
    _hit_file = samopen(bam_file_name.c_str(), "rb", 0);
    memset(&_next_hit, 0, sizeof(_next_hit));
    if(_hit_file == NULL || _hit_file->header == NULL){
-      throw std::runtime_error("Fail to open BAM file");
+      throw runtime_error("Fail to open BAM file");
    }
+
    _beginning = bgzf_tell(_hit_file->x.bam);
+   _curr_pos = _beginning;
    _eof_encountered = false;
 
 }
 
-BAMHitFactory::~BAMHitFactory(){
-   if(_hit_file) samclose(_hit_file);
+void BAMHitFactory::reset()
+{
+   if (_hit_file && _hit_file->x.bam)
+   {
+      bgzf_seek(_hit_file->x.bam, _beginning, SEEK_SET);
+      _eof_encountered = false;
+   }
 }
 
-void BAMHitFactory::reset()
-   {
-      if (_hit_file && _hit_file->x.bam)
-      {
-         bgzf_seek(_hit_file->x.bam, _beginning, SEEK_SET);
-            _eof_encountered = false;
-      }
-   }
-void BAMHitFactory::markCurrPos(){
+void BAMHitFactory::markCurrPos()
+{
    _curr_pos = bgzf_tell(_hit_file->x.bam);
 }
 
-bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size){
+bool BAMHitFactory::recordsRemain() const{
+   return !_eof_encountered;
+}
+
+void BAMHitFactory::undo_hit(){
+   bgzf_seek(_hit_file->x.bam, _curr_pos, SEEK_SET);
+}
+
+bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size)
+{
    if(_next_hit.data){
       free(_next_hit.data);
       _next_hit.data=NULL;
@@ -175,11 +174,10 @@ bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size){
    }
    buf = (const char*)& _next_hit;
    buf_size = bytes_read;
+
+   return true;
 }
 
-bool BAMHitFactory::recordsRemain() const{
-   return !_eof_encountered;
-}
 
 bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    const bam1_t* hit_buf = (const bam1_t*)orig_bwt_buf;
@@ -188,17 +186,23 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    int mate_pos = hit_buf->core.mpos;
    int target_id = hit_buf->core.tid;
    int mate_target_id = hit_buf->core.mtid;
-   ReadID readid = string2Hash(bam1_qname(hit_buf));
-   vector<CigarOp> cigar ={};
+   int read_len = 0;
+   ReadID readid = HitFactory::reads_table().get_id(bam1_qname(hit_buf));
+   vector<CigarOp> cigar;
+   bool is_spliced_alignment = false;
    int num_hits = 1;
    string text_name = _hit_file->header->target_name[target_id];
-   if( (sam_flag & 0x4) || target_id) return true;  // unmapped
-   bool paired = sam_flag & BAM_FPAIRED;
-   bool antisense_aln = sam_flag & 0x10;
+
+   // For now: skip unmapped reads
+   if( (sam_flag & 0x4) || target_id) return true;
+
+
    if(target_id >= _hit_file->header->n_targets){
       fprintf(stderr, "BAM error: file contains hits to sequences not in BAM file header");
       return false;
    }
+
+
    for (int i=0; i<hit_buf->core.n_cigar; ++i){
       int length = bam1_cigar(hit_buf)[i] >> BAM_CIGAR_SHIFT;
       if(length <= 0){
@@ -207,15 +211,25 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       }
       CigarOpCode opcode;
       switch(bam1_cigar(hit_buf)[i] & BAM_CIGAR_MASK){
-      case BAM_CMATCH: opcode = MATCH; break;
-      case BAM_CINS: opcode = INS; break;
+      case BAM_CMATCH: opcode = MATCH;
+         read_len += length;
+         break;
+      case BAM_CINS: opcode = INS;
+         read_len += length;
+         break;
       case BAM_CDEL: opcode = DEL; break;
-      case BAM_CSOFT_CLIP: opcode = SOFT_CLIP; break;
+      case BAM_CSOFT_CLIP: opcode = SOFT_CLIP;
+         read_len += length;
+         break;
       case BAM_CHARD_CLIP: opcode = HARD_CLIP; break;
       case BAM_CPAD: opcode = HARD_CLIP; break;
-      case BAM_CREF_SKIP: opcode = REF_SKIP;
-            // if(length > (int)max_intron_length) return false; // for future
-            break;
+      case BAM_CREF_SKIP:
+         opcode = REF_SKIP;
+         is_spliced_alignment = true;
+         if(length > (int) kMaxIntronLength){
+            return false;
+         }
+         break;
       default: return false;
       }
       if (opcode != HARD_CLIP)
@@ -228,18 +242,20 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          mate_ref = _hit_file->header->target_name[mate_target_id];
       }
       else return false;
+   } else{
+      mate_pos = 0;
    }
-   else mate_pos = 0;
 
    char source_strand = '.';
    unsigned char num_mismatches = 0;
-   if(antisense_aln){
-      source_strand = '-';
-   }
-   else
-      source_strand = '+';
 
-   uint8_t* ptr = bam_aux_get(hit_buf, "NM");
+   uint8_t* ptr = bam_aux_get(hit_buf, "XS");
+   if(ptr){
+      char src_strand_char = bam_aux2A(ptr);
+      source_strand = src_strand_char;
+   }
+
+   ptr = bam_aux_get(hit_buf, "NM");
    if(ptr){
       num_mismatches = bam_aux2i(ptr);
    }
@@ -249,93 +265,118 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       num_hits = bam_aux2i(ptr);
    }
 
-   /*
-    * havn't use mass property
    double mass = 1.0;
-       ptr = bam_aux_get(hit_buf, "ZF");
-      if (ptr)
-      {
-         mass = bam_aux2i(ptr);
-           if (mass <= 0.0)
-               mass = 1.0;
-      }
-   */
+   ptr = bam_aux_get(hit_buf, "ZF");
+   if (ptr)
+   {
+      mass = bam_aux2i(ptr);
+        if (mass <= 0.0)
+            mass = 1.0;
+   }
 
-   bh = ReadHit(readid,
-         text_name,
-            pos,
-            cigar,
-            source_strand,
-            mate_ref,
-            mate_pos,
-            num_mismatches,
-            num_hits,
-            sam_flag,
-            paired
-            );
+   if(is_spliced_alignment){
+      if(source_strand == kStrandUnknown)
+         fprintf(stderr, "BAM record error: found spliced alignment without XS attribute\n");
+   }
+
+   bh = ReadHit(
+               readid,
+               GenomicInterval(text_name, pos, pos+read_len-1, source_strand),
+               cigar,
+               mate_ref,
+               mate_pos,
+               num_mismatches,
+               num_hits,
+               sam_flag,
+               mass
+               );
+   return true;
 }
 
 
 PairedHit::PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead):
-            _left_read(leftRead), _right_read(rightRead){}
+            _left_read(move(leftRead)), _right_read(move(rightRead)){}
 
-ReadHitPtr PairedHit::getLeftRead() const {return _left_read;}
+ReadHitPtr PairedHit::left_read() {return move(_left_read);}
 
-void PairedHit::setLeftRead(ReadHitPtr lr) {_left_read = lr;}
+void PairedHit::set_left_read(ReadHitPtr lr)
+{
+   _left_read = move(lr);
+}
 
-ReadHitPtr PairedHit::getRightRead() const {return _right_read;}
+ReadHitPtr PairedHit::right_read() {return move(_right_read);}
 
-int PairedHit::getLeftPos() const{
+void PairedHit::set_right_read(ReadHitPtr rr)
+{
+   _right_read = move(rr);
+}
+
+int PairedHit::left_pos() const{
    if(_right_read && _left_read){
-      return min(_right_read->getStart(), _left_read->getStart());
+      return min(_right_read->left(), _left_read->left());
    }
    else if (_left_read)
-      return _left_read->getStart();
+      return _left_read->left();
    else if (_right_read)
-      return _right_read->getStart();
+      return _right_read->left();
    else
       return -1;
 }
 
-int PairedHit::getRightPos() const{
+int PairedHit::right_pos() const{
    if(_right_read && _left_read){
-      return max(_right_read->getEnd(), _left_read->getEnd());
+      return max(_right_read->right(), _left_read->right());
    }
    else if(_right_read)
-      return _right_read->getEnd();
+      return _right_read->right();
    else if(_left_read)
-      return _left_read->getEnd();
+      return _left_read->left();
    else
       return -1;
 }
 
-int PairedHit::genomicInnerDist() const{
-   if(_left_read && _right_read)
-      return _right_read->getStart() - _left_read->getEnd();
-   return -1;
+bool PairedHit::is_paired() const
+{
+   return _left_read && _right_read;
 }
+
+
 
 uint PairedHit::edit_dist() const{
    uint edits = 0;
    if(_left_read)
-      edits += _left_read->_num_mismatch;
+      edits += _left_read->num_mismatch();
    if(_right_read)
-      edits += _right_read->_num_mismatch;
+      edits += _right_read->num_mismatch();
    return edits;
 }
 
-bool PairedHit::paried_hit_lt (const PairedHit &rhs) const{
-   if( getLeftPos() != rhs.getLeftPos() )
-      return getLeftPos() < rhs.getLeftPos();
-   if( getRightPos() != rhs.getRightPos() )
-      return getRightPos() > rhs.getRightPos();
-   // proceed only when same start and end;
-   if ((_left_read == NULL) != (rhs.getLeftRead()==NULL) )
-      return (_left_read == NULL) < (rhs.getLeftRead() == NULL);
-   if ((_right_read ==NULL) != (rhs.getRightRead()==NULL) )
-      return (_right_read == NULL) < (rhs.getRightRead() == NULL);
-   assert ((_left_read == NULL) == (rhs.getLeftRead()==NULL) );
-   assert ((_right_read ==NULL) == (rhs.getRightRead()==NULL) );
+bool PairedHit::contains_splice() const
+{
+   if(_right_read)
+      return (_left_read->contains_splice() || _right_read->contains_splice());
+   else
+      return _left_read->contains_splice();
 }
+
+ReadID PairedHit::read_id() const
+{
+   if(_left_read) return _left_read->read_id();
+   if(_right_read) return _right_read->read_id();
+   return 0;
+}
+
+string PairedHit::ref_seq_name() const
+{
+   if(_left_read && _right_read)
+      assert(_left_read->interval().chrom() == _right_read->interval().chrom());
+   if(_left_read)
+      return _left_read->interval().chrom();
+   if(_right_read)
+      return _right_read->interval().chrom();
+   return "";
+}
+
+
 
 

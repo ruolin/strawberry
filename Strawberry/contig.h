@@ -8,12 +8,13 @@
 #ifndef CONTIG_H_
 #define CONTIG_H_
 
+//#include "GBase.h"
 #include<string>
-#include "GBase.h"
 
-static const char strand_plus = '+';
-static const char strand_minus = '-';
-static const char strand_unknown = '.';
+static const char kStrandPlus = '+';
+static const char kStrandMinus = '-';
+static const char kStrandUnknown = '.';
+static const int kMaxIntronLength = 60000;
 
 class GenomicInterval {
 private:
@@ -26,14 +27,17 @@ private:
 public:
 
    GenomicInterval()=default;
-   GenomicInterval(const std::string chr, uint l, uint r, char o);
+   GenomicInterval(std::string chr,
+                  uint l,
+                  uint r,
+                  char o);
 
   uint left() const;
   uint right() const;
   void set_left(uint l);
   void set_right(uint r);
-  const char strand() const;
-  const std::string chrom() const;
+  char strand() const;
+  std::string chrom() const;
   uint len() const;
 
   //check for overlap with other segment
@@ -63,5 +67,9 @@ public:
    GenomicFeature(FeatType ftype, const std::string chr, uint l, uint r, char o);
 };
 
+
+class DNABitSet{
+
+};
 
 #endif /* CONTIG_H_ */

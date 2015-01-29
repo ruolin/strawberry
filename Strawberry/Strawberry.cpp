@@ -6,26 +6,24 @@
 // Description : For Strawberry
 //============================================================================
 
-#include <bam/sam.h>
 #include <iostream>
-#include <algorithm>
-#include <stdio.h>
-#include "alignment.h"
-#include "gff.h"
-#include "read.h"
+#include "fasta.h"
 using namespace std;
-/*
-void foo(GffGene &g1){
-   GenomicInterval iv("chr1", 30, 40);
-   GenomicInterval iv2("chr1", 10, 90);
-   exonPtr ptr_e1 ( new GffExon(iv, 1,"transcript1","gene1",0,'.') );
-   transPtr ptr_t1 (new GffTranscript(iv2, "transcript1", "gene1") );
-   transPtr ptr_t2 (new GffTranscript(iv2, "transcript2", "gene1") );
-   ptr_t1->addExon(ptr_e1);
-   g1.addTranscript("transcript1", ptr_t1);
-   g1.addTranscript("transcript2", ptr_t2);
+
+
+
+int main(){
+   char *path = "/home/ruolin/PlantGenome/Arabidopsis";
+   FaInterface fa_api(path);
+   FaSeqGetter fsg;
+   fa_api.load2FaSeqGetter(fsg, "mitochondria");
+   cout<<"success\t"<<fsg.loadSeq()<<endl;
+   cout<<fsg.fetchSeq(80,4)<<endl;
 }
-*/
+
+
+/*
+
 int main() {
 
    //GenomicInterval iv3("chr1", 0, 120);
@@ -77,6 +75,7 @@ int main() {
 
 }
 
+*/
 
 
 /*  Sample code for reading bam file;
