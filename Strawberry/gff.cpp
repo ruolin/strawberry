@@ -1,27 +1,22 @@
 #include "gff.h"
+#include<cstring>
+#include "common.h"
 
 
 
-void GffLine::discardParent(){
-   _num_parents=0;
-   _parents_len=0;
-  _parents=NULL;
-}
 
-char* GffLine::extractAttr(const char* attr, bool caseStrict, bool enforce_GTF2) {
+char* GffLine::extractAttr(const char* attr) {
   // This function is modified based on cufflinks2.0.0 gff.cpp
   //parse a key attribute and remove it from the info string
  //(only works for attributes that have values following them after ' ' or '=')
  static const char GTF2_ERR[]="Error parsing attribute %s ('\"' required) at GTF line:\n%s\n";
  int attrlen=strlen(attr);
  char cend=attr[attrlen-1];
- //char* pos = (caseStrict) ? strstr(info, attr) : strifind(info, attr);
  //must make sure attr is not found in quoted text
  char* pos=_info;
  char prevch=0;
  bool in_str=false;
  bool notfound=true;
- //int (*strcmpfn)(const char*, const char*, int) = caseStrict ? Gstrcmp : Gstricmp;
  while (notfound && *pos) {
    char ch=*pos;
    if (ch=='"') {
@@ -30,10 +25,12 @@ char* GffLine::extractAttr(const char* attr, bool caseStrict, bool enforce_GTF2)
      prevch=ch;
      continue;
      }
-   char* temp = Gstrdup(pos);
+   char* temp = nullptr;
+   strcpy(temp, pos);
    temp[attrlen]=0;
+   str2lower(temp);
    if (!in_str && (prevch==0 || prevch==' ' || prevch == ';')
-          && Gstricmp(attr, temp)==0) {
+          && strcmp(attr, temp)==0) {
       //attr match found
       //check for word boundary on right
       char* epos=pos+attrlen;
@@ -45,8 +42,7 @@ char* GffLine::extractAttr(const char* attr, bool caseStrict, bool enforce_GTF2)
       pos=epos;
       prevch=*(pos-1);
       continue;
-      }
-   //not a match or in_str
+      }//not a match or in_str
    prevch=ch;
    pos++;
    }
@@ -54,14 +50,13 @@ char* GffLine::extractAttr(const char* attr, bool caseStrict, bool enforce_GTF2)
  char* vp=pos+attrlen;
  while (*vp==' ') vp++;
  if (*vp==';' || *vp==0)
-      GError("Error parsing value of GFF attribute \"%s\", line:\n%s\n", attr, _dupline);
+      SError("Error parsing value of GFF attribute \"%s\", line:\n%s\n", attr, _dupline);
  bool dq_enclosed=false; //value string enclosed by double quotes
  if (*vp=='"') {
      dq_enclosed=true;
      vp++;
      }
- if (enforce_GTF2 && !dq_enclosed)
-      GError(GTF2_ERR,attr, _dupline);
+
  char* vend=vp;
  if (dq_enclosed) {
     while (*vend!='"' && *vend!=';' && *vend!=0) vend++;
@@ -69,9 +64,9 @@ char* GffLine::extractAttr(const char* attr, bool caseStrict, bool enforce_GTF2)
  else {
     while (*vend!=';' && *vend!=0) vend++;
     }
- if (enforce_GTF2 && *vend!='"')
-     GError(GTF2_ERR, attr, _dupline);
- char *r=Gstrdup(vp, vend-1);
+
+ char *r = NULL;
+ strncpy(r, vp, vend-vp);
  //-- now remove this attribute from the info string
  while (*vend!=0 && (*vend=='"' || *vend==';' || *vend==' ')) vend++;
  if (*vend==0) vend--;
@@ -91,15 +86,10 @@ GffLine::GffLine(const char* l) {
    _dupline =  new char[_llen+1];
    memcpy(_dupline,l,_llen+1);
    _skip=false;
-   _num_parents=0;
-   _parents_len=0;
    _is_gff3=false;
    _info = nullptr;
+   _feat_type = OTHERS;
    //_is_cds=false; //for future
-   _is_transcript=false;
-   _is_exon=false;
-   _is_gene=false;
-   _exontype=0;
    _start=0;
    _end=0;
    char *t[9];
@@ -120,7 +110,7 @@ GffLine::GffLine(const char* l) {
    }
    _chrom=string(t[0]);
    _source=string(t[1]);
-   _ftype=string(t[2]);
+   _gffline_type = string(t[2]);
    _info=t[8];
    char* p=t[3];
    _start = (uint) atol(p);
@@ -144,245 +134,197 @@ GffLine::GffLine(const char* l) {
     _score=0;
     }
    else{
-      if(!parseDouble(p,_score))
-         GMessage("Warning: invalid feature score at line:\n%s\n",l);
+      _score = atof(p);
+      if(_score == 0.0)
+         SMessage("Warning: invalid feature score at line:\n%s\n",l);
          return;
    }
    _strand = *t[6];
    if(_strand!=kStrandPlus && _strand!=kStrandMinus
          && _strand!=kStrandUnknown){
-      GMessage("Warning: parsing strand (%c) from GFF line:\n%s\n",_strand,l);
+      SMessage("Warning: parsing strand (%c) from GFF line:\n%s\n",_strand,l);
    }
    _phase=*t[7];
-   _ID=NULL;
-   strncpy(fnamelc, _ftype, 127);
+   strncpy(fnamelc, t[2], 127);
    fnamelc[127]=0;
-   strlower(fnamelc);
-   bool is_t_data=false;
+   str2lower(fnamelc);
    if(strstr(fnamelc,"utr")!=NULL){
-      _exontype=exGffUTR;
-      _is_exon = false;
-      is_t_data = true;
+      _feat_type = UTR;
    }
    else if(strstr(fnamelc,"exon")!=NULL){
-      _exontype = exGffExon;
-      _is_exon = true;
-      is_t_data = true;
+      _feat_type = EXON;
    }
    else if (strstr(fnamelc, "stop") &&
          (strstr(fnamelc, "codon") || strstr(fnamelc, "cds"))){
-      _exontype=exGffStop;
-      _is_exon = false;
-      is_t_data=true;
+      _feat_type = STOP_CODON;
    }
    else if (strstr(fnamelc, "start") &&
          ((strstr(fnamelc, "codon")!=NULL) || strstr(fnamelc, "cds")!=NULL)){
-      _exontype=exGffStart;
-      _is_exon=false;
-      is_t_data=true;
+      _feat_type = START_CODON;
    }
    else if (strcmp(fnamelc, "cds")==0) {
-      _exontype=exGffCDS;
-      _is_exon=false;
-      is_t_data=true;
+      _feat_type = CDS;
    }
    else if (strstr(fnamelc, "gene")!=NULL) {
-      _is_gene=true;
-      is_t_data=true; //because its name will be attached to parented transcripts
+      _feat_type = GENE;
    }
    else if (strstr(fnamelc,"rna")!=NULL || strstr(fnamelc,"transcript")!=NULL) {
-      _is_transcript=true;
-      is_t_data=true;
+      _feat_type = mRNA;
    }
-   /*if(!is_t_data){
-      return;
-   }*/
-   _ID=extractAttr("ID=",true);
 
-   char* Parent=extractAttr("Parent=",true);
-   _is_gff3=(_ID!=NULL || Parent!=NULL);
+   char *id = extractAttr("id=");
+   char *parent = extractAttr("parent=");
+   char *name = nullptr;
+   _is_gff3=(id!=NULL ||parent!=NULL);
    if (_is_gff3) {
-      if (_ID!=NULL) {
+      if (id!=NULL) {
          //has ID attr so it's likely to be a parent feature
          //look for explicit gene name
-         _name=extractAttr("name=");
-
-         /* deal with messy name convention in gff3. We dont need for now
-         if(_name==NULL){
-            _name=extractAttr("gene_name=");
-            if (_name==NULL) {
-                _name=extractAttr("geneName=");
-                if (_name==NULL) {
-                    _name=extractAttr("gene_sym=");
-                    if (_name==NULL) {
-                            _name=extractAttr("gene=");
+         name=extractAttr("name=");
+         //deal with messy name convention in gff3. We dont need for now
+         if(name==NULL){
+            name=extractAttr("gene_name=");
+            if (name==NULL) {
+                name=extractAttr("genename=");
+                if (name==NULL) {
+                    name=extractAttr("gene_sym=");
+                    if (name==NULL) {
+                            name=extractAttr("gene=");
                     }
                 }
             }
          }
-         */
-
-         if(_is_gene) GFREE(Parent); //TMI, we really don't care about gene Parents?
+         _name = string(name);
+         free(name);
+         name = nullptr;
+         _ID = string(id);
+         free(id);
+         id = nullptr;
+         if(_feat_type == GENE){
+            free(parent); //we really don't care about gene Parents?
+            parent = NULL;
+         }
       } // has ID field
-      if(Parent!=NULL){
-         _num_parents=1;
-         p=Parent;
-         int last_delim_pos=-1;
-         while(*p != ';' && *p!=0){
-            if(*p ==',' && *(p+1)!=0 && *(p+1)!=';'){
-               _num_parents++;
-               last_delim_pos=(p-Parent);
-            }
-            p++;
-         }
-         _parents_len=p-Parent+1;
-         GMALLOC(_parents,_num_parents*sizeof(char*));
-         _parents[0]=Parent;
-         int i=1;
-         if(last_delim_pos>0){
-            for (p=Parent+1;p<=Parent+last_delim_pos;++p){
-               if(*p==','){ // substitute comma with string ending '\0'
-                  char* ep=p-1;
-                  while(*ep==' ' && ep>Parent) ep--;
-                  *(ep+1)=0;
-                  _parents[i]=p+1;
-               }
-            }
-         }
+      if(parent!=NULL){
+         _parent = string(parent);
+         free(parent);
+         parent = NULL;
       } // has Parent field
    } //GFF3
 }
 
-/*
-GffLine::GffLine(GffLine *l){
-   memcpy((void*)this, (void*)l, sizeof(GffLine));
-   _line=NULL;
-   GMALLOC(_line, _llen+1);
-   memcpy(_line, l->_line, _llen+1);
-   GMALLOC(_dupline, _llen+1);
-   memcpy(_dupline, l->_dupline, _llen+1);
-   _chrom=_line+(l->_chrom-l->_line);
-   _track=_line+(l->_track-l->_line);
-   _ftype=_line+(l->_ftype-l->_line);
-   _info=_line+(l->_info-l->_line);
-   if (l->_parents_len>0) {
-      _parents_len=l->_parents_len;
-      GMALLOC(_parents, _parents_len);
-      memcpy(_parents, l->_parents, _parents_len);
-   }
-   if (l->_name!=NULL)
-      _name=Gstrdup(l->_name);
-   if (l->_ID!=NULL)
-      _ID=Gstrdup(l->_ID);
-}
-*/
+
 
 GffLine::GffLine(){
    _line=NULL;
    _dupline=NULL;
-   _chrom=NULL;
-   _track=NULL;
-   _ftype=NULL;
    _start=0;
    _end=0;
    _info=NULL;
-   _parents=NULL;
-   _parents_len=0;
-   _ID = NULL;
-   _name = NULL;
    _strand = kStrandUnknown;
    _skip = false;
-   _exontype=0;
    //_is_cds=false; // for future
    _is_gff3=false;
-   _is_transcript=false;
-   _is_gene=false;
-   _is_exon=false;
    _llen=0;
    _phase=0;
    _score=0.0;
-   _num_parents=0;
 }
 
 GffLine::~GffLine() {
-     GFREE(_dupline);
-     GFREE(_line);
-     GFREE(_parents);
-     GFREE(_ID);
-     GFREE(_name);
-     //GFREE(_chrom);
-     //GFREE(_track);
-     //GFREE(_ftype);
-     //GFREE(_info);
-    }
+   delete[] _line;
+   delete[] _dupline;
+   _line = NULL;
+   _dupline = NULL;
+   _info = NULL;
+   }
 
-GffReader::GffReader(char* fname){
-   _fname=Gstrdup(fname);
-   _fh = fopen(fname,"rb");
-   GMALLOC(_linebuf, GFF_LINELEN);
-   _buflen=GFF_LINELEN-1;
-   _fpos=0;
+GffLine::GffLine(const GffLine &other):
+      _llen (other._llen),
+      _end (other._end),
+      _start (other._start),
+      _strand (other._strand),
+      _skip (other._skip),
+      _score (other._score),
+      _chrom(other._chrom),
+      _gffline_type(other._gffline_type),
+      _feat_type (other._feat_type),
+      _phase (other._phase),
+      _ID (other._ID),
+      _name(other._name),
+      _parent(other._parent),
+      _parents(other._parents)
+{
+   _line = new char[_llen+1];
+   strncpy(_line, other._line, _llen);
+   _line[_llen] = 0;
+   _dupline = new char[_llen+1];
+   strncpy(_dupline, other._line, _llen);
+   _dupline[_llen] = 0;
+   _info = other._info;
 }
+
+GffLine::GffLine(GffLine &&other):
+      _llen (other._llen),
+      _end (other._end),
+      _start (other._start),
+      _strand (other._strand),
+      _skip (other._skip),
+      _score (other._score),
+      _chrom(move(other._chrom)),
+      _gffline_type(move(other._gffline_type)),
+      _feat_type (other._feat_type),
+      _phase (other._phase),
+      _ID (move(other._ID)),
+      _name(move(other._name)),
+      _parent(move(other._parent)),
+      _parents(move(other._parents))
+{
+   _line = other._line;
+   _dupline = other._dupline;
+   _info = other._info;
+   other._line = NULL;
+   other._dupline = NULL;
+   other._info = NULL;
+}
+
+GffReader::GffReader(const char* fname):
+      SlineReader(fname),
+      _fname(string(fname))
+{}
 
 GffReader::~GffReader(){
    _fpos=0;
-   GFREE(_linebuf);
-   GFREE(_fname);
    fclose(_fh);
 }
 
 bool GffReader::nextGffLine(){
-   if (_gffline) {
-      //debug error
-      GError("readAll() should free gffline after processing");
-   }
+   assert (!_gffline);
    while(!_gffline){
-      int llen=0;
-      _buflen=GFF_LINELEN-1;
-      char *l = fgetline(_linebuf, _buflen, _fh, &_fpos, &llen);
+      int llen = 0;
+      char *l = nextLine();
       if (l == NULL) return false; //end of file
       int ns=0; // first nonspace position
       while (l[ns]!=0 && isspace(l[ns])) ns++;
-      if(l[ns]=='#' || llen<10) continue;
+      if(l[ns]=='#' ||llen<10) continue;
       _gffline = make_shared<GffLine>(l);
       if(_gffline->_skip){
          _gffline.reset();
          continue;
       }
       if(_gffline->_ID==NULL && _gffline->_parents==NULL){
-         GMessage("Warning: malformed GFF line, no parent or record Id skipping\n");
+         Message("Warning: malformed GFF line, no parent or record Id skipping\n");
          _gffline.reset();
+         continue;
       }
-
    }
    if(_gffline) return true;
    else return false;
 }
 
 void GffReader::readAll(){
+   sl(_fh, _fpos);
    int exon_count=0;
    while(nextGffLine()){
-      if(_gffline->_is_gene){
-         exon_count = 0;
-         //if(last_gene){
-        // }
-         GenomicInterval iv(_gffline->_chrom, _gffline->_start, _gffline->_end, _gffline->_strand);
-         geneSharedPtr current_gene (new GffGene (iv, _gffline->_ID));
-         _genes.insert({current_gene->_gene_id, current_gene});
-      }
-      else if(_gffline->_is_transcript){
-         GenomicInterval iv(_gffline->_chrom, _gffline->_start, _gffline->_end, _gffline->_strand);
-         transPtr current_trans (new GffTranscript(iv,_gffline->_ID));
-         _genes[_gffline->_parents[0]]->addTranscript(current_trans);
-         _trans2gene.insert({_gffline->_ID, _gffline->_parents[0]});
-      }
-      else if (_gffline->_is_exon){
-         ++exon_count;
-         GenomicInterval iv(_gffline->_chrom, _gffline->_start, _gffline->_end, _gffline->_strand);
-         exonPtr current_exon(new GffExon(iv, exon_count, _gffline->_parents[0], _gffline->_score, _gffline->_phase));
-         string geneID = _trans2gene[_gffline->_parents[0]];
-         _genes[geneID]->_transcripts[_gffline->_parents[0]]->addExon(current_exon);
-      }
       _gffline.reset();
    }
 }

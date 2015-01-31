@@ -14,7 +14,6 @@
 #include <set>
 #include "contig.h"
 
-#define GFF_LINELEN 2048
 using namespace std;
 
 class GffAttr{
@@ -100,8 +99,7 @@ public:
    shared_ptr<GffLoci> _parent;
    vector<shared_ptr<GffExon> > _exons;
    vector<shared_ptr<GffIntron> > _introns;
-   vector<Gff5UTR> _5UTRs;
-   vector<Gff3UTR> _3UTRs;
+   vector<GffUTR> _UTRs;
    GffmRNA(GffLine gl);
 };
 
@@ -125,76 +123,66 @@ public:
    GffIntron(GffLine gl);
 };
 
-class Gff5UTR: public GffObj{
+class GffUTR: public GffObj{
 public:
-   int _5utr_id;
-   string _5utr_name;
+   int _utr_id;
+   string _utr_name;
    shared_ptr<GffmRNA> _parent;
-   Gff5UTR(GffLine gl);
+   GffUTR(GffLine gl);
 };
 
-class Gff3UTR: public GffObj{
-public:
-   int _3utr_id;
-   string _3utr_name;
-   shared_ptr<GffmRNA> _parent;
-   Gff3UTR(GffLine gl);
+
+enum GffFeat_t{
+   OTHERS = 0,
+   GENE,
+   mRNA,
+   EXON,
+   INTRON,
+   UTR,
+   CDS,
+   STOP_CODON,
+   START_CODON
 };
 
 class GffLine{
-public:
+   char* _info;
+   char* extractAttr(const char* attr);
    char* _dupline;
    char* _line;
+   bool _is_gff3;
+public:
    int _llen;
    string _chrom;
    string _source;
    char _strand;
-   string _ftype;
-   char* _info;
+   string _gffline_type; // the type indicated by gff line
    uint _start;
    uint _end;
-   double _score;
+   float _score;
    bool _skip;
-   bool _is_gff3;
    //bool _is_cds; // for future
-   bool _is_exon;
-   int _exontype;
-   bool _is_transcript;
-   bool _is_gene;
+   GffFeat_t _feat_type; // the type which has been parsed
    char _phase;
    string _ID;
    string _name;
+   string _parent;
    vector<string> _parents;
-   int _parents_len;
-   int _num_parents;
    GffLine(const char* l);
-   void discardParent();
-   GffLine(GffLine *l);
+   GffLine(const GffLine &l);
+   GffLine(GffLine &&l);
+   GffLine& operator = (const GffLine &rhs) = delete;
+   GffLine& operator = (GffLine &&rhs) = default;
    GffLine();
-   char* extractAttr(const char* pre,
-         bool caseStrict=false,
-         bool enforce_GTF2=false);
    ~GffLine();
 };
 typedef shared_ptr<GffLine> LinePtr;
 
 
-class GffReader{
-   friend class GffTranscript;
-   friend class GffExon;
-   friend class GffLine;
-   friend class GffGene;
-   char* _fname;
-   char* _linebuf;
-   int _buflen;
-   off_t _fpos;
-protected:
-   FILE *_fh;
+class GffReader:  public SlineReader{
+   string _fname;
 public:
-   unordered_map<string, geneSharedPtr> _genes={};
-   unordered_map<string, string> _trans2gene={};
-   LinePtr _gffline;
-   GffReader(char* f=NULL);
+   LinePtr _gffline = nullptr;
+   GffReader(const char* f=NULL);
    ~GffReader();
    bool nextGffLine();
    void readAll();

@@ -96,6 +96,20 @@ inline void SError(const char* format,...){
     exit(1);
 }
 
+char* str2lower(char * str) {//changes string in place
+  if (str==NULL) return NULL;
+  int i=0;
+  while (str[i]!=0) { str[i]=tolower(str[i]); i++; }
+  return str;
+}
+
+char* str2upper(char * str) {//changes string in place
+  if (str==NULL) return NULL;
+  int i=0;
+  while (str[i]!=0) { str[i]=toupper(str[i]); i++; }
+  return str;
+}
+
 inline void SMessage(const char* format,...){
   va_list arguments;
   va_start(arguments,format);
@@ -112,6 +126,7 @@ inline bool SMalloc(pointer* ptr,unsigned long size){
   if (size!=0) *ptr=malloc(size);
   return *ptr!=NULL;
   }
+
 
 
 inline bool SRealloc(pointer* ptr,unsigned long size){
@@ -142,6 +157,7 @@ inline bool SRealloc(pointer* ptr,unsigned long size){
 //--------------------------------------------------------
 // ************** simple line reading class for text files
 class SlineReader {
+protected:
    bool closeFile;
    int len; // number of characters read in a line
    int allocated;
@@ -151,26 +167,26 @@ class SlineReader {
    off_t filepos; //current position
    bool pushed; //pushed back
    int lcount; //line counter (read lines)
- public:
-   char* chars() { return buf; }
-   char* line() { return buf; }
-   int readcount() { return lcount; } //number of lines read
-   void setFile(FILE* stream) { file=stream; }
-   int length() { return len; }
-   int size() { return len; } //same as size();
-   bool isEof() {return isEOF; }
-   bool eof() { return isEOF; }
-   off_t getfpos() { return filepos; }
-   off_t getFpos() { return filepos; }
-   char* nextLine() { return getLine(); }
-   char* getLine() { if (pushed) { pushed=false; return buf; }
+public:
+   virtual char* chars() { return buf; }
+   virtual char* line() { return buf; }
+   virtual int readcount() { return lcount; } //number of lines read
+   virtual void setFile(FILE* stream) { file=stream; }
+   virtual int length() { return len; }
+   virtual int size() { return len; } //same as size();
+   virtual bool isEof() {return isEOF; }
+   virtual bool eof() { return isEOF; }
+   virtual off_t getfpos() { return filepos; }
+   virtual off_t getFpos() { return filepos; }
+   virtual char* nextLine() { return getLine(); }
+   virtual char* getLine() { if (pushed) { pushed=false; return buf; }
                             else return getLine(file);  }
-   char* getLine(FILE* stream) {
+   virtual char* getLine(FILE* stream) {
                  if (pushed) { pushed=false; return buf; }
                           else return getLine(stream, filepos); }
-   char* getLine(FILE* stream, off_t& f_pos); //read a line from a stream and update
+   virtual char* getLine(FILE* stream, off_t& f_pos); //read a line from a stream and update
                            // the given file position
-   void pushBack() { if (lcount>0) pushed=true; } // "undo" the last getLine request
+   virtual void pushBack() { if (lcount>0) pushed=true; } // "undo" the last getLine request
             // so the next call will in fact return the same line
    SlineReader(const char* fname) {
       FILE* f=fopen(fname, "rb");
@@ -182,7 +198,7 @@ class SlineReader {
      closeFile=false;
      init(stream,fpos);
      }
-   void init(FILE* stream, off_t fpos=0) {
+   virtual void init(FILE* stream, off_t fpos=0) {
      len=0;
      isEOF=false;
      allocated=1024;
@@ -193,7 +209,7 @@ class SlineReader {
      filepos=fpos;
      pushed=false;
      }
-   ~SlineReader() {
+   virtual ~SlineReader() {
      SFREE(buf);
      if (closeFile) fclose(file);
      }
