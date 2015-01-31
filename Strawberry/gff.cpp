@@ -1,75 +1,6 @@
 #include "gff.h"
 
-GffAttr::GffAttr(int an_id, const char* av ): _attr_id(an_id){
-   _attr_val = NULL;
-   setAttrValue(av);
-}
-GffAttr:: ~GffAttr(){
-   GFREE(_attr_val);
-}
 
-void GffAttr::setAttrValue(const char*av){
-   if (_attr_val!=NULL) {
-        GFREE(_attr_val);
-        }
-     if (av==NULL || av[0]==0) return;
-     //trim spaces
-     const char* vstart=av;
-     while (*vstart==' ') vstart++;
-
-     const char* vend=vstart;
-     bool keep_dq=false;
-     while (vend[1]!=0) {
-        if (*vend==' ' && vend[1]!=' ') keep_dq=true;
-        else if (*vend==';') keep_dq=true;
-        vend++;
-     }
-     //remove spaces at the end:
-     while (*vend==' ' && vend!=vstart) vend--;
-     //practical clean-up: if it doesn't have any internal spaces just strip those useless double quotes
-     if (!keep_dq && *vstart=='"' && *vend=='"') {
-               vend--;
-               vstart++;
-     }
-     _attr_val=Gstrdup(vstart, vend);
-}
-
-GffExon::GffExon( GenomicInterval iv, int exnum, string tid,
-         double score, char phase):
-  _exon_iv(iv),
-  _exon_num(exnum),
-  _parent_transcript_id(tid),
-  _score(score),
-  _phase(phase)
-   {} //constructor
-
-GffExon::~GffExon(){};
-
-GffTranscript::GffTranscript(GenomicInterval iv, string tid):
-  _trans_iv(iv), _trans_id(tid){
-}
-bool GffTranscript::setParentGeneID(string gid){
-   if (_parent_gene_id.empty()){
-   _parent_gene_id = gid;
-   return true;
-   }
-   else{
-      return false;
-   }
-}
-
-void GffTranscript::addExon(exonPtr e){
-   _exons.push_back(e);
-}
-
-
-GffGene::GffGene(GenomicInterval iv, string gid): _gene_iv(iv), _gene_id(gid){
-}
-
-void GffGene::addTranscript(transPtr &t){
-	_transcripts.insert({t->_trans_id, t});
-   _transcript_num++;
-}
 
 void GffLine::discardParent(){
    _num_parents=0;
@@ -155,26 +86,20 @@ char* GffLine::extractAttr(const char* attr, bool caseStrict, bool enforce_GTF2)
 static char fnamelc[128];
 GffLine::GffLine(const char* l) {
    _llen=strlen(l);
-   GMALLOC(_line,_llen+1);
+   _line = new char[_llen+1];
    memcpy(_line, l,_llen+1);
-   GMALLOC(_dupline, _llen+1);
+   _dupline =  new char[_llen+1];
    memcpy(_dupline,l,_llen+1);
    _skip=false;
-   _chrom=NULL;
-   _track=NULL;
-   _ftype=NULL;
-   _info=NULL;
-   _parents=NULL;
    _num_parents=0;
    _parents_len=0;
    _is_gff3=false;
+   _info = nullptr;
    //_is_cds=false; //for future
    _is_transcript=false;
    _is_exon=false;
    _is_gene=false;
    _exontype=0;
-   _ID=NULL;
-   _name=NULL;
    _start=0;
    _end=0;
    char *t[9];
@@ -193,18 +118,20 @@ GffLine::GffLine(const char* l) {
    if(tidx<8){
       return;
    }
-   _chrom=t[0];
-   _track=t[1];
-   _ftype=t[2];
+   _chrom=string(t[0]);
+   _source=string(t[1]);
+   _ftype=string(t[2]);
    _info=t[8];
    char* p=t[3];
-   if(!parseUInt(p,_start)){
-      GMessage("Warning: invalid start coordinate at line:\n%s\n",l);
+   _start = (uint) atol(p);
+   if(_start == 0){
+      SMessage("Warning: invalid start coordinate at line:\n%s\n",l);
       return;
    }
    p=t[4];
-   if (!parseUInt(p,_end)){
-      GMessage("Warning: invalid end coordinate at line:\n%s\n",l);
+   _end = (uint) atol(p);
+   if (_end == 0){
+      SMessage("Warning: invalid end coordinate at line:\n%s\n",l);
       return;
    }
    if (_end<_start) {

@@ -22,7 +22,7 @@ private:
    uint _right;
    std::string _chrom;
    char _strand;
-
+   int seq_id;
 
 public:
 

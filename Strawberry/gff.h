@@ -8,85 +8,148 @@
 #ifndef GENOME_H
 #define GENOME_H
 
-#include <iostream>
 #include <vector>
 #include <unordered_map>
 #include <memory>
-#include "GBase.h"
+#include <set>
 #include "contig.h"
 
 #define GFF_LINELEN 2048
-// to do:
-enum gffExonType { exGffUnknown = 0, exGffUTR = 1, exGffStop = 2,
-   exGffStart =3, exGffCDS = 4, exGffExon=5};
-
 using namespace std;
 
 class GffAttr{
-   public:
+public:
    int _attr_id;
-   char* _attr_val;
-   GffAttr(int an_id, const char* av=NULL);
-  ~GffAttr();
-  void setAttrValue(const char *av);
+   string _attr_val;
+   GffAttr()=default;
+   GffAttr(int id, string val){
+      _attr_id = id;
+      _attr_val = val;
+   }
 };
 
-class GffExon{
+class GffInfo{
+   //Info is a id->name type
 public:
-   GenomicInterval _exon_iv;
-   string _exon_id={}; // optional field if gff file has such information
-   int _exon_num; // the exon apparence in gff file.
-   string _parent_transcript_id;
-   string _parent_gene_id={};
-   double _score; // gff score column
+   int _id;
+   string _name;
+   GffInfo() = default;
+   GffInfo(int id, string name){
+      _id = id;
+      _name = name;
+   }
+   bool operator==(GffInfo &rhs){
+      return (_name.compare(rhs._name) == 0);
+   }
+   bool operator<(GffInfo &rhs){
+      return (_name.compare(rhs._name) < 0 );
+   }
+};
+
+class GffInfoVec{
+   vector<GffInfo> _gff_info_vec;
+public:
+   unordered_map<string, int> _name2id;
+   int addInfo(string name);
+};
+
+class GffInfoTable{
+public:
+   unique_ptr<GffInfoVec> _seq_names;
+   unique_ptr<GffInfoVec> _attr_names;
+   GffInfoTable(){
+      _seq_names = unique_ptr<GffInfoVec>(new GffInfoVec());
+      _attr_names = unique_ptr<GffInfoVec>(new GffInfoVec());
+   }
+};
+
+
+class GffObj{
+protected:
+   GenomicInterval _iv;
+   static unique_ptr<GffInfoTable> _infotable = nullptr;
+   int _seq_id;
+   vector<GffAttr> _attrs;
+   double _score;
    char _phase;
-   int _tstart=0; // relative starts in mRNA
-   int _tend=0; // relative ends in mRNA
-   GffExon( GenomicInterval iv, int exnum, string tid,
-         double score, char phase);
-   ~GffExon();
-};
-
-typedef shared_ptr<GffExon> exonPtr;
-
-class GffTranscript{
+   char _souce;
 public:
-   vector<exonPtr> _exons; // transcripts
-   GenomicInterval _trans_iv;
-   string _parent_gene_id;
-   string _trans_id;
-   GffTranscript() = default;
-   GffTranscript(GenomicInterval iv, string tid);
-   ~GffTranscript(){_exons.clear();}
-   bool setParentGeneID(string gid);
-   void addExon(shared_ptr<GffExon> e);
+   GffObj() = default;
+   GffObj(GffLine gl);
+   virtual ~GffObj(){};
+   GffObj(const GffObj &other) = default;
+   GffObj(GffObj &&other) = default;
+   GffObj& operator=(const GffObj &rhs) = default;
+   GffObj& operator=(GffObj &&rhs) = default;
 };
-typedef shared_ptr<GffTranscript> transPtr;
 
-class GffGene{
+class GffExon: public GffObj{
 public:
-   unordered_map<string, transPtr> _transcripts;
-   unordered_map<int, exonPtr> _unique_exons;
-   GenomicInterval _gene_iv;
-   string _gene_id;
-   unsigned short _transcript_num;
-   GffGene(GenomicInterval iv, string _gene_id);
-   ~GffGene(){ _transcripts.clear(); _unique_exons.clear();}
-   void addTranscript(shared_ptr<GffTranscript> &t);
-
+   bool _within_3UTR;
+   bool _within_5UTR;
+   shared_ptr<GffmRNA> _parent;
+   int _exon_id;
+   string _exon_name;
+   GffExon(GffLine gl);
 };
-typedef shared_ptr<GffGene> geneSharedPtr;
-typedef unique_ptr<GffGene> geneUniqPtr;
+
+class GffmRNA: public GffObj{
+public:
+   int _transcript_id;
+   string _transcript_name;
+   shared_ptr<GffLoci> _parent;
+   vector<shared_ptr<GffExon> > _exons;
+   vector<shared_ptr<GffIntron> > _introns;
+   vector<Gff5UTR> _5UTRs;
+   vector<Gff3UTR> _3UTRs;
+   GffmRNA(GffLine gl);
+};
+
+class GffLoci: public GffObj{
+public:
+   int _gene_id;
+   string _gene_name;
+   vector<shared_ptr<GffmRNA> > _mrnas;
+   set<GffExon> _non_dup_exons;
+   set<GffIntron> _non_dup_introns;
+   GffLoci(GffLine gl);
+};
+
+class GffIntron: public GffObj{
+public:
+   bool _within_3UTR;
+   bool _within_5UTR;
+   int _intron_id;
+   string _intron_name;
+   shared_ptr<GffmRNA> _parent;
+   GffIntron(GffLine gl);
+};
+
+class Gff5UTR: public GffObj{
+public:
+   int _5utr_id;
+   string _5utr_name;
+   shared_ptr<GffmRNA> _parent;
+   Gff5UTR(GffLine gl);
+};
+
+class Gff3UTR: public GffObj{
+public:
+   int _3utr_id;
+   string _3utr_name;
+   shared_ptr<GffmRNA> _parent;
+   Gff3UTR(GffLine gl);
+};
 
 class GffLine{
 public:
    char* _dupline;
    char* _line;
    int _llen;
-   char* _chrom;
-   char* _track;
+   string _chrom;
+   string _source;
    char _strand;
-   char* _ftype;
+   string _ftype;
    char* _info;
    uint _start;
    uint _end;
@@ -99,9 +162,9 @@ public:
    bool _is_transcript;
    bool _is_gene;
    char _phase;
-   char* _ID;
-   char* _name;
-   char** _parents;
+   string _ID;
+   string _name;
+   vector<string> _parents;
    int _parents_len;
    int _num_parents;
    GffLine(const char* l);
