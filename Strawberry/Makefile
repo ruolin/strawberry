@@ -5,6 +5,8 @@ LIBS = -L /usr/local/lib/ -l bam -l z -l pthread
 LDLIBS= -lbam
 MAIN_TARGET = Strawberry
 
+common.o: common.h
+	${CXX} ${CXXFLAGS} -c common.cpp
 fasta.o: fasta.h common.h fasta.cpp
 	${CXX} ${CXXFLAGS} -c fasta.cpp
 contig.o: contig.h contig.cpp
@@ -19,8 +21,8 @@ GBase.o : GBase.h GBase.cpp
 Strawberry.o : Strawberry.cpp GBase.h gff.h read.h fasta.h
 	${CXX} ${CXXFLAGS} -c Strawberry.cpp
 	
-$(MAIN_TARGET):	Strawberry.o GBase.o gff.o read.o contig.o fasta.o
-	$(CXX) ${CXXFLAGS} Strawberry.o GBase.o gff.o read.o contig.o fasta.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
+$(MAIN_TARGET):	Strawberry.o GBase.o gff.o read.o contig.o fasta.o common.o
+	$(CXX) ${CXXFLAGS} Strawberry.o GBase.o gff.o read.o contig.o fasta.o common.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
 
 all:	$(MAIN_TARGET)
 

@@ -13,8 +13,20 @@
 #include <memory>
 #include <set>
 #include "contig.h"
-
+#include "common.h"
 using namespace std;
+
+enum GffFeat_t{
+   OTHERS = 0,
+   GENE,
+   mRNA,
+   EXON,
+   INTRON,
+   UTR,
+   CDS,
+   STOP_CODON,
+   START_CODON
+};
 
 class GffAttr{
 public:
@@ -62,95 +74,13 @@ public:
    }
 };
 
-
-class GffObj{
-protected:
-   GenomicInterval _iv;
-   static unique_ptr<GffInfoTable> _infotable = nullptr;
-   int _seq_id;
-   vector<GffAttr> _attrs;
-   double _score;
-   char _phase;
-   char _souce;
-public:
-   GffObj() = default;
-   GffObj(GffLine gl);
-   virtual ~GffObj(){};
-   GffObj(const GffObj &other) = default;
-   GffObj(GffObj &&other) = default;
-   GffObj& operator=(const GffObj &rhs) = default;
-   GffObj& operator=(GffObj &&rhs) = default;
-};
-
-class GffExon: public GffObj{
-public:
-   bool _within_3UTR;
-   bool _within_5UTR;
-   shared_ptr<GffmRNA> _parent;
-   int _exon_id;
-   string _exon_name;
-   GffExon(GffLine gl);
-};
-
-class GffmRNA: public GffObj{
-public:
-   int _transcript_id;
-   string _transcript_name;
-   shared_ptr<GffLoci> _parent;
-   vector<shared_ptr<GffExon> > _exons;
-   vector<shared_ptr<GffIntron> > _introns;
-   vector<GffUTR> _UTRs;
-   GffmRNA(GffLine gl);
-};
-
-class GffLoci: public GffObj{
-public:
-   int _gene_id;
-   string _gene_name;
-   vector<shared_ptr<GffmRNA> > _mrnas;
-   set<GffExon> _non_dup_exons;
-   set<GffIntron> _non_dup_introns;
-   GffLoci(GffLine gl);
-};
-
-class GffIntron: public GffObj{
-public:
-   bool _within_3UTR;
-   bool _within_5UTR;
-   int _intron_id;
-   string _intron_name;
-   shared_ptr<GffmRNA> _parent;
-   GffIntron(GffLine gl);
-};
-
-class GffUTR: public GffObj{
-public:
-   int _utr_id;
-   string _utr_name;
-   shared_ptr<GffmRNA> _parent;
-   GffUTR(GffLine gl);
-};
-
-
-enum GffFeat_t{
-   OTHERS = 0,
-   GENE,
-   mRNA,
-   EXON,
-   INTRON,
-   UTR,
-   CDS,
-   STOP_CODON,
-   START_CODON
-};
-
 class GffLine{
    char* _info;
-   char* extractAttr(const char* attr);
-   char* _dupline;
-   char* _line;
+   void extractAttr(const string attr, string &val);
    bool _is_gff3;
+   char* _line;
 public:
+   char* _dupline;
    int _llen;
    string _chrom;
    string _source;
@@ -175,15 +105,86 @@ public:
    GffLine();
    ~GffLine();
 };
-typedef shared_ptr<GffLine> LinePtr;
+typedef unique_ptr<GffLine> LinePtr;
+
+class GffObj{
+protected:
+   GenomicInterval _iv;
+   static unique_ptr<GffInfoTable> _infotable;
+   int _seq_id;
+   vector<GffAttr> _attrs;
+   double _score;
+   char _phase;
+   char _souce;
+public:
+   GffObj() = default;
+   GffObj(LinePtr gl);
+   virtual ~GffObj(){};
+   GffObj(const GffObj &other) = default;
+   GffObj(GffObj &&other) = default;
+   GffObj& operator=(const GffObj &rhs) = default;
+   GffObj& operator=(GffObj &&rhs) = default;
+};
+class GffmRNA;
+
+class GffExon: public GffObj{
+public:
+   bool _within_3UTR;
+   bool _within_5UTR;
+   shared_ptr<GffmRNA> _parent;
+   int _exon_id;
+   string _exon_name;
+   GffExon(LinePtr gl);
+};
+
+class GffIntron: public GffObj{
+public:
+   bool _within_3UTR;
+   bool _within_5UTR;
+   int _intron_id;
+   string _intron_name;
+   shared_ptr<GffmRNA> _parent;
+   GffIntron(LinePtr gl);
+};
+
+class GffUTR: public GffObj{
+public:
+   int _utr_id;
+   string _utr_name;
+   shared_ptr<GffmRNA> _parent;
+   GffUTR(LinePtr gl);
+};
+
+class GffLoci: public GffObj{
+public:
+   int _gene_id;
+   string _gene_name;
+   vector<shared_ptr<GffmRNA> > _mrnas;
+   set<GffExon> _non_dup_exons;
+   set<GffIntron> _non_dup_introns;
+   GffLoci(LinePtr gl);
+};
+
+class GffmRNA: public GffObj{
+public:
+   int _transcript_id;
+   string _transcript_name;
+   shared_ptr<GffLoci> _parent;
+   vector<shared_ptr<GffExon> > _exons;
+   vector<shared_ptr<GffIntron> > _introns;
+   vector<GffUTR> _UTRs;
+   GffmRNA(LinePtr gl);
+};
 
 
-class GffReader:  public SlineReader{
+
+
+
+class GffReader: public SlineReader{
    string _fname;
 public:
-   LinePtr _gffline = nullptr;
+   LinePtr _gfline;
    GffReader(const char* f=NULL);
-   ~GffReader();
    bool nextGffLine();
    void readAll();
 };

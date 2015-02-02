@@ -8,17 +8,21 @@
 
 #include <iostream>
 #include "fasta.h"
+#include "gff.h"
 using namespace std;
 
 
 
 int main(){
    char *path = "/home/ruolin/PlantGenome/Arabidopsis";
-   FaInterface fa_api(path);
-   FaSeqGetter fsg;
-   fa_api.load2FaSeqGetter(fsg, "mitochondria");
-   cout<<"success\t"<<fsg.loadSeq()<<endl;
-   cout<<fsg.fetchSeq(80,4)<<endl;
+   char *gtf_path = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
+   //FaInterface fa_api(path);
+   //FaSeqGetter fsg;
+   //fa_api.load2FaSeqGetter(fsg, "mitochondria");
+   //cout<<"success\t"<<fsg.loadSeq()<<endl;
+   //cout<<fsg.fetchSeq(80,4)<<endl;
+   GffReader greader("/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff");
+   greader.readAll();
 }
 
 
