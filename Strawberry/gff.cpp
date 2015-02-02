@@ -1,7 +1,9 @@
 #include "gff.h"
 #include<cstring>
 #include<cassert>
+#include<algorithm>
 #ifdef DEBUG
+   #include<iostream>
    #include<stdio.h>
 #endif
 
@@ -275,9 +277,63 @@ GffLine::GffLine(GffLine &&other):
    other._info = NULL;
 }
 
-GffReader::GffReader(const char* fname):
+int GffInfoVec::addInfo(const string name){
+   auto it = _name2id.find(name);
+   if(it != _name2id.end()) return it->second;
+   else{
+      int idx = _gff_info_vec.size();
+      GffInfo ginfo(idx, name);
+      _gff_info_vec.push_back(ginfo);
+      _name2id.insert(pair<string,int>(name, idx));
+      return idx;
+   }
+   return -1;
+}
+
+unique_ptr<GffInfoTable> GffObj::_infotable = unique_ptr<GffInfoTable> (new GffInfoTable());
+
+GffObj::GffObj(LinePtr gl, GffReader & greader):
+   _iv(GenomicInterval(gl->_chrom, gl->_start, gl->_end, gl->_strand)),
+   _score(gl->_score),
+   _phase(gl->_phase),
+   _source(gl->_source),
+   _greader(greader)
+{
+   _seq_id = _infotable->_seq_names->addInfo(gl->_chrom);
+
+}
+
+GffLoci::GffLoci(LinePtr gl, GffReader & greader):
+      GffObj(gl, greader),
+      _gene_id (gl->_ID),
+      _gene_name (gl->_name)
+{}
+
+GffmRNA::GffmRNA(LinePtr gl, GffReader & greader):
+      GffObj(gl, greader),
+      _transcript_id(gl->_ID),
+      _transcript_name(gl->_name)
+{
+    if(gl->_parents.size() != 1)
+       SMessage("No parent or multiple parents for a mRNA object in: %s\n", gl->_dupline);
+    else
+       _parent_gene = gl->_parents[0];
+}
+
+GffExon::GffExon(LinePtr gl, GffReader & greader):
+      GffObj(gl, greader),
+      _exon_id(gl->_ID),
+      _exon_name(gl->_name)
+{
+   for(auto str : gl->_parents){
+      _parent_mrnas.push_back(str);
+   }
+}
+
+GffReader::GffReader(vector<unique_ptr<GffSeqData>> & gseqs, const char* fname):
       SlineReader(fname),
-      _fname(string(fname))
+      _fname(string(fname)),
+      _g_seqs(gseqs)
 {}
 
 bool GffReader::nextGffLine(){
@@ -304,10 +360,67 @@ bool GffReader::nextGffLine(){
 }
 
 void GffReader::readAll(){
-   int i=0;
+   string last_seq_name;
+   int cur_gseq = 0;
    while(nextGffLine()){
-      if(_gfline->_parents.size() == 2 )
-      printf("%s gff line: %s\n", _gfline->_parents[0].c_str(), _gfline->_parents[1].c_str());
+      if( _gfline->_chrom != last_seq_name){
+         last_seq_name = _gfline->_chrom;
+         unique_ptr<GffSeqData> g_seq(new GffSeqData());
+         _g_seqs.push_back(move(g_seq));
+         cur_gseq = _g_seqs.size()-1;
+      }
+      switch(_gfline->_feat_type)
+      {
+      case GENE:
+       {
+         GffLoci loci(_gfline, *this);
+         _g_seqs[cur_gseq]->_genes.push_back(move(loci));
+
+         break;
+       }
+      case mRNA:
+       {
+
+         GffmRNA mrna(_gfline, *this);
+         GffmRNA *cur_mrna = NULL;
+         if(mrna.strand() == kStrandPlus){
+            _g_seqs[cur_gseq]->_forward_rnas.push_back(mrna);
+            cur_mrna = &_g_seqs[cur_gseq]->_forward_rnas.back();
+         }
+         else if(mrna.strand() == kStrandMinus){
+            _g_seqs[cur_gseq] -> _reverse_rnas.push_back(mrna);
+            cur_mrna = &_g_seqs[cur_gseq]->_reverse_rnas.back();
+         }
+         else{
+            _g_seqs[cur_gseq] -> _unstranded_rnas.push_back(mrna);
+            cur_mrna = &_g_seqs[cur_gseq]->_unstranded_rnas.back();
+         }
+
+         // it is most possible that the last gene is the parent.
+         string p_gene = mrna.parent_gene();
+         if( _g_seqs[cur_gseq]->last_gene()._gene_id == p_gene){
+            _g_seqs[cur_gseq]->last_gene()._mrnas.push_back(cur_mrna);
+         }
+         else{ // In most cases this will not be executed. search for the gene list in gseq
+            SMessage("gff file not in order. line: \n", _gfline->_dupline);
+            auto it = find_if(_g_seqs[cur_gseq]->_genes.begin(), _g_seqs[cur_gseq]->_genes.end(),
+                  [&p_gene](GffLoci const& g){return g._gene_id == p_gene;} );
+            if(it == _g_seqs[cur_gseq]->_genes.end()) {
+               SError("orphan mRNA found in GFF file: %s \n", _gfline->_dupline);
+            } else {
+               it->_mrnas.push_back(cur_mrna);
+            }
+         }
+         break;
+       }
+      case EXON:
+       {
+          GffExon exon(_gfline, *this);
+          GffExon *cur_exon = NULL;
+       }
+      default:
+         break;
+      }
    }
 }
 
