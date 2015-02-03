@@ -82,14 +82,14 @@ class GffLine{
 public:
    char* _dupline;
    int _llen;
+   uint _end;
+   uint _start;
    string _chrom;
    string _source;
    char _strand;
-   string _gffline_type; // the type indicated by gff line
-   uint _start;
-   uint _end;
    float _score;
    bool _skip;
+   string _gffline_type; // the type indicated by gff line
    //bool _is_cds; // for future
    GffFeat_t _feat_type; // the type which has been parsed
    char _phase;
@@ -102,6 +102,13 @@ public:
    GffLine(GffLine &&l);
    GffLine& operator = (const GffLine &rhs) = delete;
    GffLine& operator = (GffLine &&rhs) = default;
+   const string parent() const
+   {
+      if(_parents.size() != 1)
+         SMessage("No parent or multiple parents for a mRNA object in: %s\n", _dupline);
+      else
+         return _parents[0];
+   }
    GffLine();
    ~GffLine();
 };
@@ -137,15 +144,15 @@ class GffLoci;
 
 class GffExon: public GffObj{
    vector<string> _parent_names;
-   GffLoci & _parent_gene;
+   GffLoci* _parent_gene;
 public:
    bool _within_3UTR;
    bool _within_5UTR;
    vector<GffmRNA*> _parent_mrnas;
    string _exon_id;
    string _exon_name;
-   GffExon(LinePtr gl, GffLoci &gene, GffReader & greader);
-   const GffLoci& parent_gene() const
+   GffExon(LinePtr gl, GffLoci* const gene, GffReader & greader);
+   GffLoci* parent_gene()
    {
       return _parent_gene;
    }
@@ -155,15 +162,15 @@ public:
 
 class GffIntron: public GffObj{
    vector<string> _parent_mrnas;
-   GffLoci& _parent_gene;
+   GffLoci* _parent_gene;
 public:
    bool _within_3UTR;
    bool _within_5UTR;
    int _intron_id;
    string _intron_name;
-   vector<GffmRNA*> _parents;
+   vector<GffmRNA*> _parents_mrnas;
    GffIntron(LinePtr gl, GffLoci &gene, GffReader & greader);
-   const GffLoci& parent_gene() const
+   GffLoci* parent_gene() const
    {
       return _parent_gene;
    }
@@ -173,68 +180,106 @@ public:
 
 class GffUTR: public GffObj{
    string _parent_mrna;
+   GffLoci* _parent_gene;
 public:
    int _utr_id;
    string _utr_name;
-   GffmRNA* _parent;
+   vector<GffmRNA*> _parents_mrnas;
    GffUTR(LinePtr gl, GffReader & greader);
-   const string parent_mrna() const
+   GffLoci* parent_gene() const
    {
-      return _parent_mrna;
+      return _parent_gene;
    }
 };
 
-
+using exonPtr = unique_ptr<GffExon>;
+using intronPtr = unique_ptr<GffIntron>;
+using utrPtr= unique_ptr<GffUTR>;
 
 class GffLoci: public GffObj{
 public:
    vector<GffmRNA* > _mrnas;
    string _gene_id;
    string _gene_name;
-   vector<GffExon> _non_dup_exons;
-   vector<GffIntron> _non_dup_introns;
+   vector<exonPtr> _non_dup_exons;
+   vector<intronPtr> _non_dup_introns;
+   vector<utrPtr> _non_dup_utrs;
    GffLoci(LinePtr gl, GffReader & greader);
    void add_mRNA(GffmRNA *gffmrna)
    {
       _mrnas.push_back(gffmrna);
    }
    GffmRNA* getRNA(const string rna);
-};
-
-
-
-class GffmRNA: public GffObj{
-   string _parent_gene;
-public:
-   string _transcript_id;
-   string _transcript_name;
-   GffLoci* _parent;
-   vector<GffExon* > _exons;
-   vector<GffIntron* > _introns;
-   vector<GffUTR> _UTRs;
-   GffmRNA(LinePtr gl, GffReader & greader);
-   const string parent_gene() const
-   {
-      return _parent_gene;
+   int num_mRNAs() const{
+      return _mrnas.size();
    }
 };
 
 
+class GffmRNA: public GffObj{
+   const GffLoci* const _parent;
+public:
+   string _transcript_id;
+   string _transcript_name;
+   vector<GffExon* > _exons;
+   vector<GffIntron* > _introns;
+   vector<GffUTR* > _UTRs;
+   GffmRNA(LinePtr gl, GffLoci* gene, GffReader & greader);
+   const GffLoci* const getParentGene() const{
+      return _parent;
+   }
+};
+
+using mrnaPtr = unique_ptr <GffmRNA>;
+using genePtr = unique_ptr <GffLoci>;
 
 class GffSeqData {
 public:
-   vector<GffmRNA> _forward_rnas;
-   vector<GffmRNA> _reverse_rnas;
-   vector<GffmRNA> _unstranded_rnas;
-   vector<GffLoci> _genes;
-   GffmRNA& last_f_rna()  { return _forward_rnas.back();}
-   GffmRNA& last_r_rna()  { return _reverse_rnas.back();}
-   GffmRNA& last_u_rna() { return _unstranded_rnas.back();}
-   GffLoci& last_gene()  { return _genes.back();}
-   void addGene(GffLoci gene) { _genes.push_back(gene);}
-   void addPlusRNA(GffmRNA mrna) { _forward_rnas.push_back(mrna);}
-   void addMinusRNA(GffmRNA mrna) { _reverse_rnas.push_back(mrna);}
-   void addUnstrandedRNA(GffmRNA mrna){_unstranded_rnas.push_back(mrna);}
+   vector<mrnaPtr> _forward_rnas;
+   vector<mrnaPtr> _reverse_rnas;
+   vector<mrnaPtr> _unstranded_rnas;
+   vector<genePtr> _genes;
+
+   GffmRNA* last_f_rna()
+   {
+      return &(*_forward_rnas.back());
+   }
+
+   GffmRNA* last_r_rna()
+   {
+      return &(*_reverse_rnas.back());
+   }
+
+   GffmRNA* last_u_rna()
+   {
+      return &(*_unstranded_rnas.back());
+   }
+
+   GffLoci* last_gene()
+   {
+      return &(*_genes.back());
+   }
+
+   void addGene(genePtr gene)
+   {
+      _genes.push_back(move(gene));
+   }
+
+   void addPlusRNA(mrnaPtr mrna)
+   {
+      _forward_rnas.push_back(move(mrna));
+   }
+
+   void addMinusRNA(mrnaPtr mrna)
+   {
+      _reverse_rnas.push_back(move(mrna));
+   }
+
+   void addUnstrandedRNA(mrnaPtr mrna)
+   {
+      _unstranded_rnas.push_back(move(mrna));
+   }
+
    GffLoci* findGene(const string gene_id);
 };
 
@@ -247,6 +292,9 @@ public:
    GffReader(vector<unique_ptr<GffSeqData>> & gseqs,const char* f=NULL);
    bool nextGffLine();
    void readAll();
+   void addGseq(unique_ptr<GffSeqData> gseq){
+      _g_seqs.push_back(move(gseq));
+   }
 };
 
 #endif

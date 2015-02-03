@@ -24,7 +24,7 @@ int main(){
    vector<unique_ptr<GffSeqData>> gseqs;
    GffReader greader(gseqs,"/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff");
    greader.readAll();
-   cout<<gseqs[0]->last_gene()._mrnas[0]->_transcript_id<<endl;
+   cout<<gseqs[0]->last_f_rna()->getParentGene()->_gene_id<<endl;
 }
 
 
