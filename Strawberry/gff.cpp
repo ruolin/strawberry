@@ -309,6 +309,19 @@ GffLoci::GffLoci(LinePtr gl, GffReader & greader):
       _gene_name (gl->_name)
 {}
 
+GffmRNA* GffLoci::getRNA(const string rna) {
+   // in mast cases, we only need to look at the last mrna in the vector.
+   if(_mrnas.back()->_transcript_id == rna){
+      return &_mrnas.back();
+   } else{
+      auto it = find_if(_mrnas.begin(), _mrnas.end(), \
+            [&rna](GffmRNA gffmrna){return gffmrna._transcript_id == rna;});
+      if (it == _mrnas.end()) SError("orphan mRNA found in GFF file: %s \n", rna.c_str());
+      else return &(*it);
+   }
+   return NULL;
+}
+
 GffmRNA::GffmRNA(LinePtr gl, GffReader & greader):
       GffObj(gl, greader),
       _transcript_id(gl->_ID),
@@ -320,15 +333,29 @@ GffmRNA::GffmRNA(LinePtr gl, GffReader & greader):
        _parent_gene = gl->_parents[0];
 }
 
-GffExon::GffExon(LinePtr gl, GffReader & greader):
+GffExon::GffExon(LinePtr gl, GffLoci &gene, GffReader & greader):
       GffObj(gl, greader),
+      _parent_gene(gene),
       _exon_id(gl->_ID),
       _exon_name(gl->_name)
 {
    for(auto str : gl->_parents){
-      _parent_mrnas.push_back(str);
+      _parent_names.push_back(str);
+      gene
    }
 }
+
+GffLoci* GffSeqData::findGene(const string gene_id){
+   if( _genes.back()._gene_id == gene_id){
+      return &_genes.back();
+   } else{
+      auto it = find_if(_genes.begin(), _genes.end(),  \
+            [&gene_name](GffLoci gene){return gene._gene_id == gene_id;});
+      if(it == _genes.end()) SError("orphan mRNA found in GFF file: %s \n", rna.c_str());
+      else return &(*it);
+   }
+}
+
 
 GffReader::GffReader(vector<unique_ptr<GffSeqData>> & gseqs, const char* fname):
       SlineReader(fname),
@@ -373,9 +400,7 @@ void GffReader::readAll(){
       {
       case GENE:
        {
-         GffLoci loci(_gfline, *this);
-         _g_seqs[cur_gseq]->_genes.push_back(move(loci));
-
+         _g_seqs[cur_gseq]->addGene( GffLoci(_gfline, *this));
          break;
        }
       case mRNA:
@@ -384,38 +409,26 @@ void GffReader::readAll(){
          GffmRNA mrna(_gfline, *this);
          GffmRNA *cur_mrna = NULL;
          if(mrna.strand() == kStrandPlus){
-            _g_seqs[cur_gseq]->_forward_rnas.push_back(mrna);
-            cur_mrna = &_g_seqs[cur_gseq]->_forward_rnas.back();
+            _g_seqs[cur_gseq]->addPlusRNA(mrna);
+            cur_mrna = &_g_seqs[cur_gseq]->last_f_rna();
          }
          else if(mrna.strand() == kStrandMinus){
-            _g_seqs[cur_gseq] -> _reverse_rnas.push_back(mrna);
-            cur_mrna = &_g_seqs[cur_gseq]->_reverse_rnas.back();
+            _g_seqs[cur_gseq]->addMinusRNA(mrna);
+            cur_mrna = &_g_seqs[cur_gseq]->last_r_rna();
          }
          else{
-            _g_seqs[cur_gseq] -> _unstranded_rnas.push_back(mrna);
-            cur_mrna = &_g_seqs[cur_gseq]->_unstranded_rnas.back();
+            _g_seqs[cur_gseq]->addUnstrandedRNA(mrna);
+            cur_mrna = &_g_seqs[cur_gseq]->last_u_rna();
          }
 
          // it is most possible that the last gene is the parent.
-         string p_gene = mrna.parent_gene();
-         if( _g_seqs[cur_gseq]->last_gene()._gene_id == p_gene){
-            _g_seqs[cur_gseq]->last_gene()._mrnas.push_back(cur_mrna);
-         }
-         else{ // In most cases this will not be executed. search for the gene list in gseq
-            SMessage("gff file not in order. line: \n", _gfline->_dupline);
-            auto it = find_if(_g_seqs[cur_gseq]->_genes.begin(), _g_seqs[cur_gseq]->_genes.end(),
-                  [&p_gene](GffLoci const& g){return g._gene_id == p_gene;} );
-            if(it == _g_seqs[cur_gseq]->_genes.end()) {
-               SError("orphan mRNA found in GFF file: %s \n", _gfline->_dupline);
-            } else {
-               it->_mrnas.push_back(cur_mrna);
-            }
-         }
+         GffLoci* gene = _g_seqs[cur_gseq]->findGene(mrna.parent_gene());
+         gene->add_mRNA(cur_mrna);
          break;
        }
       case EXON:
        {
-          GffExon exon(_gfline, *this);
+          GffExon exon(_gfline, _g_seqs[cur_gseq]->last_gene(), *this);
           GffExon *cur_exon = NULL;
        }
       default:
