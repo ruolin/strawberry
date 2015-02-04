@@ -353,6 +353,48 @@ GffLoci* GffSeqData::findGene(const string gene_id){
    }
 }
 
+GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
+   switch(strand)
+   {
+      case '+':
+      {
+         if(_reverse_rnas.back()->_transcript_id == mrna_id){
+            return &(*_reverse_rnas.back());
+         } else {
+            for(auto it = _reverse_rnas.begin(); it!= _reverse_rnas.end(); it++){
+               if( (*it)->_transcript_id == mrna_id) return &(*(*it));
+            }
+            SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
+         }
+         break;
+      }
+      case '-':
+      {
+         if(_reverse_rnas.back()->_transcript_id == mrna_id){
+            return &(*_reverse_rnas.back());
+         } else {
+            for(auto it = _reverse_rnas.begin(); it!= _reverse_rnas.end(); it++){
+               if( (*it)->_transcript_id == mrna_id) return &(*(*it));
+            }
+            SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
+         }
+         break;
+      }
+      default:
+      {
+         if(_unstranded_rnas.back()->_transcript_id == mrna_id){
+            return &(*_unstranded_rnas.back());
+         } else {
+            for(auto it = _unstranded_rnas.begin(); it!= _unstranded_rnas.end(); it++){
+               if( (*it)->_transcript_id == mrna_id) return &(*(*it));
+            }
+            SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
+         }
+         break;
+      }
+   }
+   return NULL;
+}
 
 GffReader::GffReader(vector<unique_ptr<GffSeqData>> & gseqs, const char* fname):
       SlineReader(fname),
@@ -425,6 +467,7 @@ void GffReader::readAll(){
        }
       case EXON:
        {
+          GffmRNA* mrna = gseq->findmRNA(_gfline->parent(), _gfline->_strand);
           //GffExon exon(_gfline, _g_seqs[cur_gseq]->last_gene(), *this);
           //GffExon *cur_exon = NULL;
        }

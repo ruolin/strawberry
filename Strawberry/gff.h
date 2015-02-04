@@ -281,6 +281,7 @@ public:
    }
 
    GffLoci* findGene(const string gene_id);
+   GffmRNA* findmRNA(const string mrna_id, const char strand);
 };
 
 
