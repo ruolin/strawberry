@@ -46,6 +46,7 @@ bool endsWith(const char* s, const char* suffix)
    return (j==-1);
 }
 
+
 void split(const std::string& s, const std::string& delims, std::vector<std::string>& result) \
 {
    std::string::size_type lastPos = s.find_first_not_of(delims, 0);
@@ -55,6 +56,31 @@ void split(const std::string& s, const std::string& delims, std::vector<std::str
         lastPos = s.find_first_not_of(delims, pos);
         pos = s.find_first_of(delims, lastPos);
     }
+}
+
+int stricmp(const char* a, const char* b, int n) {
+ if (a==NULL || b==NULL) return a==NULL ? -1 : 1;
+ register int ua, ub;
+ if (n<0) {
+   while ((*a!=0) && (*b!=0)) {
+    ua=tolower((unsigned char)*a);
+    ub=tolower((unsigned char)*b);
+    a++;b++;
+    if (ua!=ub) return ua < ub ? -1 : 1;
+    }
+    return (*a == 0) ? ( (*b == 0) ? 0 : -1 ) : 1 ;
+  }
+ else {
+   while (n && (*a!=0) && (*b!=0)) {
+    ua=tolower((unsigned char)*a);
+    ub=tolower((unsigned char)*b);
+    a++;b++;n--;
+    if (ua!=ub) return ua < ub ? -1 : 1;
+    }
+    //return (*a == 0) ? ( (*b == 0) ? 0 : -1 ) : 1 ;
+   if (n==0) return 0;
+   else { return (*a == 0) ? ( (*b == 0) ? 0 : -1 ) : 1 ; }
+  }
 }
 
 void SError(const char* format,...){

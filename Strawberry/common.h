@@ -13,7 +13,6 @@
 #include<vector>
 #include <sys/stat.h>
 
-static char msg[4069];
 typedef void* pointer;
 #define SMALLOC(ptr,size)  if (!SMalloc((pointer*)(&ptr),size)) \
                                      SError("Error allocating memory.\n")
@@ -82,6 +81,7 @@ inline bool SMalloc(pointer* ptr,unsigned long size)
   return *ptr!=NULL;
 }
 
+int stricmp(const char* a, const char* b, int n);
 
 
 bool SRealloc(pointer* ptr,unsigned long size);

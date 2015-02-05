@@ -28,9 +28,8 @@ void GffLine::extractAttr(const string attr, string &val) {
         prevch=ch;
         continue;
         }
-      string temp(pos,attrlen);
-      str2lower(temp);
-      if (!in_str && (prevch==0 || prevch==' ' || prevch == ';') && attr == temp){ //attr match found
+      if (!in_str && (prevch==0 || prevch==' ' || prevch == ';')
+            && stricmp(attr.c_str(),pos, attrlen)==0){ //attr match found
 
          //check for word boundary on right
          char* epos=pos+attrlen;
@@ -84,9 +83,11 @@ GffLine::GffLine(const char* l)
 {
 //   printf("enter in gffline constructor\n");
    _llen=strlen(l);
-   _line = new char[_llen+1];
+   _line = SMalloc(_line, _llen+1);
+   _line[_llen] = 0;
    memcpy(_line, l,_llen+1);
    _dupline =  new char[_llen+1];
+   _dupline[_llen] = 0;
    memcpy(_dupline,l,_llen+1);
    _skip=false;
    _is_gff3=false;
@@ -168,11 +169,11 @@ GffLine::GffLine(const char* l)
    else if (strcmp(fnamelc, "cds")==0) {
       _feat_type = CDS;
    }
-   else if (strstr(fnamelc, "gene")!=NULL) {
-      _feat_type = GENE;
-   }
    else if (strstr(fnamelc,"rna")!=NULL || strstr(fnamelc,"transcript")!=NULL) {
       _feat_type = mRNA;
+   }
+   else if (strstr(fnamelc, "gene")!=NULL) {
+      _feat_type = GENE;
    }
    extractAttr("id=", _ID);
    extractAttr("parent=", _parent);
@@ -322,6 +323,36 @@ GffmRNA* GffLoci::getRNA(const string rna) {
    return NULL;
 }
 
+void GffLoci::add_exon(exonPtr exon){
+   if(num_mRNAs() == 1){
+      if(_non_dup_exons.empty()){
+         _mrnas[0]->add_exon( &(*exon));
+         _non_dup_exons.push_back(move(exon));
+      }
+      else{
+#ifdef DEBUG
+            assert( *_non_dup_exons.back() < *exon);
+#endif
+      _non_dup_exons.push_back(move(exon));
+      _mrnas[0]->add_exon( &(*exon));
+      }
+   }
+   else{
+      auto it = lower_bound(_non_dup_exons.begin(), _non_dup_exons.end(), exon,\
+            [&](const exonPtr &lhs, const exonPtr &rhs){return *lhs < *rhs;});
+      if( it == _non_dup_exons.cend()){
+         _non_dup_exons.insert(it, move(exon));
+      }else{
+         if((**it) == *exon){
+            (*it)->add_parent_mrna(exon->_parent_mrnas);
+         }
+         else{
+            _non_dup_exons.insert(it, move(exon));
+         }
+      }
+   }
+}
+
 GffmRNA::GffmRNA(LinePtr gl, GffLoci* gene, GffReader & greader):
       GffObj(gl, greader),
       _parent(gene),
@@ -329,16 +360,14 @@ GffmRNA::GffmRNA(LinePtr gl, GffLoci* gene, GffReader & greader):
       _transcript_name(gl->_name)
 {}
 
-GffExon::GffExon(LinePtr gl, GffLoci* const gene, GffReader & greader):
+GffExon::GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene, GffReader & greader):
       GffObj(gl, greader),
       _parent_gene(gene),
       _exon_id(gl->_ID),
       _exon_name(gl->_name)
 
 {
-   for(auto str : gl->_parents){
-      _parent_names.push_back(str);
-   }
+   _parent_mrnas.push_back(mrna);
 }
 
 GffLoci* GffSeqData::findGene(const string gene_id){
@@ -358,10 +387,10 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
    {
       case '+':
       {
-         if(_reverse_rnas.back()->_transcript_id == mrna_id){
-            return &(*_reverse_rnas.back());
+         if(_forward_rnas.back()->_transcript_id == mrna_id){
+            return &(*_forward_rnas.back());
          } else {
-            for(auto it = _reverse_rnas.begin(); it!= _reverse_rnas.end(); it++){
+            for(auto it = _forward_rnas.begin(); it!= _forward_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
             SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
@@ -468,6 +497,10 @@ void GffReader::readAll(){
       case EXON:
        {
           GffmRNA* mrna = gseq->findmRNA(_gfline->parent(), _gfline->_strand);
+          GffLoci *const gene  = mrna->getParentGene();
+          exonPtr exon (new GffExon(_gfline, mrna, gene , *this));
+
+          gene->add_exon(move(exon));
           //GffExon exon(_gfline, _g_seqs[cur_gseq]->last_gene(), *this);
           //GffExon *cur_exon = NULL;
        }

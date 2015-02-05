@@ -7,24 +7,31 @@
 //============================================================================
 
 #include <iostream>
+#include <algorithm>
 #include "fasta.h"
 #include "gff.h"
+#include <chrono>
 using namespace std;
 
 
 
 int main(){
    char *path = "/home/ruolin/PlantGenome/Arabidopsis";
-   char *gtf_path = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
+   char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
+   char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
    //FaInterface fa_api(path);
    //FaSeqGetter fsg;
    //fa_api.load2FaSeqGetter(fsg, "mitochondria");
    //cout<<"success\t"<<fsg.loadSeq()<<endl;
    //cout<<fsg.fetchSeq(80,4)<<endl;
+   auto start = chrono::steady_clock::now();
    vector<unique_ptr<GffSeqData>> gseqs;
-   GffReader greader(gseqs,"/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff");
+   GffReader greader(gseqs,ara_gtf);
    greader.readAll();
-   cout<<gseqs[0]->last_f_rna()->getParentGene()->_gene_id<<endl;
+   auto end = chrono::steady_clock::now();
+   auto diff = end - start;
+   cout << chrono::duration <double, milli> (diff).count() << " ms" << endl;
+   cout<<gseqs[1]->_genes.size()<<endl;
 }
 
 
