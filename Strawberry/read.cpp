@@ -10,12 +10,12 @@
 #include <stdexcept>
 #include "read.h"
 
-
+static const int kMaxIntronLength = 60000;
 ReadHit::ReadHit(
    ReadID readID,
    GenomicInterval iv,
    const vector<CigarOp> & cigar,
-   string partnerRef,
+   int partnerRef,
    int partnerPos,
    int numMismatch,
    int numHit,
@@ -24,7 +24,7 @@ ReadHit::ReadHit(
       _read_id(readID),
       _iv(iv),
       _cigar(cigar),
-      _partner_ref(partnerRef),
+      _partner_ref_id(partnerRef),
       _partner_pos(partnerPos),
       _num_mismatch(numMismatch),
       _num_hit(numHit),
@@ -46,9 +46,9 @@ bool ReadHit::contains_splice()const{
 
 ReadID ReadHit::read_id() const {return _read_id;}
 
-string ReadHit::ref() const {return _iv.chrom();}
+int ReadHit::ref_id() const {return _iv.chrom();}
 
-string ReadHit::partner_ref() const { return _partner_ref;}
+int ReadHit::partner_ref_id() const { return _partner_ref_id;}
 
 int ReadHit::partner_pos() const { return _partner_pos;}
 
@@ -65,7 +65,7 @@ int ReadHit::num_mismatch() const { return _num_mismatch;}
 bool ReadHit::is_singleton() const
 {
    return (partner_pos() == 0 ||
-         partner_ref() != ref() ||
+         partner_ref_id() != ref_id() ||
          abs(partner_pos() - left()) > max_partner_dist);
 }
 
@@ -79,35 +79,7 @@ ReadID ReadTable::get_id(const string& name)
    return id;
 }
 
-RefSeqTable::RefSeqTable(bool keep_seq):
-   _keep_seq(keep_seq),
-   _next_obs_order(1){}
 
-bool RefSeqTable::insertIntoTable(const string name, unique_ptr<DNABitSet> seq){
-   pair<id2SeqInfo::iterator, bool> res = _by_id.insert(make_pair(name,
-         SequenceInfo(_next_obs_order, nullptr) )  );
-   if(res.second){
-      if(_keep_seq)
-         res.first->second._seq = move(seq);
-      ++_next_obs_order;
-   }
-   return res.second;
-}
-
-
-unique_ptr<DNABitSet> RefSeqTable::get_seq(const string name){
-   auto it = _by_id.find(name);
-   if( it != _by_id.end()) return move(it->second._seq);
-   fprintf(stderr,"reference name %d is not in the Reference Sequence Table\n", name.c_str());
-   return nullptr;
-}
-
-int RefSeqTable::observation_order(const string name) const{
-   auto it = _by_id.find(name);
-   if( it != _by_id.end()) return it->second._observation_order;
-   fprintf(stderr, "reference name %d is not in the Reference Sequence Table\n", name.c_str());
-   return 0;
-}
 //const unique_ptr<RefSeqTable::SequenceInfo> RefSeqTable::get_info(RefID ID) const{
 //   auto it = _by_id.find(ID);
 //   if( it != _by_id.end()) return &(it->second);
@@ -116,6 +88,26 @@ int RefSeqTable::observation_order(const string name) const{
 
 HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
    _reads_table(reads_table),_ref_table(ref_table){}
+
+bool HitFactory::parse_header_line(const string& hline){
+   vector<string> cols;
+   split(hline, "\t", cols);
+   if(cols[0] == "@SQ"){
+      ++_num_seq_header_recs;
+      for(auto &i: cols){
+         vector<string> fields;
+         split(i, ":", fields);
+         if(fields[0] == "SN"){
+            str2lower(fields[1]);
+            RefID _ID = _ref_table.get_id(fields[1]);
+            if(_ID != _num_seq_header_recs)
+               SError("Error: sort order of reads in BAM not consistent.\n");
+               return false;
+         }
+      }
+   }
+   return true;
+}
 
 
 BAMHitFactory::BAMHitFactory(const string& bam_file_name,
@@ -192,7 +184,11 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    bool is_spliced_alignment = false;
    int num_hits = 1;
    string text_name = _hit_file->header->target_name[target_id];
-
+   str2lower(text_name);
+   string mate_text_name = _hit_file->header->target_name[mate_target_id];
+   str2lower(mate_text_name);
+   int ref_id = ref_table().get_id(text_name);
+   int parterner_ref_id = ref_table().get_id(mate_text_name);
    // For now: skip unmapped reads
    if( (sam_flag & 0x4) || target_id) return true;
 
@@ -275,15 +271,15 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
 
    if(is_spliced_alignment){
-      if(source_strand == kStrandUnknown)
+      if(source_strand == GenomicInterval::kStrandUnknown)
          fprintf(stderr, "BAM record error: found spliced alignment without XS attribute\n");
    }
 
    bh = ReadHit(
                readid,
-               GenomicInterval(text_name, pos, pos+read_len-1, source_strand),
+               GenomicInterval(ref_id, pos, pos+read_len-1, source_strand),
                cigar,
-               mate_ref,
+               parterner_ref_id,
                mate_pos,
                num_mismatches,
                num_hits,
@@ -366,7 +362,7 @@ ReadID PairedHit::read_id() const
    return 0;
 }
 
-string PairedHit::ref_seq_name() const
+int PairedHit::ref_seq_id() const
 {
    if(_left_read && _right_read)
       assert(_left_read->interval().chrom() == _right_read->interval().chrom());
@@ -374,7 +370,7 @@ string PairedHit::ref_seq_name() const
       return _left_read->interval().chrom();
    if(_right_read)
       return _right_read->interval().chrom();
-   return "";
+   return -1;
 }
 
 

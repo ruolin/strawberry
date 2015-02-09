@@ -83,7 +83,7 @@ GffLine::GffLine(const char* l)
 {
 //   printf("enter in gffline constructor\n");
    _llen=strlen(l);
-   _line = SMalloc(_line, _llen+1);
+   _line = new char[_llen+1];
    _line[_llen] = 0;
    memcpy(_line, l,_llen+1);
    _dupline =  new char[_llen+1];
@@ -144,8 +144,8 @@ GffLine::GffLine(const char* l)
          return;
    }
    _strand = *t[6];
-   if(_strand!=kStrandPlus && _strand!=kStrandMinus
-         && _strand!=kStrandUnknown){
+   if(_strand!=GenomicInterval::kStrandPlus && _strand!=GenomicInterval::kStrandMinus
+         && _strand!=GenomicInterval::kStrandUnknown){
       SMessage("Warning: parsing strand (%c) from GFF line:\n%s\n",_strand,l);
    }
    _phase=*t[7];
@@ -212,7 +212,7 @@ GffLine::GffLine(){
    _start=0;
    _end=0;
    _info=NULL;
-   _strand = kStrandUnknown;
+   _strand = GenomicInterval::kStrandUnknown;
    _skip = false;
    //_is_cds=false; // for future
    _is_gff3=false;
@@ -279,6 +279,7 @@ GffLine::GffLine(GffLine &&other):
 }
 
 int GffInfoVec::addInfo(const string name){
+   // the id start from 0;
    auto it = _name2id.find(name);
    if(it != _name2id.end()) return it->second;
    else{
@@ -294,14 +295,13 @@ int GffInfoVec::addInfo(const string name){
 unique_ptr<GffInfoTable> GffObj::_infotable = unique_ptr<GffInfoTable> (new GffInfoTable());
 
 GffObj::GffObj(LinePtr gl, GffReader & greader):
-   _iv(GenomicInterval(gl->_chrom, gl->_start, gl->_end, gl->_strand)),
    _score(gl->_score),
    _phase(gl->_phase),
    _source(gl->_source),
    _greader(greader)
 {
-   _seq_id = _infotable->_seq_names->addInfo(gl->_chrom);
-
+   int _seq_id = _infotable->_seq_names->addInfo(gl->_chrom);
+   _iv = GenomicInterval(_seq_id, gl->_start, gl->_end, gl->_strand);
 }
 
 GffLoci::GffLoci(LinePtr gl, GffReader & greader):
@@ -460,7 +460,7 @@ void GffReader::readAll(){
    while(nextGffLine()){
       if( _gfline->_chrom != last_seq_name){
          last_seq_name = _gfline->_chrom;
-         unique_ptr<GffSeqData> g_seq(new GffSeqData());
+         unique_ptr<GffSeqData> g_seq(new GffSeqData(last_seq_name));
          GffReader::addGseq(move(g_seq));
          gseq = &(*_g_seqs.back());
       }
@@ -469,6 +469,7 @@ void GffReader::readAll(){
       case GENE:
        {
           unique_ptr<GffLoci> gene (new GffLoci(_gfline, *this));
+          //SError("first seq id: %d \n", gene->get_seq_id());
          gseq->addGene(move(gene));
          break;
        }
@@ -479,10 +480,10 @@ void GffReader::readAll(){
 
          unique_ptr<GffmRNA> mrna( new GffmRNA(_gfline, gene, *this));
          GffmRNA *cur_mrna = NULL;
-         if(mrna->strand() == kStrandPlus){
+         if(mrna->strand() == GenomicInterval::kStrandPlus){
             gseq->addPlusRNA(move(mrna));
             cur_mrna = gseq->last_f_rna();
-         } else if(mrna->strand() == kStrandMinus){
+         } else if(mrna->strand() == GenomicInterval::kStrandMinus){
             gseq->addMinusRNA(move(mrna));
             cur_mrna = gseq->last_r_rna();
          } else{

@@ -11,97 +11,106 @@
 #include <algorithm>
 #include <iostream>
 using namespace std;
-GenomicInterval::GenomicInterval(string chr, uint l, uint r, char o) {
-      _chrom = chr;
-      transform(chr.begin(), chr.end(), chr.begin(), ::tolower);
-      if (l>r) { _left = r; _right = l;}
-      else { _left = l; _right = r;}
-      switch(o){
-      case '+':
-         _strand = kStrandPlus;
-         break;
-      case '-':
-         _strand = kStrandMinus;
-         break;
-      case '.':
-         _strand = kStrandUnknown;
-         break;
-      default:
-         cerr<<"Error: stand must be '+', '-' or '.'"<<endl;
-         break;
+
+GenomicFeature::GenomicFeature(const Op_t& cc, int offset, int len):
+         _code(cc),
+         _genomic_offset(offset),
+         _genomic_length(len)
+{
+   assert (_genomic_length >= 0);
+}
+
+void GenomicFeature::g_left(int left)
+{
+      int right = _genomic_offset + _genomic_length;
+      _genomic_offset = left;
+      _genomic_length = right -left;
+}
+
+int GenomicFeature::g_left() const { return _genomic_offset;}
+
+int GenomicFeature::g_right() const
+{
+   return _genomic_offset + _genomic_length;
+}
+
+void GenomicFeature::g_right(int right)
+{
+      _genomic_length = right - _genomic_offset;
+}
+
+bool GenomicFeature::overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs)
+{
+   if (lhs.g_left() >= rhs.g_left() && lhs.g_left() < rhs.g_right())
+      return true;
+   if (lhs.g_right() > rhs.g_left() && lhs.g_right() < rhs.g_right())
+      return true;
+   if (rhs.g_left() >= lhs.g_left() && rhs.g_left() < lhs.g_right())
+      return true;
+   if (rhs.g_right() > lhs.g_left() && rhs.g_right() < lhs.g_right())
+      return true;
+   return false;
+}
+
+bool GenomicFeature::contains(const GenomicFeature& other) const
+{
+   if (g_left() <= other.g_left() && g_right() >= other.g_right())
+      return true;
+   return false;
+}
+
+bool GenomicFeature::properly_contains(const GenomicFeature& other) const
+{
+   if( (g_left() < other.g_left() && g_right() >= other.g_right() ) ||
+         (g_left() <= other.g_left() && g_right() > other.g_right()) )
+      return true;
+   return false;
+}
+
+int match_length(const GenomicFeature &op, int left, int right)
+{
+   int len = 0;
+   int left_off = op.g_left();
+   if(left_off + op._genomic_length > left && left_off < right){
+      if(left_off > left){
+         if(left_off + op._genomic_length <= right + 1)
+            len += op._genomic_length;
+         else
+            len += right -left_off;
+      }
+      else{
+         if(left_off + op._genomic_length <= right +1)
+            len += (left_off + op._genomic_length - left);
+         else
+            return right - left;
       }
    }
-
-
-
-uint GenomicInterval::left() const{ return _left;}
-
-uint GenomicInterval::right() const { return _right;}
-
-void GenomicInterval::set_left(uint l) {_left = l;}
-
-void GenomicInterval::set_right(uint r) {_right = r;}
-
-char GenomicInterval::strand() const { return _strand;}
-
-string GenomicInterval::chrom() const { return _chrom;}
-
-uint GenomicInterval::len() const { return _right-_left+1;}
-
-
-bool GenomicInterval::overlap(const GenomicInterval& other, bool nonStrandness) const
-{
-     if( _chrom != other._chrom) return false;
-     if( !nonStrandness && other._strand != kStrandUnknown && _strand != kStrandUnknown && other._strand != _strand) return false;
-     return _left < other._left ? ( other._left <= _right) : (_left <= other._right);
+   return len;
 }
 
-bool GenomicInterval::isContainedIn(const GenomicInterval &other, bool nonStrandness) const
+bool GenomicFeature::operator==(const GenomicFeature & rhs) const
 {
-     if( other._chrom != _chrom) return false;
-     if( !nonStrandness && other._strand != kStrandUnknown && _strand != kStrandUnknown && other._strand != _strand) return false;
-     if (_left < other._left || _right > other._right) return false;
-     return true;
+   return ( _code == rhs._code &&
+         _genomic_offset == rhs._genomic_offset &&
+         _genomic_length == rhs._genomic_length);
 }
 
-bool GenomicInterval::contain(const GenomicInterval &d, bool nonStrandness) const
+bool GenomicFeature::operator<(const GenomicFeature & rhs) const
 {
-     return d.isContainedIn(*this, nonStrandness);
+   if(_genomic_offset != rhs._genomic_offset)
+      return _genomic_offset < rhs._genomic_offset;
+   if(_genomic_length != rhs._genomic_length)
+      return _genomic_length < rhs._genomic_length;
+   return false;
 }
 
-  //return the length of overlap between two segments
-uint GenomicInterval::overlapLen(const GenomicInterval& other) const
-{
-     if (!other.overlap(*this)) cerr<<"this two interval does not overlap"<<endl;
-     if (_left<other._left) {
-        if (other._left>_right) return 0;
-        return (other._right>_right) ? _right-other._left+1 : other._right-other._left+1;
-        }
-       else { //r->start<=start
-        if (_left>other._right) return 0;
-        return (other._right<_right)? other._right-_left+1 : _right-_left+1;
-        }
-}
-
-bool GenomicInterval::operator==(const GenomicInterval& rhs) const
-{
-     if ( rhs._chrom != _chrom) return false;
-     if( rhs._strand != kStrandUnknown && _strand != kStrandUnknown && rhs._strand != _strand) return false;
-     return (_left == rhs._left && _right == rhs._right);
-}
-
-bool GenomicInterval::operator>(const GenomicInterval& rhs) const
-{
-     if ( rhs._chrom != _chrom) cerr<<"cannot compare for different chrom"<<endl;
-     return (_left==rhs._left)?(_right>rhs._right):(_left>rhs._left);
-}
-
-bool GenomicInterval::operator<(const GenomicInterval& rhs) const
-{
-     if ( rhs._chrom != _chrom) cerr<<"cannot compare for different chrom"<<endl;
-     return (_left == rhs._left)?(_right < rhs._right):(_left < rhs._left);
-}
-
-GenomicFeature::GenomicFeature(FeatType ftype, GenomicInterval iv):
-      _feature(ftype), _iv(iv){};
+Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &ops, bool is_ref):
+      _genomic_feats(move(ops)),
+      _is_ref(is_ref),
+      _ref_id(ref_id),
+      _strand(strand)
+   {
+      assert(_genomic_feats.front()._code == S_MATCH);
+      assert(_genomic_feats.back()._code == S_MATCH);
+   }
 

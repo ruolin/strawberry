@@ -1,9 +1,10 @@
 CXX = g++
-CXXFLAGS =	-O0 -g -std=c++11 -Wall #-DDEBUG
+CXXFLAGS =	-O3 -g -std=c++11 -Wall #-DDEBUG
 INCLUDES = -I /usr/local/include/bam
 LIBS = -L /usr/local/lib/ -l bam -l z -l pthread
 LDLIBS= -lbam
 MAIN_TARGET = Strawberry
+
 
 common.o: common.h
 	${CXX} ${CXXFLAGS} -c common.cpp
@@ -13,16 +14,16 @@ contig.o: contig.h contig.cpp
 	${CXX} ${CXXFLAGS} -c contig.cpp
 read.o: read.h contig.h read.cpp 
 	${CXX} ${CXXFLAGS} -c read.cpp
-gff.o : gff.h gff.cpp 
+gff.o : gff.h gff.cpp contig.h
 	${CXX} ${CXXFLAGS} -c gff.cpp
-GBase.o : GBase.h GBase.cpp 
-	${CXX} ${CXXFLAGS} -c GBase.cpp
+alignments.o: alignments.h
+	${CXX} ${CXXFLAGS} -c alignments.cpp
 
-Strawberry.o : Strawberry.cpp GBase.h gff.h read.h fasta.h
+Strawberry.o : Strawberry.cpp gff.h read.h fasta.h alignments.h
 	${CXX} ${CXXFLAGS} -c Strawberry.cpp
 	
-$(MAIN_TARGET):	Strawberry.o GBase.o gff.o read.o contig.o fasta.o common.o
-	$(CXX) ${CXXFLAGS} Strawberry.o GBase.o gff.o read.o contig.o fasta.o common.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
+$(MAIN_TARGET):	Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o
+	$(CXX) ${CXXFLAGS} Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
 
 all:	$(MAIN_TARGET)
 

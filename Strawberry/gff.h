@@ -117,7 +117,6 @@ typedef shared_ptr<GffLine> LinePtr;
 class GffReader;
 class GffObj{
 protected:
-   int _seq_id;
    double _score;
    vector<GffAttr> _attrs; // Attr id is the vector idx
    char _phase;
@@ -133,14 +132,14 @@ public:
    GffObj(GffObj &&other) = default;
    GffObj& operator=(const GffObj &rhs) = default;
    GffObj& operator=(GffObj &&rhs) = default;
-   virtual int seq_id() const { return _seq_id;}
+   virtual int seq_id() const { return _iv.chrom();}
    virtual const char strand() const { return _iv.strand();}
    virtual bool operator==(const GffObj &rhs){
       return _iv == rhs._iv;
    }
    virtual bool operator<(const GffObj &rhs){
       if(_iv.strand() == rhs._iv.strand()){
-         if(_iv.strand() == kStrandMinus) return _iv > rhs._iv;
+         if(_iv.strand() == GenomicInterval::kStrandMinus) return _iv > rhs._iv;
          else return _iv < rhs._iv;
       }
       return false;
@@ -272,6 +271,17 @@ public:
    vector<mrnaPtr> _reverse_rnas;
    vector<mrnaPtr> _unstranded_rnas;
    vector<genePtr> _genes;
+   string _g_seq_name;
+
+   explicit GffSeqData(const string &g_seq_name):
+         _g_seq_name(g_seq_name)
+   {}
+   GffSeqData() = default;
+
+   int get_gseq_id() const{
+      assert(!_genes.empty());
+      return _genes.front()->_iv.chrom();
+   }
 
    GffmRNA* last_f_rna()
    {

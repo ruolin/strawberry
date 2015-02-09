@@ -20,7 +20,6 @@ typedef void* pointer;
 #define SREALLOC(ptr,size) if (!SRealloc((pointer*)(&ptr),size)) \
                                      SError("Error allocating memory.\n")
 
-
 int fileExists(const char* fname);
 
 inline int64_t fileSize(const char* fpath)
@@ -147,5 +146,48 @@ public:
      if (closeFile) fclose(file);
      }
 };
+
+class GenomicInterval {
+private:
+   uint _left; //start<end always!
+   uint _right;
+   int _chrom; // _chrom is seq id
+   char _strand;
+   int seq_id;
+
+public:
+   static const char kStrandPlus = '+';
+   static const char kStrandMinus = '-';
+   static const char kStrandUnknown = '.';
+   GenomicInterval()=default;
+   GenomicInterval(int chr,
+                  uint l,
+                  uint r,
+                  char o);
+
+  uint left() const;
+  uint right() const;
+  void set_left(uint l);
+  void set_right(uint r);
+  char strand() const;
+  int chrom() const;
+  uint len() const;
+
+  //check for overlap with other segment
+  bool overlap(const GenomicInterval &other, bool nonStrandness = true) const;
+
+  bool isContainedIn(const GenomicInterval &other, bool nonStrandness = true) const;
+
+  bool contain(const GenomicInterval &other, bool nonStrandness = true) const;
+
+  //return the length of overlap between two segments
+  uint overlapLen(const GenomicInterval& other) const;
+  //comparison operators required for sorting
+  bool operator==(const GenomicInterval& d) const;
+  bool operator>(const GenomicInterval& d) const;
+  bool operator<(const GenomicInterval& d) const;
+};
+
+
 
 #endif /* COMMON_H_ */

@@ -11,8 +11,10 @@
 #include<bam/sam.h>
 #include<vector>
 #include<memory>
+#include<string>
 #include<unordered_map>
-#include "contig.h"
+#include<cassert>
+#include "common.h"
 using namespace std;
 /*
  * COMMON PARAMETERS
@@ -42,14 +44,14 @@ struct CigarOp
 };
 
 typedef uint64_t ReadID;
-
+typedef uint64_t RefID;
 class ReadHit{
 private:
    static const int max_partner_dist = 50000;
 
    ReadID _read_id;
    GenomicInterval _iv;
-   string _partner_ref;
+   int _partner_ref_id;
    int _partner_pos;
    vector<CigarOp> _cigar;
    int _num_mismatch = -1;
@@ -63,7 +65,7 @@ public:
    ReadHit( ReadID readID,
          GenomicInterval iv,
          const vector<CigarOp> & cigar,
-         string partnerRef,
+         int partnerRef,
          int partnerPos,
          int numMismatch,
          int numHit,
@@ -75,9 +77,9 @@ public:
    ReadID read_id() const;
    bool contains_splice() const;
    GenomicInterval interval() const;
-   string partner_ref() const;
+   int partner_ref_id() const;
    int partner_pos() const;
-   string ref() const; // chromosome or scaffold containing the read
+   int ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;
    bool is_singleton() const;
    int left() const;
@@ -113,27 +115,36 @@ private:
 
 class RefSeqTable
 {
-private:
 
-   struct SequenceInfo{
-      uint32_t _observation_order;
-      unique_ptr<DNABitSet> _seq;
-      SequenceInfo(uint32_t order,
-                   unique_ptr<DNABitSet> seq):
-      _observation_order(order),
-      _seq(move(seq)){}
-   };
-   int _next_obs_order;
+private:
+//_id is the observation order.
+//_id start from 0 which is used as the index in vector<GffSeqData>;
+   string _seq;
    bool _keep_seq;
-   typedef unordered_map<string, SequenceInfo> id2SeqInfo;
-   id2SeqInfo _by_id;
+   unordered_map<string, int> _name2id;
+   vector<string> _id2name;
 
 public:
+   RefSeqTable(bool keep_seq) : _keep_seq(keep_seq){}
+   int get_id(const string& name) {
+      unordered_map<string,int>::const_iterator it = _name2id.find(name);
+      if(it != _name2id.end()) return it->second;
+      else {
+         int id = _name2id.size();
+         _name2id.insert(make_pair(name, id));
+         _id2name[id] = name;
+         assert(_name2id.size() == _id2name.size());
+         return id;
+      }
+      return 0;
+   }
 
-   RefSeqTable(bool keep_seq);
-   bool insertIntoTable(const string name, unique_ptr<DNABitSet> seq);
-   unique_ptr<DNABitSet> get_seq(const string name);
-   int observation_order(const string name) const;
+   int size() const{
+      return _name2id.size();
+   }
+   const string ref_name(int id) const{
+      return _id2name[id];
+   }
 };
 
 
@@ -144,7 +155,7 @@ private:
    ReadTable& _reads_table;
    RefSeqTable& _ref_table;
    char _hit_buf[kHitBufMaxSize];
-
+   int _num_seq_header_recs = 0;
 public:
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
    HitFactory(HitFactory &rhs) = delete; //non-copible class.
@@ -157,6 +168,9 @@ public:
    virtual bool getHitFromBuf(const char* bwt_buf, ReadHit& bh)=0;
    virtual RefSeqTable& ref_table() { return _ref_table; }
    virtual ReadTable& reads_table(){return _reads_table;}
+   virtual void undo_hit() = 0;
+   virtual bool parse_header_line(const string& hline);
+
 };
 
 class BAMHitFactory : public HitFactory
@@ -199,7 +213,7 @@ public:
    ReadHitPtr right_read();
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;
-   string ref_seq_name() const;
+   int ref_seq_id() const;
    int left_pos() const;
    int right_pos() const;
    uint edit_dist() const;
