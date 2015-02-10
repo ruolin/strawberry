@@ -300,7 +300,7 @@ GffObj::GffObj(LinePtr gl, GffReader & greader):
    _source(gl->_source),
    _greader(greader)
 {
-   int _seq_id = _infotable->_seq_names->addInfo(gl->_chrom);
+   uint _seq_id = _infotable->_seq_names->addInfo(gl->_chrom);
    _iv = GenomicInterval(_seq_id, gl->_start, gl->_end, gl->_strand);
 }
 

@@ -177,7 +177,7 @@ char* SlineReader::getLine(FILE* stream, off_t& f_pos)
    }
 }
 
-GenomicInterval::GenomicInterval(int chr, uint l, uint r, char o) {
+GenomicInterval::GenomicInterval(uint chr, uint l, uint r, char o) {
       _chrom = chr;
       if (l>r) { _left = r; _right = l;}
       else { _left = l; _right = r;}
@@ -209,7 +209,7 @@ void GenomicInterval::set_right(uint r) {_right = r;}
 
 char GenomicInterval::strand() const { return _strand;}
 
-int GenomicInterval::chrom() const { return _chrom;}
+uint GenomicInterval::chrom() const { return _chrom;}
 
 uint GenomicInterval::len() const { return _right-_left+1;}
 

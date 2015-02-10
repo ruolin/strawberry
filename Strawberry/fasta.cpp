@@ -176,8 +176,10 @@ char* FaSeqGetter::fetchSeq(uint start, uint len){
 }
 
 
-FaInterface::FaInterface(const char* fpath){
-   if(!fpath) SError("Error: unspecified fasta file or directory\n");
+void FaInterface::initiate(const char* fpath){
+   if(!fpath){
+      SMessage("Error: unspecified fasta file or directory\n");
+   }
    _fa_path.assign(fpath);
    pair<ItFaidx, bool> ret;
    switch(fileExists(fpath)){
@@ -252,6 +254,7 @@ FaInterface::FaInterface(const char* fpath){
       SError("Error: not a valid file or directory!\n", fpath);
       break;
    }
+   _has_load = true;
 }
 
 void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){

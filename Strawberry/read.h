@@ -44,14 +44,14 @@ struct CigarOp
 };
 
 typedef uint64_t ReadID;
-typedef uint64_t RefID;
+typedef uint RefID;
 class ReadHit{
 private:
    static const int max_partner_dist = 50000;
 
    ReadID _read_id;
    GenomicInterval _iv;
-   int _partner_ref_id;
+   RefID _partner_ref_id;
    int _partner_pos;
    vector<CigarOp> _cigar;
    int _num_mismatch = -1;
@@ -65,7 +65,7 @@ public:
    ReadHit( ReadID readID,
          GenomicInterval iv,
          const vector<CigarOp> & cigar,
-         int partnerRef,
+         RefID partnerRef,
          int partnerPos,
          int numMismatch,
          int numHit,
@@ -77,9 +77,9 @@ public:
    ReadID read_id() const;
    bool contains_splice() const;
    GenomicInterval interval() const;
-   int partner_ref_id() const;
+   RefID partner_ref_id() const;
    int partner_pos() const;
-   int ref_id() const; // chromosome id or scaffold id containing the read
+   RefID ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;
    bool is_singleton() const;
    int left() const;
@@ -213,7 +213,7 @@ public:
    ReadHitPtr right_read();
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;
-   int ref_seq_id() const;
+   RefID ref_seq_id() const;
    int left_pos() const;
    int right_pos() const;
    uint edit_dist() const;

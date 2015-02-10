@@ -96,16 +96,29 @@ public:
    // for the first time.
    uint loadSeq(uint start = 1, uint len = 0);
    char* fetchSeq(uint start, uint len);
+   ~FaSeqGetter(){
+      if(!_fname.empty()){
+         fclose(fh);
+      }
+   }
+   FaSeqGetter(const FaSeqGetter &other) = delete;
+   FaSeqGetter& operator=(const FaSeqGetter &other) = delete;
+   FaSeqGetter(FaSeqGetter &&other) = delete;
+   FaSeqGetter& operator=(FaSeqGetter &&other) = delete;
 };
 
 class FaInterface{
+   bool _has_load = false;
 public:
    string _fa_path;
    unordered_map<string, unique_ptr<FaIndex>> _fa_indexes; //map fasta file name to faidx
    unordered_map<string, string> _seqname_2_fafile;
    using ItFaidx = unordered_map<string, unique_ptr<FaIndex>>::iterator;
-   FaInterface(const char* fpath=nullptr);
+   void initiate(const char* fpath=nullptr);
    void load2FaSeqGetter(FaSeqGetter &getter, const string seqname);
+   bool hasLoad() const{
+      return _has_load;
+   }
 };
 
 

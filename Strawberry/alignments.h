@@ -42,5 +42,5 @@ public:
       _hit_factory(move(hit_fac))
    {}
    bool nextCluster(HitCluster & clusterOut);
-   bool loadRefmRNA(const vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
+   bool loadRefmRNA(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
 };

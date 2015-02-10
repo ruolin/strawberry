@@ -151,7 +151,7 @@ class GenomicInterval {
 private:
    uint _left; //start<end always!
    uint _right;
-   int _chrom; // _chrom is seq id
+   uint _chrom; // _chrom is seq id
    char _strand;
    int seq_id;
 
@@ -160,7 +160,7 @@ public:
    static const char kStrandMinus = '-';
    static const char kStrandUnknown = '.';
    GenomicInterval()=default;
-   GenomicInterval(int chr,
+   GenomicInterval(uint chr,
                   uint l,
                   uint r,
                   char o);
@@ -170,7 +170,7 @@ public:
   void set_left(uint l);
   void set_right(uint r);
   char strand() const;
-  int chrom() const;
+  uint chrom() const;
   uint len() const;
 
   //check for overlap with other segment

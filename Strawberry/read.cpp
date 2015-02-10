@@ -15,7 +15,7 @@ ReadHit::ReadHit(
    ReadID readID,
    GenomicInterval iv,
    const vector<CigarOp> & cigar,
-   int partnerRef,
+   RefID partnerRef,
    int partnerPos,
    int numMismatch,
    int numHit,
@@ -46,9 +46,9 @@ bool ReadHit::contains_splice()const{
 
 ReadID ReadHit::read_id() const {return _read_id;}
 
-int ReadHit::ref_id() const {return _iv.chrom();}
+RefID ReadHit::ref_id() const {return _iv.chrom();}
 
-int ReadHit::partner_ref_id() const { return _partner_ref_id;}
+RefID ReadHit::partner_ref_id() const { return _partner_ref_id;}
 
 int ReadHit::partner_pos() const { return _partner_pos;}
 
@@ -187,8 +187,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    str2lower(text_name);
    string mate_text_name = _hit_file->header->target_name[mate_target_id];
    str2lower(mate_text_name);
-   int ref_id = ref_table().get_id(text_name);
-   int parterner_ref_id = ref_table().get_id(mate_text_name);
+   RefID ref_id = ref_table().get_id(text_name);
+   RefID parterner_ref_id = ref_table().get_id(mate_text_name);
    // For now: skip unmapped reads
    if( (sam_flag & 0x4) || target_id) return true;
 
@@ -362,7 +362,7 @@ ReadID PairedHit::read_id() const
    return 0;
 }
 
-int PairedHit::ref_seq_id() const
+RefID PairedHit::ref_seq_id() const
 {
    if(_left_read && _right_read)
       assert(_left_read->interval().chrom() == _right_read->interval().chrom());
