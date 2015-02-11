@@ -67,8 +67,9 @@ int FaIndex::loadIndex(){
       if(len==0 || line_len==0 || bline_len==0 || line_len > bline_len)
          SError("Error parsing fasta index line: \n%s\n",line);
       #ifdef DEBUG
-         printf("%s\t%d\t%lld\t%d\t%d\n", line, len ,offset, line_len, bline_len);
+         //printf("%s\t%d\t%lld\t%d\t%d\n", line, len ,offset, line_len, bline_len);
       #endif
+      str2lower(line);
       add_record(line, len ,offset, line_len, bline_len);
    }
    fclose(fi);
@@ -82,7 +83,7 @@ int FaIndex::buildIndex(){
 
 const string FaIndex::get_faidx_name() const {return _fai_name;}
 
-bool FaIndex::add_record(const string seqname, const uint seqlen, const off_t fpos, const int linelen, const int lineblen){
+bool FaIndex::add_record(string seqname, const uint seqlen, const off_t fpos, const int linelen, const int lineblen){
    pair<FaRecord_p, bool> res;
    res = _records.insert( make_pair(seqname, FaRecord(seqname, seqlen, fpos, linelen, lineblen) ) );
    if(!res.second){
@@ -92,7 +93,7 @@ bool FaIndex::add_record(const string seqname, const uint seqlen, const off_t fp
    return res.second;
 }
 
-bool FaIndex::getRecord(const string seqname, FaRecord &got){
+bool FaIndex::getRecord(const string &seqname, FaRecord &got) const{
    auto it = _records.find(seqname);
    if(it !=  _records.end()){
       got = it->second;
@@ -259,7 +260,9 @@ void FaInterface::initiate(const char* fpath){
 
 void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){
    auto it_fa_name = _seqname_2_fafile.find(seqname);
-   assert(it_fa_name != _seqname_2_fafile.end());
+   if(it_fa_name == _seqname_2_fafile.end()){
+      SError("Error: Reference sequence name \"%s\" cannot be found in fasta file. Please check fasta file header line. \n", seqname.c_str());
+   }
    string fa_name = it_fa_name->second;
    auto it_faidx = _fa_indexes.find(fa_name);
    assert(it_faidx != _fa_indexes.end());

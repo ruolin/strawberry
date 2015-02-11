@@ -149,18 +149,17 @@ public:
 
 class GenomicInterval {
 private:
-   uint _left; //start<end always!
-   uint _right;
-   uint _chrom; // _chrom is seq id
+   uint _left = 1; // left < right always!
+   uint _right = 0;
+   int _seq_id = -1; // _chrom is seq id. -1 is for unmapped read
    char _strand;
-   int seq_id;
 
 public:
    static const char kStrandPlus = '+';
    static const char kStrandMinus = '-';
    static const char kStrandUnknown = '.';
    GenomicInterval()=default;
-   GenomicInterval(uint chr,
+   GenomicInterval(int chr,
                   uint l,
                   uint r,
                   char o);
@@ -170,7 +169,7 @@ public:
   void set_left(uint l);
   void set_right(uint r);
   char strand() const;
-  uint chrom() const;
+  int seq_id() const;
   uint len() const;
 
   //check for overlap with other segment

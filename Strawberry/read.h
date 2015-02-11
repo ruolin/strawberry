@@ -15,6 +15,9 @@
 #include<unordered_map>
 #include<cassert>
 #include "common.h"
+#ifdef DEBUG
+   #include <iostream>
+#endif
 using namespace std;
 /*
  * COMMON PARAMETERS
@@ -44,16 +47,16 @@ struct CigarOp
 };
 
 typedef uint64_t ReadID;
-typedef uint RefID;
+typedef int RefID;
 class ReadHit{
 private:
    static const int max_partner_dist = 50000;
 
    ReadID _read_id;
    GenomicInterval _iv;
+   vector<CigarOp> _cigar;
    RefID _partner_ref_id;
    int _partner_pos;
-   vector<CigarOp> _cigar;
    int _num_mismatch = -1;
    int _num_hit = 1;
    int _trans_left=0; // position relate to transcriptom
@@ -82,9 +85,10 @@ public:
    RefID ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;
    bool is_singleton() const;
-   int left() const;
-   int right() const;
+   uint left() const;
+   uint right() const;
    char strand() const;
+   double mass() const;
 };
 
 
@@ -126,19 +130,7 @@ private:
 
 public:
    RefSeqTable(bool keep_seq) : _keep_seq(keep_seq){}
-   int get_id(const string& name) {
-      unordered_map<string,int>::const_iterator it = _name2id.find(name);
-      if(it != _name2id.end()) return it->second;
-      else {
-         int id = _name2id.size();
-         _name2id.insert(make_pair(name, id));
-         _id2name[id] = name;
-         assert(_name2id.size() == _id2name.size());
-         return id;
-      }
-      return 0;
-   }
-
+   int get_id(const string& name);
    int size() const{
       return _name2id.size();
    }
@@ -150,13 +142,14 @@ public:
 
 class HitFactory
 {
-private:
+protected:
+   static const unsigned MAX_HEADER_LEN = 4 * 1024 * 1024; // 4 MB
    static const size_t kHitBufMaxSize = 10 * 1024;
    ReadTable& _reads_table;
-   RefSeqTable& _ref_table;
    char _hit_buf[kHitBufMaxSize];
    int _num_seq_header_recs = 0;
 public:
+   RefSeqTable& _ref_table;
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
    HitFactory(HitFactory &rhs) = delete; //non-copible class.
    HitFactory& operator=(HitFactory &rhs) = delete; // non-copible class
@@ -164,12 +157,15 @@ public:
    HitFactory& operator=(HitFactory &&rhs) = default;
    virtual ~HitFactory() = default;
    virtual bool recordsRemain() const = 0;
+
+   // return false when no record or EOF found
    virtual bool nextRecord(const char* &buf, size_t& buf_size) = 0;
    virtual bool getHitFromBuf(const char* bwt_buf, ReadHit& bh)=0;
    virtual RefSeqTable& ref_table() { return _ref_table; }
    virtual ReadTable& reads_table(){return _reads_table;}
    virtual void undo_hit() = 0;
    virtual bool parse_header_line(const string& hline);
+   virtual bool inspect_header() = 0;
 
 };
 
@@ -194,6 +190,7 @@ public:
    void undo_hit();
    bool nextRecord(const char* &buf, size_t& buf_size);
    bool getHitFromBuf(const char* bwt_buf, ReadHit& bh);
+   bool inspect_header();
 };
 
 typedef unique_ptr<const ReadHit> ReadHitPtr;

@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS =	-O3 -g -std=c++11 -Wall #-DDEBUG
+CXXFLAGS =	-O3 -g -std=c++11 -Wall -DDEBUG
 INCLUDES = -I /usr/local/include/bam
 LIBS = -L /usr/local/lib/ -l bam -l z -l pthread
 LDLIBS= -lbam
@@ -16,7 +16,7 @@ read.o: read.h contig.h read.cpp
 	${CXX} ${CXXFLAGS} -c read.cpp
 gff.o : gff.h gff.cpp contig.h
 	${CXX} ${CXXFLAGS} -c gff.cpp
-alignments.o: alignments.h
+alignments.o: alignments.h alignments.cpp
 	${CXX} ${CXXFLAGS} -c alignments.cpp
 
 Strawberry.o : Strawberry.cpp gff.h read.h fasta.h alignments.h

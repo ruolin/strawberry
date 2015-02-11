@@ -32,15 +32,21 @@ public:
 
 class ClusterFactory{
    unique_ptr<HitFactory> _hit_factory;
-   std::vector<Contig> _ref_mRNAs;
    int _num_cluster = 0;
    std::vector<Contig>::iterator _next_ref_mRNA;
    uint _prev_pos = 0;
    RefID _prev_ref_id = 0;
 public:
+   ReadHit _last_hit; // Record the hit that next_valid_alignment() read in.
+   std::vector<Contig> _ref_mRNAs;
    ClusterFactory(unique_ptr<HitFactory> hit_fac):
       _hit_factory(move(hit_fac))
    {}
    bool nextCluster(HitCluster & clusterOut);
-   bool loadRefmRNA(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
+   bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
+   int num_refmRNA() const {
+      return _ref_mRNAs.size();
+   }
+   double next_valid_alignment();
+   double rewind_hit(const ReadHit& rh);
 };

@@ -36,12 +36,12 @@ public:
    unordered_map<string, FaRecord> _records;
    using FaRecord_p = unordered_map<string, FaRecord>::const_iterator;
    FaIndex(const char* fname, const char* finame=NULL);
-   bool add_record(const string seqname, const uint seqlen, const off_t fpos, const int linelen, const int lineblen);
-   bool getRecord(const string seqname, FaRecord &got);
+   bool add_record(string seqname, const uint seqlen, const off_t fpos, const int linelen, const int lineblen);
+   bool getRecord(const string& seqname, FaRecord &got) const;
    const string get_faidx_name() const;
    bool hasIndex();
    int loadIndex(); //return the number of record loaded
-   int buildIndex(); //return the number of record
+   int buildIndex(); //this function has not been implemented //return the number of record
    int writeIndex(); // return number of record which is stored
    int num_records() const;
 };

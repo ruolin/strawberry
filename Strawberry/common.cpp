@@ -177,8 +177,8 @@ char* SlineReader::getLine(FILE* stream, off_t& f_pos)
    }
 }
 
-GenomicInterval::GenomicInterval(uint chr, uint l, uint r, char o) {
-      _chrom = chr;
+GenomicInterval::GenomicInterval(int chr, uint l, uint r, char o) {
+      _seq_id = chr;
       if (l>r) { _left = r; _right = l;}
       else { _left = l; _right = r;}
       switch(o){
@@ -209,21 +209,21 @@ void GenomicInterval::set_right(uint r) {_right = r;}
 
 char GenomicInterval::strand() const { return _strand;}
 
-uint GenomicInterval::chrom() const { return _chrom;}
+int GenomicInterval::seq_id() const { return _seq_id;}
 
 uint GenomicInterval::len() const { return _right-_left+1;}
 
 
 bool GenomicInterval::overlap(const GenomicInterval& other, bool nonStrandness) const
 {
-     if( _chrom != other._chrom) return false;
+     if( _seq_id != other._seq_id) return false;
      if( !nonStrandness && other._strand != kStrandUnknown && _strand != kStrandUnknown && other._strand != _strand) return false;
      return _left < other._left ? ( other._left <= _right) : (_left <= other._right);
 }
 
 bool GenomicInterval::isContainedIn(const GenomicInterval &other, bool nonStrandness) const
 {
-     if( other._chrom != _chrom) return false;
+     if( other._seq_id != _seq_id) return false;
      if( !nonStrandness && other._strand != kStrandUnknown && _strand != kStrandUnknown && other._strand != _strand) return false;
      if (_left < other._left || _right > other._right) return false;
      return true;
@@ -250,19 +250,19 @@ uint GenomicInterval::overlapLen(const GenomicInterval& other) const
 
 bool GenomicInterval::operator==(const GenomicInterval& rhs) const
 {
-     if ( rhs._chrom != _chrom) return false;
+     if ( rhs._seq_id != _seq_id) return false;
      if( rhs._strand != kStrandUnknown && _strand != kStrandUnknown && rhs._strand != _strand) return false;
      return (_left == rhs._left && _right == rhs._right);
 }
 
 bool GenomicInterval::operator>(const GenomicInterval& rhs) const
 {
-     if ( rhs._chrom != _chrom) SError("cannot compare for different chrom\n");
+     if ( rhs._seq_id != _seq_id) SError("cannot compare for different chrom\n");
      return (_left==rhs._left)?(_right>rhs._right):(_left>rhs._left);
 }
 
 bool GenomicInterval::operator<(const GenomicInterval& rhs) const
 {
-     if ( rhs._chrom != _chrom) SError("cannot compare for different chrom\n");
+     if ( rhs._seq_id != _seq_id) SError("cannot compare for different chrom\n");
      return (_left == rhs._left)?(_right < rhs._right):(_left < rhs._left);
 }

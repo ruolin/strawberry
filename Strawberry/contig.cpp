@@ -12,7 +12,7 @@
 #include <iostream>
 using namespace std;
 
-GenomicFeature::GenomicFeature(const Op_t& cc, int offset, int len):
+GenomicFeature::GenomicFeature(const Op_t& cc, uint offset, int len):
          _code(cc),
          _genomic_offset(offset),
          _genomic_length(len)
@@ -20,23 +20,23 @@ GenomicFeature::GenomicFeature(const Op_t& cc, int offset, int len):
    assert (_genomic_length >= 0);
 }
 
-void GenomicFeature::g_left(int left)
+void GenomicFeature::g_left(uint left)
 {
       int right = _genomic_offset + _genomic_length;
       _genomic_offset = left;
       _genomic_length = right -left;
 }
 
-int GenomicFeature::g_left() const { return _genomic_offset;}
+uint GenomicFeature::g_left() const { return _genomic_offset;}
 
-int GenomicFeature::g_right() const
+uint GenomicFeature::g_right() const
 {
-   return _genomic_offset + _genomic_length;
+   return _genomic_offset + _genomic_length-1;
 }
 
-void GenomicFeature::g_right(int right)
+void GenomicFeature::g_right(uint right)
 {
-      _genomic_length = right - _genomic_offset;
+      _genomic_length = right - _genomic_offset + 1;
 }
 
 bool GenomicFeature::overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs)
@@ -104,8 +104,8 @@ bool GenomicFeature::operator<(const GenomicFeature & rhs) const
    return false;
 }
 
-Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &ops, bool is_ref):
-      _genomic_feats(move(ops)),
+Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is_ref):
+      _genomic_feats(move(feats)),
       _is_ref(is_ref),
       _ref_id(ref_id),
       _strand(strand)

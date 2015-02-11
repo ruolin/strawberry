@@ -113,6 +113,7 @@ GffLine::GffLine(const char* l)
       return;
    }
    _chrom=string(t[0]);
+   str2lower(_chrom);
    _source=string(t[1]);
    _gffline_type = string(t[2]);
    _info=t[8];
@@ -323,30 +324,34 @@ GffmRNA* GffLoci::getRNA(const string rna) {
    return NULL;
 }
 
-void GffLoci::add_exon(exonPtr exon){
+void GffLoci::add_exon(exonPtr exon, GffmRNA* exon_parent_mrna){
    if(num_mRNAs() == 1){
       if(_non_dup_exons.empty()){
-         _mrnas[0]->add_exon( &(*exon));
+         exon_parent_mrna->add_exon( &(*exon));
+         assert((*exon)._iv.left());
          _non_dup_exons.push_back(move(exon));
       }
       else{
 #ifdef DEBUG
             assert( *_non_dup_exons.back() < *exon);
 #endif
+      exon_parent_mrna->add_exon( &(*exon));
       _non_dup_exons.push_back(move(exon));
-      _mrnas[0]->add_exon( &(*exon));
       }
    }
    else{
       auto it = lower_bound(_non_dup_exons.begin(), _non_dup_exons.end(), exon,\
             [&](const exonPtr &lhs, const exonPtr &rhs){return *lhs < *rhs;});
       if( it == _non_dup_exons.cend()){
+         exon_parent_mrna->add_exon( &(*exon) );
          _non_dup_exons.insert(it, move(exon));
-      }else{
+      } else{
          if((**it) == *exon){
+            exon_parent_mrna->add_exon( &(**it));
             (*it)->add_parent_mrna(exon->_parent_mrnas);
          }
          else{
+            exon_parent_mrna->add_exon(&(*exon));
             _non_dup_exons.insert(it, move(exon));
          }
       }
@@ -425,10 +430,9 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
    return NULL;
 }
 
-GffReader::GffReader(vector<unique_ptr<GffSeqData>> & gseqs, const char* fname):
+GffReader::GffReader(const char* fname):
       SlineReader(fname),
-      _fname(string(fname)),
-      _g_seqs(gseqs)
+      _fname(string(fname))
 {}
 
 bool GffReader::nextGffLine(){
@@ -500,8 +504,8 @@ void GffReader::readAll(){
           GffmRNA* mrna = gseq->findmRNA(_gfline->parent(), _gfline->_strand);
           GffLoci *const gene  = mrna->getParentGene();
           exonPtr exon (new GffExon(_gfline, mrna, gene , *this));
-
-          gene->add_exon(move(exon));
+          assert(exon->_iv.left());
+          gene->add_exon(move(exon), mrna);
           //GffExon exon(_gfline, _g_seqs[cur_gseq]->last_gene(), *this);
           //GffExon *cur_exon = NULL;
        }
@@ -509,6 +513,19 @@ void GffReader::readAll(){
          break;
       }
    }
+//#ifdef DEBUG
+//   cout<< gseq->_genes[0]->_non_dup_exons.size()<<endl;
+//   for(auto &i: gseq->_reverse_rnas[1]->_exons){
+//      cout<< i->_iv.left()<<endl;
+//   }
+//#endif
+   gseq = nullptr;
 }
 
-
+void GffReader::reverseExonOrderInMinusStrand(){
+   for(const auto &i: _g_seqs){
+      for(const auto &j : i->_reverse_rnas){
+         reverse(j->_exons.begin(), j->_exons.end());
+      }
+   }
+}

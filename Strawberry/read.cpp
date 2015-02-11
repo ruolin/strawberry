@@ -8,6 +8,7 @@
 #include <algorithm>
 #include<assert.h>
 #include <stdexcept>
+#include <string.h>
 #include "read.h"
 
 static const int kMaxIntronLength = 60000;
@@ -35,6 +36,14 @@ ReadHit::ReadHit(
 
 uint ReadHit::read_len() const { return _iv.len();}
 
+double ReadHit::mass() const{
+   if(is_singleton()){
+      return 1.0/_num_hit;
+   }else{
+      return 0.5/_num_hit;
+   }
+}
+
 bool ReadHit::contains_splice()const{
       for (size_t i = 0; i < _cigar.size(); ++i){
 
@@ -46,27 +55,28 @@ bool ReadHit::contains_splice()const{
 
 ReadID ReadHit::read_id() const {return _read_id;}
 
-RefID ReadHit::ref_id() const {return _iv.chrom();}
+RefID ReadHit::ref_id() const {return _iv.seq_id();}
 
 RefID ReadHit::partner_ref_id() const { return _partner_ref_id;}
 
 int ReadHit::partner_pos() const { return _partner_pos;}
 
-int ReadHit::right() const {return _iv.right();}
+uint ReadHit::right() const {return _iv.right();}
 
 GenomicInterval ReadHit::interval() const { return _iv;}
 
 char ReadHit::strand() const {return _iv.strand();}
 
-int ReadHit::left() const { return _iv.left();}
+uint ReadHit::left() const { return _iv.left();}
 
 int ReadHit::num_mismatch() const { return _num_mismatch;}
 
 bool ReadHit::is_singleton() const
 {
    return (partner_pos() == 0 ||
+         partner_ref_id() == -1 ||
          partner_ref_id() != ref_id() ||
-         abs(partner_pos() - left()) > max_partner_dist);
+         abs(partner_pos() - left()) > max_partner_dist );
 }
 
 
@@ -90,6 +100,9 @@ HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
    _reads_table(reads_table),_ref_table(ref_table){}
 
 bool HitFactory::parse_header_line(const string& hline){
+//#ifdef DEBUG
+//   cout<<hline<<endl;
+//#endif
    vector<string> cols;
    split(hline, "\t", cols);
    if(cols[0] == "@SQ"){
@@ -100,7 +113,7 @@ bool HitFactory::parse_header_line(const string& hline){
          if(fields[0] == "SN"){
             str2lower(fields[1]);
             RefID _ID = _ref_table.get_id(fields[1]);
-            if(_ID != _num_seq_header_recs)
+            if(_ID != _num_seq_header_recs-1)
                SError("Error: sort order of reads in BAM not consistent.\n");
                return false;
          }
@@ -125,6 +138,39 @@ BAMHitFactory::BAMHitFactory(const string& bam_file_name,
    _curr_pos = _beginning;
    _eof_encountered = false;
 
+}
+
+bool BAMHitFactory::inspect_header()
+{
+   bam_header_t* header = _hit_file->header;
+   if(header == NULL || header->l_text == 0){
+      SMessage("Warning: No BAM header\n");
+      return false;
+   }
+
+   if(header->l_text >= MAX_HEADER_LEN ){
+      SMessage("Warning: BAM header too large\n");
+      return false;
+   }
+
+   if(header->text != NULL){
+      char* h_text = strdup(header->text);
+      char* pBuf = h_text;
+      while( pBuf - h_text < header->l_text){
+         char *nl = strchr(pBuf,'\n');
+         if (nl){
+            *nl = 0;
+            parse_header_line(pBuf);
+            pBuf = ++nl;
+         }
+         else{
+            pBuf = h_text + header->l_text;
+         }
+      }
+
+      free(h_text);
+   }
+   return true;
 }
 
 void BAMHitFactory::reset()
@@ -170,7 +216,6 @@ bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size)
    return true;
 }
 
-
 bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    const bam1_t* hit_buf = (const bam1_t*)orig_bwt_buf;
    uint32_t sam_flag = hit_buf->core.flag;
@@ -178,20 +223,40 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    int mate_pos = hit_buf->core.mpos;
    int target_id = hit_buf->core.tid;
    int mate_target_id = hit_buf->core.mtid;
+   string mate_text_name;
+
+   if(mate_target_id < 0){
+      mate_text_name = "*";
+   }
+   else{
+      mate_text_name = _hit_file->header->target_name[mate_target_id];
+      str2lower(mate_text_name);
+   }
+   RefID parterner_ref_id = ref_table().get_id(mate_text_name);
+
    int read_len = 0;
    ReadID readid = HitFactory::reads_table().get_id(bam1_qname(hit_buf));
    vector<CigarOp> cigar;
    bool is_spliced_alignment = false;
    int num_hits = 1;
+   if( (sam_flag & 0x4) || target_id < 0 ){
+      bh = ReadHit(readid,
+                   GenomicInterval(),
+                   cigar,
+                   parterner_ref_id,
+                   0,
+                   0,
+                   num_hits,
+                   sam_flag,
+                   0.0
+                   );
+      return true;
+   }
+
+
    string text_name = _hit_file->header->target_name[target_id];
    str2lower(text_name);
-   string mate_text_name = _hit_file->header->target_name[mate_target_id];
-   str2lower(mate_text_name);
    RefID ref_id = ref_table().get_id(text_name);
-   RefID parterner_ref_id = ref_table().get_id(mate_text_name);
-   // For now: skip unmapped reads
-   if( (sam_flag & 0x4) || target_id) return true;
-
 
    if(target_id >= _hit_file->header->n_targets){
       fprintf(stderr, "BAM error: file contains hits to sequences not in BAM file header");
@@ -365,14 +430,26 @@ ReadID PairedHit::read_id() const
 RefID PairedHit::ref_seq_id() const
 {
    if(_left_read && _right_read)
-      assert(_left_read->interval().chrom() == _right_read->interval().chrom());
+      assert(_left_read->interval().seq_id() == _right_read->interval().seq_id());
    if(_left_read)
-      return _left_read->interval().chrom();
+      return _left_read->interval().seq_id();
    if(_right_read)
-      return _right_read->interval().chrom();
+      return _right_read->interval().seq_id();
    return -1;
 }
 
 
-
+RefID RefSeqTable::get_id(const string& name) {
+   if (name == "*") return -1;
+   unordered_map<string,int>::const_iterator it = _name2id.find(name);
+   if(it != _name2id.end()) return it->second;
+   else {
+      int id = _name2id.size();
+      _name2id.insert(make_pair(name, id));
+      _id2name.resize(_name2id.size());
+      _id2name[id] = name;
+      return id;
+   }
+   return 0;
+}
 

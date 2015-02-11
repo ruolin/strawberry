@@ -12,20 +12,22 @@
 #include<string>
 #include<cassert>
 #include<vector>
+#include<iostream>
 #include "read.h"
 
 enum Op_t {S_MATCH, S_INTRON, S_UNKNOWN};
 
-struct GenomicFeature{
-   Op_t _code;
-   int _genomic_offset;
-   int _genomic_length;
-   GenomicFeature(const Op_t& cc, int offset, int len);
+class GenomicFeature{
 
-   void g_left(int left);
-   int g_left() const;
-   void g_right(int right);
-   int g_right() const;
+public:
+   Op_t _code;
+   uint _genomic_offset;
+   int _genomic_length;
+   GenomicFeature(const Op_t& cc, uint offset, int len);
+   void g_left(uint left);
+   uint g_left() const;
+   void g_right(uint right);
+   uint g_right() const;
 
    static bool overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs);
 
@@ -38,6 +40,10 @@ struct GenomicFeature{
    bool operator==(const GenomicFeature & rhs) const;
 
    bool operator<(const GenomicFeature & rhs) const;
+
+   void printOut(){
+      printf("<%d,%d>\n", g_left(),g_right());
+   }
 };
 
 
@@ -46,7 +52,6 @@ struct GenomicFeature{
  * exon, and unknown*/
 
 class Contig{
-   std::vector<GenomicFeature> _genomic_feats;
    bool _is_ref;
    std::vector<const PairedHit* > _mates_in_contig;
    std::string _seq;
@@ -55,7 +60,8 @@ class Contig{
    RefID _ref_id;
    char _strand;
 public:
-   Contig(RefID ref_id, char strand, vector<GenomicFeature> &ops, bool is_ref);
+   std::vector<GenomicFeature> _genomic_feats;
+   Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is_ref);
 };
 
 #endif /* CONTIG_H_ */

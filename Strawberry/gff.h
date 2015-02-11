@@ -132,7 +132,7 @@ public:
    GffObj(GffObj &&other) = default;
    GffObj& operator=(const GffObj &rhs) = default;
    GffObj& operator=(GffObj &&rhs) = default;
-   virtual int seq_id() const { return _iv.chrom();}
+   virtual int seq_id() const { return _iv.seq_id();}
    virtual const char strand() const { return _iv.strand();}
    virtual bool operator==(const GffObj &rhs){
       return _iv == rhs._iv;
@@ -237,7 +237,7 @@ public:
    {
       _mrnas.push_back(gffmrna);
    }
-   void add_exon(exonPtr exon);
+   void add_exon(exonPtr exon, GffmRNA* exon_parent);
    GffmRNA* getRNA(const string rna);
    int num_mRNAs() const{
       return _mrnas.size();
@@ -268,9 +268,11 @@ using genePtr = unique_ptr <GffLoci>;
 class GffSeqData {
 public:
    vector<mrnaPtr> _forward_rnas;
-   vector<mrnaPtr> _reverse_rnas;
+   vector<mrnaPtr> _reverse_rnas; // in each GffmRNA object, exon order is from small-to-large
    vector<mrnaPtr> _unstranded_rnas;
-   vector<genePtr> _genes;
+   vector<genePtr> _genes; // in each GffLoci object, non_dup_exons contain the exons
+                           // according to the order in gff file. Usually in Gff3 format
+                           // the order for minus strand is large-to-small.
    string _g_seq_name;
 
    explicit GffSeqData(const string &g_seq_name):
@@ -280,7 +282,7 @@ public:
 
    int get_gseq_id() const{
       assert(!_genes.empty());
-      return _genes.front()->_iv.chrom();
+      return _genes.front()->_iv.seq_id();
    }
 
    GffmRNA* last_f_rna()
@@ -331,14 +333,15 @@ public:
 class GffReader: public SlineReader{
    string _fname;
 public:
-   vector<unique_ptr<GffSeqData> > & _g_seqs;
+   vector<unique_ptr<GffSeqData> >  _g_seqs;
    LinePtr _gfline;
-   GffReader(vector<unique_ptr<GffSeqData>> & gseqs,const char* f=NULL);
+   explicit GffReader(const char* f=NULL);
    bool nextGffLine();
    void readAll();
    void addGseq(unique_ptr<GffSeqData> gseq){
       _g_seqs.push_back(move(gseq));
    }
+   void reverseExonOrderInMinusStrand();
 };
 
 #endif
