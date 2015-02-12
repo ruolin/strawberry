@@ -116,8 +116,19 @@ double ClusterFactory::next_valid_alignment(){
    return raw_mass;
 }
 
-double ClusterFactory::rewind_hit(const ReadHit& rh){
+double ClusterFactory::rewind_hit(const ReadHit& rh)
+{
    double mass = rh.mass();
    _hit_factory->undo_hit();
    return mass;
+}
+
+bool ClusterFactory::nextCluster(HitCluster &clusterout)
+{
+   const ReadHit *bh = NULL;
+   while(bh == NULL){
+      if(!_hit_factory->recordsRemain()) return false;
+      double mass = next_valid_alignment();
+   }
+
 }
