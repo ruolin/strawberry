@@ -285,6 +285,25 @@ public:
       return _genes.front()->_iv.seq_id();
    }
 
+   void set_gseq_id(int id)
+   {
+      for(auto &g : _genes){
+         g->_iv.set_seq_id(id);
+         for(auto &e : g->_non_dup_exons){
+            e->_iv.set_seq_id(id);
+         }
+      }
+      for(auto &m : _forward_rnas){
+         m->_iv.set_seq_id(id);
+      }
+      for(auto &m: _reverse_rnas){
+         m->_iv.set_seq_id(id);
+      }
+      for(auto &m: _unstranded_rnas){
+         m->_iv.set_seq_id(id);
+      }
+   }
+
    GffmRNA* last_f_rna()
    {
       return &(*_forward_rnas.back());

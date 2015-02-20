@@ -166,6 +166,7 @@ public:
 
   uint left() const;
   uint right() const;
+  void set_seq_id(int id);
   void set_left(uint l);
   void set_right(uint r);
   char strand() const;

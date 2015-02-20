@@ -114,3 +114,29 @@ Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is
       assert(_genomic_feats.back()._code == S_MATCH);
    }
 
+
+int Contig::left() const
+{
+   return _genomic_feats.front().g_left();
+}
+
+int Contig::right() const
+{
+   return _genomic_feats.back().g_right();
+}
+
+bool Contig::operator<(const Contig &rhs) const
+{
+   if(_ref_id != rhs._ref_id){
+      return _ref_id < rhs._ref_id;
+   }
+   if(left() != rhs.left()){
+      return left() < rhs.left();
+   }
+   return false;
+}
+
+RefID Contig::get_ref_id() const
+{
+   return _ref_id;
+}

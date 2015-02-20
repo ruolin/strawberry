@@ -24,6 +24,8 @@ public:
    std::vector<Contig*> _ref_contigs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
    HitCluster(): _id(++_next_id){}
+   bool addOpenHit(const ReadHit &hit);
+   bool addFirstHit(const ReadHit& hit);
 };
 
 
@@ -31,6 +33,8 @@ public:
 
 
 class ClusterFactory{
+   static const int _kMaxFragsSize = 1000000;
+   static const int _kMinOlapDist = 50;
    unique_ptr<HitFactory> _hit_factory;
    int _num_cluster = 0;
    std::vector<Contig>::iterator _next_ref_mRNA;
@@ -38,7 +42,7 @@ class ClusterFactory{
    RefID _prev_ref_id = 0;
 public:
    ReadHit _last_hit; // Record the hit that next_valid_alignment() read in.
-   std::vector<Contig> _ref_mRNAs;
+   std::vector< std::vector<Contig>> _ref_mRNAs; // sort by seq_id in reference_table
    ClusterFactory(unique_ptr<HitFactory> hit_fac):
       _hit_factory(move(hit_fac))
    {}

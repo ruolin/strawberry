@@ -211,6 +211,9 @@ char GenomicInterval::strand() const { return _strand;}
 
 int GenomicInterval::seq_id() const { return _seq_id;}
 
+void GenomicInterval::set_seq_id(int id) {
+   _seq_id = id;
+}
 uint GenomicInterval::len() const { return _right-_left+1;}
 
 

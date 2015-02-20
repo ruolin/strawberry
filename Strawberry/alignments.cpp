@@ -7,17 +7,22 @@
 
 #include "alignments.h"
 #include "fasta.h"
+#include <algorithm>
 #ifdef DEBUG
    #include <iostream>
 #endif
 using namespace std;
 
+bool HitCluster::addOpenHit(const ReadHit &hit){
+
+}
 
 bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt,
       const char *seqFile)
 {
    //sort gseqs accroding to the observation order in ref_table
    // or if ref_table is empty, initialize it according to gseqs
+   //ref_id in ref_table start from 0.
    if(rt.size() == 0){
       for(uint i=0; i<gseqs.size(); ++i){
          rt.get_id(gseqs[i]->_g_seq_name);
@@ -25,24 +30,32 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
    } else{
       for(uint i = 0; i<gseqs.size(); ++i){
          int idx = gseqs[i]->get_gseq_id();
-         if( idx != rt.get_id(gseqs[i]->_g_seq_name) ){
+         int ref_table_id = rt.get_id(gseqs[i]->_g_seq_name);
+         if( idx != ref_table_id ){
             SMessage("Warning: Sam file and Gff file are not sorted in the same order!\n");
-            swap(gseqs[i], gseqs[idx]);
+            gseqs[i]->set_gseq_id(ref_table_id);
          }
       }
+      sort(gseqs.begin(),gseqs.end(),
+            [](const unique_ptr<GffSeqData> &lhs, const unique_ptr<GffSeqData> &rhs){
+               return lhs->get_gseq_id() < rhs->get_gseq_id();
+      });
    }
    FaInterface fa_api;
    FaSeqGetter *fsg = NULL;
+
+   // load sequencing if required
    if(seqFile != NULL){
       fa_api.initiate(seqFile);
    }
-   for(uint i = 0; i<gseqs.size(); ++i){//begin for loop
+   for(uint i = 0; i<gseqs.size(); ++i){// for loop for each chromosome
       GffSeqData * gseq = &(*gseqs[i]);
       int f = 0;
       int r = 0;
       int u = 0;
       RefID ref_id = rt.get_id(gseqs[i]->_g_seq_name);
       GffmRNA *mrna = NULL;
+      vector<Contig> ref_mrna_for_chr;
       if(fa_api.hasLoad()){
          delete fsg;
          fsg = NULL;
@@ -78,8 +91,11 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
             }
          }
          Contig ref_contig(ref_id, strand, feats, true);
-         _ref_mRNAs.push_back(ref_contig);
+         ref_mrna_for_chr.push_back(ref_contig);
       }// end while loop
+      sort(ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
+      _ref_mRNAs.push_back(move(ref_mrna_for_chr));
+      ref_mrna_for_chr.clear();
    }//end for loop
    delete fsg;
    fsg = NULL;
@@ -89,7 +105,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
 double ClusterFactory::next_valid_alignment(){
    const char* hit_buf=NULL;
    size_t hit_buf_size = 0;
-   double raw_mass = 0;
+   double raw_mass = 0.0;
    while(true){
       if(!_hit_factory->nextRecord(hit_buf, hit_buf_size)) break;
 
@@ -122,6 +138,7 @@ double ClusterFactory::rewind_hit(const ReadHit& rh)
    _hit_factory->undo_hit();
    return mass;
 }
+
 
 bool ClusterFactory::nextCluster(HitCluster &clusterout)
 {

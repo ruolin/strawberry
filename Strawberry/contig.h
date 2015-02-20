@@ -62,6 +62,10 @@ class Contig{
 public:
    std::vector<GenomicFeature> _genomic_feats;
    Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is_ref);
+   int left() const;
+   int right() const;
+   bool operator<(const Contig &rhs) const;
+   RefID get_ref_id() const;
 };
 
 #endif /* CONTIG_H_ */

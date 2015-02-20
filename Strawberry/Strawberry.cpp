@@ -17,10 +17,10 @@ using namespace std;
 
 
 int main(){
-   const char *path = "/home/ruolin/Dropbox/Arabidopsis";
-   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
+   const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
+   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   const char *bam_file = "/home/ruolin/Dropbox/StrawberryWetFT1.sm.bam";
+   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
    //FaInterface fa_api(path);
    //FaSeqGetter fsg;
    //fa_api.load2FaSeqGetter(fsg, "mitochondria");
@@ -36,15 +36,20 @@ int main(){
    RefSeqTable ref_seq_table(true);
    unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
    hf->inspect_header();
-   cout<<ref_seq_table.size()<<endl;
+   //cout<<ref_seq_table.size()<<endl;
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-   while(true){
-      double mass =read_clusters.next_valid_alignment();
-      if(mass == 0.0){
-         break;
-      }
-   };
+   cout<<read_clusters._ref_mRNAs[1].size()<<endl;
+   for(auto &i: read_clusters._ref_mRNAs[1]){
+      cout<<i.left()<<":"<<i.get_ref_id()<<endl;
+   }
+//   while(true){
+//      double mass =read_clusters.next_valid_alignment();
+//      if(mass == 0.0){
+//         cout<<read_clusters._last_hit.interval().seq_id()<<endl;
+//         break;
+//      }
+//   };
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cout << chrono::duration <double, milli> (diff).count() << " ms" << endl;
