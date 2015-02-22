@@ -152,7 +152,7 @@ public:
    RefSeqTable& _ref_table;
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
    HitFactory(HitFactory &rhs) = delete; //non-copible class.
-   HitFactory& operator=(HitFactory &rhs) = delete; // non-copible class
+   HitFactory& operator=(const HitFactory &rhs) = delete; // non-copible class
    HitFactory(HitFactory &&rhs) = default;
    HitFactory& operator=(HitFactory &&rhs) = default;
    virtual ~HitFactory() = default;
@@ -184,6 +184,7 @@ public:
    BAMHitFactory(const string& bam_file_name,
                  ReadTable& read_table,
                  RefSeqTable &ref_table) throw(runtime_error);
+   ~BAMHitFactory();
    bool recordsRemain() const;
    void markCurrPos();
    void reset();
@@ -193,7 +194,7 @@ public:
    bool inspect_header();
 };
 
-typedef unique_ptr<const ReadHit> ReadHitPtr;
+typedef shared_ptr<ReadHit> ReadHitPtr;
 
 //PairedHit solely own the ReadHit objects by
 //using unique_ptr
@@ -207,12 +208,13 @@ public:
    PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead);
    ReadHitPtr left_read();
    void set_left_read(ReadHitPtr lr);
+   char strand() const;
    ReadHitPtr right_read();
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;
    RefID ref_seq_id() const;
-   int left_pos() const;
-   int right_pos() const;
+   uint left_pos() const;
+   uint right_pos() const;
    uint edit_dist() const;
    bool contains_splice() const;
    ReadID read_id() const;

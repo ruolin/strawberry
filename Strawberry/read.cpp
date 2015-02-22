@@ -140,6 +140,14 @@ BAMHitFactory::BAMHitFactory(const string& bam_file_name,
 
 }
 
+BAMHitFactory::~BAMHitFactory()
+{
+   if (_hit_file){
+      samclose(_hit_file);
+      free(_next_hit.data);
+   }
+}
+
 bool BAMHitFactory::inspect_header()
 {
    bam_header_t* header = _hit_file->header;
@@ -219,8 +227,8 @@ bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size)
 bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    const bam1_t* hit_buf = (const bam1_t*)orig_bwt_buf;
    uint32_t sam_flag = hit_buf->core.flag;
-   int pos = hit_buf->core.pos;
-   int mate_pos = hit_buf->core.mpos;
+   int pos = hit_buf->core.pos + 1; // BAM file index starts at 0
+   int mate_pos = hit_buf->core.mpos + 1; // BAM file index starts at 0
    int target_id = hit_buf->core.tid;
    int mate_target_id = hit_buf->core.mtid;
    string mate_text_name;
@@ -307,7 +315,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       mate_pos = 0;
    }
 
-   char source_strand = '.';
+   char source_strand = GenomicInterval::kStrandUnknown;
    unsigned char num_mismatches = 0;
 
    uint8_t* ptr = bam_aux_get(hit_buf, "XS");
@@ -360,6 +368,20 @@ PairedHit::PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead):
 
 ReadHitPtr PairedHit::left_read() {return move(_left_read);}
 
+char PairedHit::strand() const {
+   if(_right_read && _left_read){
+      assert(_right_read->strand() == _left_read->strand() ||
+            _right_read->strand() == GenomicInterval::kStrandUnknown ||
+            _left_read->strand() == GenomicInterval::kStrandUnknown);
+         return _left_read->strand();
+   } else if (_left_read)
+      return _left_read->strand();
+   else if (_right_read)
+      return _right_read->strand();
+   else
+      return 0;
+}
+
 void PairedHit::set_left_read(ReadHitPtr lr)
 {
    _left_read = move(lr);
@@ -372,7 +394,7 @@ void PairedHit::set_right_read(ReadHitPtr rr)
    _right_read = move(rr);
 }
 
-int PairedHit::left_pos() const{
+uint PairedHit::left_pos() const{
    if(_right_read && _left_read){
       return min(_right_read->left(), _left_read->left());
    }
@@ -384,7 +406,7 @@ int PairedHit::left_pos() const{
       return -1;
 }
 
-int PairedHit::right_pos() const{
+uint PairedHit::right_pos() const{
    if(_right_read && _left_read){
       return max(_right_read->right(), _left_read->right());
    }

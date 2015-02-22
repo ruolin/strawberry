@@ -11,21 +11,32 @@
 #include "contig.h"
 #include "gff.h"
 class HitCluster{
-   int _leftmost = INT_MAX;
-   int _rightmost = -1;
+   uint _leftmost = UINT_MAX;
+   uint _rightmost = 0;
    int _id;
-   RefID _ref_id = 0;
+   RefID _ref_id = -1;
    bool _final = false;
    double _raw_mass = 0.0;
-   static int _next_id;
+   static int _next_id ;
+   std::unordered_map<int, shared_ptr<PairedHit>> _open_mates;
 public:
-   std::vector<PairedHit> _hits;
+   static const int _kMaxGeneLen = 1000000;
+   static const int _kMaxFragsSize = 100000;
+   std::vector<shared_ptr<PairedHit>> _hits;
    std::vector<PairedHit> _non_redundant;
    std::vector<Contig*> _ref_contigs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
-   HitCluster(): _id(++_next_id){}
-   bool addOpenHit(const ReadHit &hit);
-   bool addFirstHit(const ReadHit& hit);
+   HitCluster();
+   RefID ref_id() const;
+   uint left() const;
+   uint right() const;
+   int size() const;
+   bool addHit(const shared_ptr<PairedHit> &hit);
+   bool addOpenHit(shared_ptr<ReadHit> hit);
+   void addRefContig(Contig *contig);
+   int numOpenMates() const{
+      return _open_mates.size();
+   }
 };
 
 
@@ -33,24 +44,33 @@ public:
 
 
 class ClusterFactory{
-   static const int _kMaxFragsSize = 1000000;
    static const int _kMinOlapDist = 50;
    unique_ptr<HitFactory> _hit_factory;
    int _num_cluster = 0;
-   std::vector<Contig>::iterator _next_ref_mRNA;
    uint _prev_pos = 0;
-   RefID _prev_ref_id = 0;
+   RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
+   uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
+   int _refmRNA_offset;
+   bool _has_load_all_refs;
 public:
-   ReadHit _last_hit; // Record the hit that next_valid_alignment() read in.
-   std::vector< std::vector<Contig>> _ref_mRNAs; // sort by seq_id in reference_table
+   std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    ClusterFactory(unique_ptr<HitFactory> hit_fac):
-      _hit_factory(move(hit_fac))
+      _hit_factory(move(hit_fac)),
+      _refmRNA_offset(0),
+      _has_load_all_refs(false)
    {}
-   bool nextCluster(HitCluster & clusterOut);
+
    bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
-   int num_refmRNA() const {
-      return _ref_mRNAs.size();
+   bool hasLoadRefmRNAs() const {
+      return _ref_mRNAs.size() > 0;
    }
-   double next_valid_alignment();
+   double next_valid_alignment(ReadHit& readin);
    double rewind_hit(const ReadHit& rh);
+   int addRef2Cluster(HitCluster &clusterOut);
+   int nextCluster_denovo(HitCluster &clusterOut);
+   int nextCluster_refGuide(HitCluster & clusterOut);
+
 };
+
+bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster);
+bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster);

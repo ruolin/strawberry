@@ -250,6 +250,7 @@ void FaInterface::initiate(const char* fpath){
 //            #endif
          }
       }
+      closedir(dir);
       break;
    default:
       SError("Error: not a valid file or directory!\n", fpath);

@@ -8,13 +8,106 @@
 #include "alignments.h"
 #include "fasta.h"
 #include <algorithm>
+#include <random>
 #ifdef DEBUG
    #include <iostream>
 #endif
 using namespace std;
 
-bool HitCluster::addOpenHit(const ReadHit &hit){
+int HitCluster::_next_id =0;
+HitCluster::HitCluster(): _id(++_next_id){}
 
+RefID HitCluster::ref_id() const{
+   return _ref_id;
+}
+
+void HitCluster::addRefContig(Contig * contig){
+   if(_ref_id != -1){
+      assert(_ref_id == contig->ref_id());
+   }
+   else{
+      _ref_id = contig->ref_id();
+   }
+   _leftmost = min(_leftmost, contig->left());
+   _rightmost = max(_rightmost, contig->right());
+   _ref_contigs.push_back(contig);
+}
+
+uint HitCluster::left() const {
+   return _leftmost;
+}
+uint HitCluster::right() const{
+   return _rightmost;
+}
+
+int HitCluster::size() const {
+   return _hits.size();
+}
+
+bool HitCluster::addHit(const shared_ptr<PairedHit> &hit){
+   if(_final){
+      return false;
+   }
+   _leftmost = min(_leftmost, hit->left_pos());
+   _rightmost = max(_rightmost, hit->right_pos());
+   _hits.push_back(hit);
+   return true;
+}
+
+
+bool HitCluster::addOpenHit(shared_ptr<ReadHit> hit)
+{
+   if(hit->right() - hit->left() > _kMaxGeneLen){
+      SMessage("Warning: hit start at %d is longer than max gene length, skipping\n", hit->left());
+      return false;
+   }
+   if(hit->is_singleton()){
+      _ref_id = hit->interval().seq_id();
+      shared_ptr<PairedHit> ph( new PairedHit(hit, nullptr));
+      addHit(ph);
+   }
+   else{
+     unordered_map<int, shared_ptr<PairedHit>>::iterator iter_open = _open_mates.find(hit->left());
+      if( iter_open == _open_mates.end()){
+         if(hit->left() <= hit->partner_pos()){
+            shared_ptr<PairedHit> open_hit (new PairedHit(hit, nullptr));
+            unordered_map<int, shared_ptr<PairedHit>>::iterator ins_pos;
+            bool status;
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit->partner_pos(), open_hit));
+            if(!status) SMessage("Warning: Inserting read into open_mats failed\n");
+         } else{
+            return false;
+         }
+      } else{
+         bool found_mate = false;
+         if(iter_open->second->ref_seq_id() != hit->ref_id())
+            return false;
+
+         bool strand_agree = iter_open->second->strand() == hit->strand() ||
+               iter_open->second->strand() == GenomicInterval::kStrandUnknown ||
+               hit->strand() == GenomicInterval::kStrandUnknown;
+         if(iter_open->second->left_pos() == hit->partner_pos() && strand_agree){
+            iter_open->second->set_right_read(move(hit));
+            addHit(iter_open->second);
+            _open_mates.erase(iter_open);
+            found_mate = true;
+         }
+
+         if(!found_mate){
+            if(hit->left() <= hit->partner_pos()){
+               shared_ptr<PairedHit> open_hit (new PairedHit(hit, nullptr));
+              unordered_map<int, shared_ptr<PairedHit>>::iterator ins_pos;
+               bool status;
+               tie(ins_pos, status) = _open_mates.insert(make_pair(hit->partner_pos(), open_hit));
+               if(!status) SMessage("Warning: Inserting read into open_mats failed\n");
+            } else{
+               return false;
+            }
+         }// end if(!found_partern)
+      }
+
+   }
+   return true;
 }
 
 bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt,
@@ -94,7 +187,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
          ref_mrna_for_chr.push_back(ref_contig);
       }// end while loop
       sort(ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
-      _ref_mRNAs.push_back(move(ref_mrna_for_chr));
+      _ref_mRNAs.insert(_ref_mRNAs.end(), ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
       ref_mrna_for_chr.clear();
    }//end for loop
    delete fsg;
@@ -102,31 +195,33 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
    return true;
 }
 
-double ClusterFactory::next_valid_alignment(){
+double ClusterFactory::next_valid_alignment(ReadHit& readin){
    const char* hit_buf=NULL;
    size_t hit_buf_size = 0;
    double raw_mass = 0.0;
    while(true){
-      if(!_hit_factory->nextRecord(hit_buf, hit_buf_size)) break;
+      if(!_hit_factory->nextRecord(hit_buf, hit_buf_size)) {
+         break;
+      }
 
-      ReadHit tmp;
-      if(!_hit_factory->getHitFromBuf(hit_buf, tmp)) continue;
-      if(tmp.ref_id() == -1) continue; // unmapped read
-      raw_mass += tmp.mass(); // suck in read mass for future if mask_gtf is used.
+      if(!_hit_factory->getHitFromBuf(hit_buf, readin)) continue;
+      if(readin.ref_id() == -1) continue; // unmapped read
+      raw_mass += readin.mass(); // suck in read mass for future if mask_gtf is used.
 
-      if(!_last_hit.left() == 1 || !_last_hit.right() == 0){
-         if(_last_hit.ref_id() > tmp.ref_id() ||
-               ( _last_hit.ref_id() == tmp.ref_id() && _last_hit.left() > tmp.left())
+      if(_prev_hit_ref_id != -1){
+         if(_prev_hit_ref_id > readin.ref_id() ||
+               ( _prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
            )
          {
-            const string cur_chr_name = _hit_factory->_ref_table.ref_name(tmp.ref_id());
-            const string last_chr_name = _hit_factory->_ref_table.ref_name(_last_hit.ref_id());
+            const string cur_chr_name = _hit_factory->_ref_table.ref_name(readin.ref_id());
+            const string last_chr_name = _hit_factory->_ref_table.ref_name(_prev_hit_ref_id);
             SError("Error:BAM file not sort correctly! The current position is %s:%d and previous position is %s:%d.\n",
-                  cur_chr_name.c_str(), tmp.left(), last_chr_name.c_str(), _last_hit.left());
+                  cur_chr_name.c_str(), readin.left(), last_chr_name.c_str(), _prev_hit_pos);
          }
       }
 
-      _last_hit = move(tmp);
+      _prev_hit_ref_id = readin.ref_id();
+      _prev_hit_pos = readin.left();
       break;
    }
    return raw_mass;
@@ -139,13 +234,98 @@ double ClusterFactory::rewind_hit(const ReadHit& rh)
    return mass;
 }
 
-
-bool ClusterFactory::nextCluster(HitCluster &clusterout)
-{
-   const ReadHit *bh = NULL;
-   while(bh == NULL){
-      if(!_hit_factory->recordsRemain()) return false;
-      double mass = next_valid_alignment();
+int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
+   if(_refmRNA_offset >= _ref_mRNAs.size())
+      return 0;
+   clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+   for(auto ref: clusterOut._ref_contigs){
+      if(Contig::overlaps(*ref, _ref_mRNAs[_refmRNA_offset])){
+         clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+      }
    }
+   return clusterOut._ref_contigs.size();
+}
 
+int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut){
+   if(!_hit_factory->recordsRemain()) return -1;
+   while(true){
+      shared_ptr<ReadHit> new_hit(new ReadHit());
+      double mass = next_valid_alignment(*new_hit);
+      //cout<<new_hit->left()<<endl;
+      if(!_hit_factory->recordsRemain()){
+         return clusterOut.size();
+      }
+      if(clusterOut.size() == 0){ // add first hit
+         clusterOut.addOpenHit(new_hit);
+      } else { //add the rest
+         if(hit_lt_cluster(*new_hit, clusterOut)){
+            // read hasn't reach reference region
+            continue;
+         }
+         if(hit_gt_cluster(*new_hit, clusterOut)){
+            // read has gone to far.
+            rewind_hit(*new_hit);
+            break;
+         }
+         clusterOut.addOpenHit(new_hit);
+      }
+   }
+   return clusterOut.size();
+}
+
+
+int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
+{
+   bool skip_read = false;
+   if(!_hit_factory->recordsRemain()) return -1;
+   // add first hit
+   if(hasLoadRefmRNAs()){
+      // all ref mRNAs have been loaded but alignments haven't
+      if( addRef2Cluster(clusterOut) == 0){
+         //return -1;
+         return nextCluster_denovo(clusterOut);
+      }
+   // add as many as possible until encounter gap > _kMinOlapDist
+      while(true){
+         shared_ptr<ReadHit> new_hit(new ReadHit());
+         double mass = next_valid_alignment(*new_hit);
+         if(!_hit_factory->recordsRemain())
+            return clusterOut.size();
+         if(hit_lt_cluster(*new_hit, clusterOut)){
+            // read hasn't reach reference region
+            continue;
+         }
+         if(hit_gt_cluster(*new_hit, clusterOut)){
+            // read has gone to far.
+            rewind_hit(*new_hit);
+            break;
+         }
+         clusterOut.addOpenHit(new_hit);
+         if(clusterOut._hits.size() >= HitCluster::_kMaxFragsSize ){
+            random_device rd;
+            mt19937 gen(rd());
+            uniform_int_distribution<> dis(1, clusterOut._hits.size());
+         }
+
+      } // end while loop
+   } // end loadRefmRNAs
+   return clusterOut.size();
+}
+
+
+bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster){
+   if(hit.ref_id() != cluster.ref_id())
+      return hit.ref_id() < cluster.ref_id();
+   else
+      return hit.right() < cluster.left();
+}
+
+bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster){
+   if(hit.ref_id() != cluster.ref_id()){
+      //cout<<"shouldn't\t"<<hit.ref_id()<<":"<<cluster.ref_id()<<endl;
+      return hit.ref_id() > cluster.ref_id();
+   }
+   else{
+      return hit.left() > cluster.right();
+   }
 }

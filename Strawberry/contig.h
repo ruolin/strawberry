@@ -24,10 +24,10 @@ public:
    uint _genomic_offset;
    int _genomic_length;
    GenomicFeature(const Op_t& cc, uint offset, int len);
-   void g_left(uint left);
-   uint g_left() const;
-   void g_right(uint right);
-   uint g_right() const;
+   void left(uint left);
+   uint left() const;
+   void right(uint right);
+   uint right() const;
 
    static bool overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs);
 
@@ -42,7 +42,7 @@ public:
    bool operator<(const GenomicFeature & rhs) const;
 
    void printOut(){
-      printf("<%d,%d>\n", g_left(),g_right());
+      printf("<%d,%d>\n", left(), right());
    }
 };
 
@@ -62,10 +62,11 @@ class Contig{
 public:
    std::vector<GenomicFeature> _genomic_feats;
    Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is_ref);
-   int left() const;
-   int right() const;
+   uint left() const;
+   uint right() const;
+   static bool overlaps(const Contig &lhs, const Contig &rhs);
    bool operator<(const Contig &rhs) const;
-   RefID get_ref_id() const;
+   RefID ref_id() const;
 };
 
 #endif /* CONTIG_H_ */

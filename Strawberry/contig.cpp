@@ -20,49 +20,49 @@ GenomicFeature::GenomicFeature(const Op_t& cc, uint offset, int len):
    assert (_genomic_length >= 0);
 }
 
-void GenomicFeature::g_left(uint left)
+void GenomicFeature::left(uint left)
 {
       int right = _genomic_offset + _genomic_length;
       _genomic_offset = left;
       _genomic_length = right -left;
 }
 
-uint GenomicFeature::g_left() const { return _genomic_offset;}
+uint GenomicFeature::left() const { return _genomic_offset;}
 
-uint GenomicFeature::g_right() const
+uint GenomicFeature::right() const
 {
    return _genomic_offset + _genomic_length-1;
 }
 
-void GenomicFeature::g_right(uint right)
+void GenomicFeature::right(uint right)
 {
       _genomic_length = right - _genomic_offset + 1;
 }
 
 bool GenomicFeature::overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs)
 {
-   if (lhs.g_left() >= rhs.g_left() && lhs.g_left() < rhs.g_right())
+   if (lhs.left() >= rhs.left() && lhs.left() < rhs.right())
       return true;
-   if (lhs.g_right() > rhs.g_left() && lhs.g_right() < rhs.g_right())
+   if (lhs.right() > rhs.left() && lhs.right() < rhs.right())
       return true;
-   if (rhs.g_left() >= lhs.g_left() && rhs.g_left() < lhs.g_right())
+   if (rhs.left() >= lhs.left() && rhs.left() < lhs.right())
       return true;
-   if (rhs.g_right() > lhs.g_left() && rhs.g_right() < lhs.g_right())
+   if (rhs.right() > lhs.left() && rhs.right() < lhs.right())
       return true;
    return false;
 }
 
 bool GenomicFeature::contains(const GenomicFeature& other) const
 {
-   if (g_left() <= other.g_left() && g_right() >= other.g_right())
+   if (left() <= other.left() && right() >= other.right())
       return true;
    return false;
 }
 
 bool GenomicFeature::properly_contains(const GenomicFeature& other) const
 {
-   if( (g_left() < other.g_left() && g_right() >= other.g_right() ) ||
-         (g_left() <= other.g_left() && g_right() > other.g_right()) )
+   if( (left() < other.left() && right() >= other.right() ) ||
+         (left() <= other.left() && right() > other.right()) )
       return true;
    return false;
 }
@@ -70,7 +70,7 @@ bool GenomicFeature::properly_contains(const GenomicFeature& other) const
 int match_length(const GenomicFeature &op, int left, int right)
 {
    int len = 0;
-   int left_off = op.g_left();
+   int left_off = op.left();
    if(left_off + op._genomic_length > left && left_off < right){
       if(left_off > left){
          if(left_off + op._genomic_length <= right + 1)
@@ -115,14 +115,14 @@ Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is
    }
 
 
-int Contig::left() const
+uint Contig::left() const
 {
-   return _genomic_feats.front().g_left();
+   return _genomic_feats.front().left();
 }
 
-int Contig::right() const
+uint Contig::right() const
 {
-   return _genomic_feats.back().g_right();
+   return _genomic_feats.back().right();
 }
 
 bool Contig::operator<(const Contig &rhs) const
@@ -136,7 +136,21 @@ bool Contig::operator<(const Contig &rhs) const
    return false;
 }
 
-RefID Contig::get_ref_id() const
+RefID Contig::ref_id() const
 {
    return _ref_id;
+}
+
+bool Contig::overlaps(const Contig &lhs, const Contig &rhs){
+   if(lhs.ref_id() != rhs.ref_id())
+      return false;
+   if (lhs.left() >= rhs.left() && lhs.left() < rhs.right())
+      return true;
+   if (lhs.right() > rhs.left() && lhs.right() < rhs.right())
+      return true;
+   if (rhs.left() >= lhs.left() && rhs.left() < lhs.right())
+      return true;
+   if (rhs.right() > lhs.left() && rhs.right() < lhs.right())
+      return true;
+   return false;
 }
