@@ -417,7 +417,7 @@ uint PairedHit::right_pos() const{
    else if(_right_read)
       return _right_read->right();
    else if(_left_read)
-      return _left_read->left();
+      return _left_read->right();
    else
       return -1;
 }
@@ -453,7 +453,7 @@ ReadID PairedHit::read_id() const
    return 0;
 }
 
-RefID PairedHit::ref_seq_id() const
+RefID PairedHit::ref_id() const
 {
    if(_left_read && _right_read)
       assert(_left_read->interval().seq_id() == _right_read->interval().seq_id());

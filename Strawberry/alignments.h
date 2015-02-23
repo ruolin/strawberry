@@ -24,15 +24,21 @@ public:
    static const int _kMaxFragPerCluster = 100000;
    std::vector<PairedHit> _hits;
    std::vector<PairedHit> _non_redundant;
-   std::vector<Contig*> _ref_contigs; // the actually objects are owned by ClusterFactory
+   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
    HitCluster();
    RefID ref_id() const;
+   void ref_id(RefID id);
    uint left() const;
+   void left(uint left);
+   void right(uint right);
    uint right() const;
    int size() const;
    bool addHit(const PairedHit &hit);
    bool addOpenHit(unique_ptr<ReadHit> hit);
+   bool hasRefmRNAs() const {
+      return _ref_mRNAs.size() > 0;
+   }
    void addRefContig(Contig *contig);
    int numOpenMates() const{
       return _open_mates.size();
@@ -65,11 +71,14 @@ public:
       return _ref_mRNAs.size() > 0;
    }
    double next_valid_alignment(ReadHit& readin);
-   double rewind_hit(const ReadHit& rh);
+   double rewindHit(const ReadHit& rh);
    int addRef2Cluster(HitCluster &clusterOut);
-   int nextCluster_denovo(HitCluster &clusterOut);
-   int nextCluster_refGuide(HitCluster & clusterOut);
+   int nextCluster_denovo(HitCluster &clusterOut,
+                           uint next_ref_start_pos = UINT_MAX,
+                           RefID next_ref_start_ref=INT_MAX);
 
+   int nextCluster_refGuide(HitCluster & clusterOut);
+   void rewindReference(HitCluster &clusterOut, int num_regress);
 };
 
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster);

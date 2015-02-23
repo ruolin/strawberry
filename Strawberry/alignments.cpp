@@ -17,11 +17,18 @@ using namespace std;
 int HitCluster::_next_id =0;
 HitCluster::HitCluster(): _id(++_next_id){}
 
-RefID HitCluster::ref_id() const{
+RefID HitCluster::ref_id() const
+{
    return _ref_id;
 }
 
-void HitCluster::addRefContig(Contig * contig){
+void HitCluster::ref_id(RefID id)
+{
+   _ref_id = id;
+}
+
+void HitCluster::addRefContig(Contig *contig)
+{
    if(_ref_id != -1){
       assert(_ref_id == contig->ref_id());
    }
@@ -30,14 +37,25 @@ void HitCluster::addRefContig(Contig * contig){
    }
    _leftmost = min(_leftmost, contig->left());
    _rightmost = max(_rightmost, contig->right());
-   _ref_contigs.push_back(contig);
+   _ref_mRNAs.push_back(contig);
 }
 
-uint HitCluster::left() const {
+uint HitCluster::left() const
+{
    return _leftmost;
 }
-uint HitCluster::right() const{
+uint HitCluster::right() const
+{
    return _rightmost;
+}
+
+void HitCluster::left(uint left)
+{
+   _leftmost = left;
+}
+void HitCluster::right(uint right)
+{
+   _rightmost = right;
 }
 
 int HitCluster::size() const {
@@ -48,9 +66,22 @@ bool HitCluster::addHit(const PairedHit &hit){
    if(_final){
       return false;
    }
-   assert(hit.left_read()->_cigar.front() == MATCH);
-   _leftmost = min(_leftmost, hit.left_pos());
-   _rightmost = max(_rightmost, hit.right_pos());
+   if(_ref_id != -1){
+      assert(_ref_id == hit.ref_id());
+   }
+   else{
+      _ref_id = hit.ref_id();
+   }
+#ifdef DEBUG
+   if(hit.left_read()){
+       assert(hit.left_read()->_cigar.front().opcode == MATCH ||
+             hit.left_read()->_cigar.front().opcode == SOFT_CLIP);
+   }
+   if(hit.right_read()){
+         assert(hit.right_read()->_cigar.back().opcode == MATCH||
+               hit.right_read()->_cigar.back().opcode == SOFT_CLIP);
+   }
+#endif
    _hits.push_back(hit);
    return true;
 }
@@ -58,14 +89,16 @@ bool HitCluster::addHit(const PairedHit &hit){
 
 bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit)
 {
-   int hit_left = hit->left();
-   int hit_right = hit_right;
+   uint hit_left = hit->left();
+   uint hit_right = hit->right();
    char hit_strand = hit->strand();
    RefID hit_ref_id = hit->ref_id();
    uint hit_partner_pos = hit->partner_pos();
    ReadID hit_id = hit->read_id();
+   _leftmost = min(_leftmost, hit_left);
+   _rightmost = max(_rightmost, hit_right);
 
-   if(abs(hit_right - hit_left) > _kMaxGeneLen){
+   if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
 
       SMessage("Warning: hit start at %d is longer than max gene length, skipping\n", hit_left);
       return false;
@@ -89,7 +122,7 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit)
          }
       } else{
 
-         if(iter_open->second->ref_seq_id() != hit_ref_id)
+         if(iter_open->second->ref_id() != hit_ref_id)
             return false;
 
          bool strand_agree = iter_open->second->strand() == hit_strand ||
@@ -222,7 +255,7 @@ double ClusterFactory::next_valid_alignment(ReadHit& readin){
    return raw_mass;
 }
 
-double ClusterFactory::rewind_hit(const ReadHit& rh)
+double ClusterFactory::rewindHit(const ReadHit& rh)
 {
    double mass = rh.mass();
    _hit_factory->undo_hit();
@@ -233,15 +266,28 @@ int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
    if(_refmRNA_offset >= _ref_mRNAs.size())
       return 0;
    clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
-   for(auto ref: clusterOut._ref_contigs){
+   for(auto ref: clusterOut._ref_mRNAs){
       if(Contig::overlaps(*ref, _ref_mRNAs[_refmRNA_offset])){
          clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
       }
    }
-   return clusterOut._ref_contigs.size();
+   return clusterOut._ref_mRNAs.size();
 }
 
-int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut){
+void ClusterFactory::rewindReference(HitCluster &clusterOut , int num_regress) {
+   clusterOut.left(UINT_MAX);
+   clusterOut.right(0);
+   clusterOut.ref_id(-1);
+   clusterOut._ref_mRNAs.clear();
+   _refmRNA_offset -= num_regress;
+   assert(_refmRNA_offset >= 0);
+}
+
+int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
+                                       uint next_ref_start_pos,
+                                       RefID next_ref_start_ref
+                                       )
+{
    if(!_hit_factory->recordsRemain()) return -1;
    while(true){
       unique_ptr<ReadHit> new_hit(new ReadHit());
@@ -250,16 +296,26 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut){
       if(!_hit_factory->recordsRemain()){
          return clusterOut.size();
       }
+
+      if(new_hit->ref_id() > next_ref_start_ref ||
+        (new_hit->ref_id() == next_ref_start_ref && new_hit->right() >= next_ref_start_pos)){
+         rewindHit(*new_hit);
+         return clusterOut.size();
+      }
+
       if(clusterOut.size() == 0){ // add first hit
          clusterOut.addOpenHit(move(new_hit));
+//#ifdef DEBUG
+//         cout<<clusterOut.right()<<"\t denovo cluster right"<<endl;
+//#endif
       } else { //add the rest
          if(hit_lt_cluster(*new_hit, clusterOut)){
-            // read hasn't reach reference region
-            continue;
+            // should never reach here
+            SMessage("Error in alignments.cpp: It appears that SAM/BAM not sorted!\n");
          }
          if(hit_gt_cluster(*new_hit, clusterOut)){
             // read has gone to far.
-            rewind_hit(*new_hit);
+            rewindHit(*new_hit);
             break;
          }
          clusterOut.addOpenHit(move(new_hit));
@@ -275,26 +331,32 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
    if(!_hit_factory->recordsRemain()) return -1;
    // add first hit
    if(hasLoadRefmRNAs()){
-      // all ref mRNAs have been loaded but alignments haven't
-      if( addRef2Cluster(clusterOut) == 0){
-         //return -1;
+      //if all ref mRNAs have been loaded but alignments haven't
+      int num_added_refmRNA = addRef2Cluster(clusterOut);
+      if( num_added_refmRNA == 0){
          return nextCluster_denovo(clusterOut);
       }
-   // add as many as possible until encounter gap > _kMinOlapDist
+      //else
+      // add as many as possible until encounter gap > _kMinOlapDist
       while(true){
          unique_ptr<ReadHit> new_hit(new ReadHit());
          double mass = next_valid_alignment(*new_hit);
          if(!_hit_factory->recordsRemain())
             return clusterOut.size();
          if(hit_lt_cluster(*new_hit, clusterOut)){
-            rewind_hit(*new_hit);
-            return nextCluster_denovo(clusterOut);
+            rewindHit(*new_hit);
+            uint next_ref_start_pos = _ref_mRNAs[_refmRNA_offset].left();
+            uint next_ref_start_ref = _ref_mRNAs[_refmRNA_offset].ref_id();
+//#ifdef DEBUG
+//            cout<<"next:"<<next_ref_start_pos<<"\t hit chr:"<<new_hit->ref_id()<<"\thit left "<<new_hit->left()<<"\t previous:\t"<<clusterOut.left()<<endl;
+//#endif
+            rewindReference(clusterOut, num_added_refmRNA);
+            return nextCluster_denovo(clusterOut, next_ref_start_pos, next_ref_start_ref);
             // read hasn't reach reference region
          }
          if(hit_gt_cluster(*new_hit, clusterOut)){
-            //cout<<new_hit->left()<<":"<<new_hit->read_id()<<endl;
             // read has gone to far.
-            rewind_hit(*new_hit);
+            rewindHit(*new_hit);
             break;
          }
          clusterOut.addOpenHit(move(new_hit));

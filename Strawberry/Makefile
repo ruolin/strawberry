@@ -1,5 +1,5 @@
 CXX = g++
-CXXFLAGS =	-O3 -g -std=c++11 -Wall #-DDEBUG
+CXXFLAGS =	-O3 -g -std=c++11 -Wall -DDEBUG
 INCLUDES = -I /usr/local/include/bam
 LIBS = -L /usr/local/lib/ -l bam -l z -l pthread
 LDLIBS= -lbam

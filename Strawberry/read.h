@@ -212,7 +212,7 @@ public:
    const ReadHitPtr right_read() const;
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;
-   RefID ref_seq_id() const;
+   RefID ref_id() const;
    uint left_pos() const;
    uint right_pos() const;
    uint edit_dist() const;

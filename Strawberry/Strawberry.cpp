@@ -20,7 +20,7 @@ int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/test.bam";
+   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
    //FaInterface fa_api(path);
    //FaSeqGetter fsg;
    //fa_api.load2FaSeqGetter(fsg, "mitochondria");
@@ -46,7 +46,8 @@ int main(){
    while(true){
       HitCluster cur;
       if(read_clusters.nextCluster_refGuide(cur) != -1){
-         cout<<"cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"\t"<<cur.numOpenMates()<<endl;
+         if(cur.hasRefmRNAs())
+         cout<<"cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
       }
       else{
          break;
