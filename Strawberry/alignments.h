@@ -15,14 +15,14 @@ class HitCluster{
    uint _rightmost = 0;
    int _id;
    RefID _ref_id = -1;
-   bool _final = false;
+   bool _final = false; // HitCluster is finished
    double _raw_mass = 0.0;
    static int _next_id ;
-   std::unordered_map<int, shared_ptr<PairedHit>> _open_mates;
+   std::unordered_map<ReadID, unique_ptr<PairedHit>> _open_mates;
 public:
    static const int _kMaxGeneLen = 1000000;
-   static const int _kMaxFragsSize = 100000;
-   std::vector<shared_ptr<PairedHit>> _hits;
+   static const int _kMaxFragPerCluster = 100000;
+   std::vector<PairedHit> _hits;
    std::vector<PairedHit> _non_redundant;
    std::vector<Contig*> _ref_contigs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
@@ -31,8 +31,8 @@ public:
    uint left() const;
    uint right() const;
    int size() const;
-   bool addHit(const shared_ptr<PairedHit> &hit);
-   bool addOpenHit(shared_ptr<ReadHit> hit);
+   bool addHit(const PairedHit &hit);
+   bool addOpenHit(unique_ptr<ReadHit> hit);
    void addRefContig(Contig *contig);
    int numOpenMates() const{
       return _open_mates.size();

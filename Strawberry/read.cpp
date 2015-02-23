@@ -11,7 +11,7 @@
 #include <string.h>
 #include "read.h"
 
-static const int kMaxIntronLength = 60000;
+static const int kMaxIntronLength = 70000;
 ReadHit::ReadHit(
    ReadID readID,
    GenomicInterval iv,
@@ -67,6 +67,10 @@ GenomicInterval ReadHit::interval() const { return _iv;}
 
 char ReadHit::strand() const {return _iv.strand();}
 
+//vector<CigarOp> ReadHit::cigars() const {
+//   return _cigar;
+//}
+
 uint ReadHit::left() const { return _iv.left();}
 
 int ReadHit::num_mismatch() const { return _num_mismatch;}
@@ -75,8 +79,7 @@ bool ReadHit::is_singleton() const
 {
    return (partner_pos() == 0 ||
          partner_ref_id() == -1 ||
-         partner_ref_id() != ref_id() ||
-         abs(partner_pos() - left()) > max_partner_dist );
+         partner_ref_id() != ref_id());
 }
 
 
@@ -296,6 +299,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          opcode = REF_SKIP;
          is_spliced_alignment = true;
          if(length > (int) kMaxIntronLength){
+            SMessage("length %d is larger than max intron length %d \n", length, kMaxIntronLength);
             return false;
          }
          break;
@@ -366,7 +370,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
 PairedHit::PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead):
             _left_read(move(leftRead)), _right_read(move(rightRead)){}
 
-ReadHitPtr PairedHit::left_read() {return move(_left_read);}
+const ReadHitPtr PairedHit::left_read() const {return move(_left_read);}
 
 char PairedHit::strand() const {
    if(_right_read && _left_read){
@@ -387,7 +391,7 @@ void PairedHit::set_left_read(ReadHitPtr lr)
    _left_read = move(lr);
 }
 
-ReadHitPtr PairedHit::right_read() {return move(_right_read);}
+const ReadHitPtr PairedHit::right_read() const {return move(_right_read);}
 
 void PairedHit::set_right_read(ReadHitPtr rr)
 {

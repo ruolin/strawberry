@@ -44,68 +44,63 @@ int HitCluster::size() const {
    return _hits.size();
 }
 
-bool HitCluster::addHit(const shared_ptr<PairedHit> &hit){
+bool HitCluster::addHit(const PairedHit &hit){
    if(_final){
       return false;
    }
-   _leftmost = min(_leftmost, hit->left_pos());
-   _rightmost = max(_rightmost, hit->right_pos());
+   assert(hit.left_read()->_cigar.front() == MATCH);
+   _leftmost = min(_leftmost, hit.left_pos());
+   _rightmost = max(_rightmost, hit.right_pos());
    _hits.push_back(hit);
    return true;
 }
 
 
-bool HitCluster::addOpenHit(shared_ptr<ReadHit> hit)
+bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit)
 {
-   if(hit->right() - hit->left() > _kMaxGeneLen){
-      SMessage("Warning: hit start at %d is longer than max gene length, skipping\n", hit->left());
+   int hit_left = hit->left();
+   int hit_right = hit_right;
+   char hit_strand = hit->strand();
+   RefID hit_ref_id = hit->ref_id();
+   uint hit_partner_pos = hit->partner_pos();
+   ReadID hit_id = hit->read_id();
+
+   if(abs(hit_right - hit_left) > _kMaxGeneLen){
+
+      SMessage("Warning: hit start at %d is longer than max gene length, skipping\n", hit_left);
       return false;
    }
    if(hit->is_singleton()){
       _ref_id = hit->interval().seq_id();
-      shared_ptr<PairedHit> ph( new PairedHit(hit, nullptr));
+      PairedHit ph(move(hit), nullptr);
       addHit(ph);
    }
    else{
-     unordered_map<int, shared_ptr<PairedHit>>::iterator iter_open = _open_mates.find(hit->left());
+      unordered_map<ReadID, unique_ptr<PairedHit>>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
-         if(hit->left() <= hit->partner_pos()){
-            shared_ptr<PairedHit> open_hit (new PairedHit(hit, nullptr));
-            unordered_map<int, shared_ptr<PairedHit>>::iterator ins_pos;
+         if(hit_left <= hit_partner_pos){
+            unique_ptr<PairedHit> open_hit (new PairedHit(move(hit), nullptr));
+            unordered_map<ReadID, unique_ptr<PairedHit>>::iterator ins_pos;
             bool status;
-            tie(ins_pos, status) = _open_mates.insert(make_pair(hit->partner_pos(), open_hit));
-            if(!status) SMessage("Warning: Inserting read into open_mats failed\n");
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+            if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
          } else{
             return false;
          }
       } else{
-         bool found_mate = false;
-         if(iter_open->second->ref_seq_id() != hit->ref_id())
+
+         if(iter_open->second->ref_seq_id() != hit_ref_id)
             return false;
 
-         bool strand_agree = iter_open->second->strand() == hit->strand() ||
-               iter_open->second->strand() == GenomicInterval::kStrandUnknown ||
-               hit->strand() == GenomicInterval::kStrandUnknown;
-         if(iter_open->second->left_pos() == hit->partner_pos() && strand_agree){
-            iter_open->second->set_right_read(move(hit));
-            addHit(iter_open->second);
-            _open_mates.erase(iter_open);
-            found_mate = true;
-         }
+         bool strand_agree = iter_open->second->strand() == hit_strand ||
+         iter_open->second->strand() == GenomicInterval::kStrandUnknown ||
+         hit_strand == GenomicInterval::kStrandUnknown;
 
-         if(!found_mate){
-            if(hit->left() <= hit->partner_pos()){
-               shared_ptr<PairedHit> open_hit (new PairedHit(hit, nullptr));
-              unordered_map<int, shared_ptr<PairedHit>>::iterator ins_pos;
-               bool status;
-               tie(ins_pos, status) = _open_mates.insert(make_pair(hit->partner_pos(), open_hit));
-               if(!status) SMessage("Warning: Inserting read into open_mats failed\n");
-            } else{
-               return false;
-            }
-         }// end if(!found_partern)
+         assert(iter_open->second->left_pos() == hit_partner_pos && strand_agree);
+         iter_open->second->set_right_read(move(hit));
+         addHit(*iter_open->second);
+         _open_mates.erase(iter_open);
       }
-
    }
    return true;
 }
@@ -249,14 +244,14 @@ int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
 int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut){
    if(!_hit_factory->recordsRemain()) return -1;
    while(true){
-      shared_ptr<ReadHit> new_hit(new ReadHit());
+      unique_ptr<ReadHit> new_hit(new ReadHit());
       double mass = next_valid_alignment(*new_hit);
       //cout<<new_hit->left()<<endl;
       if(!_hit_factory->recordsRemain()){
          return clusterOut.size();
       }
       if(clusterOut.size() == 0){ // add first hit
-         clusterOut.addOpenHit(new_hit);
+         clusterOut.addOpenHit(move(new_hit));
       } else { //add the rest
          if(hit_lt_cluster(*new_hit, clusterOut)){
             // read hasn't reach reference region
@@ -267,7 +262,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut){
             rewind_hit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(new_hit);
+         clusterOut.addOpenHit(move(new_hit));
       }
    }
    return clusterOut.size();
@@ -287,21 +282,23 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
       }
    // add as many as possible until encounter gap > _kMinOlapDist
       while(true){
-         shared_ptr<ReadHit> new_hit(new ReadHit());
+         unique_ptr<ReadHit> new_hit(new ReadHit());
          double mass = next_valid_alignment(*new_hit);
          if(!_hit_factory->recordsRemain())
             return clusterOut.size();
          if(hit_lt_cluster(*new_hit, clusterOut)){
+            rewind_hit(*new_hit);
+            return nextCluster_denovo(clusterOut);
             // read hasn't reach reference region
-            continue;
          }
          if(hit_gt_cluster(*new_hit, clusterOut)){
+            //cout<<new_hit->left()<<":"<<new_hit->read_id()<<endl;
             // read has gone to far.
             rewind_hit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(new_hit);
-         if(clusterOut._hits.size() >= HitCluster::_kMaxFragsSize ){
+         clusterOut.addOpenHit(move(new_hit));
+         if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
             random_device rd;
             mt19937 gen(rd());
             uniform_int_distribution<> dis(1, clusterOut._hits.size());

@@ -50,11 +50,9 @@ typedef uint64_t ReadID;
 typedef int RefID;
 class ReadHit{
 private:
-   static const int max_partner_dist = 50000;
 
    ReadID _read_id;
    GenomicInterval _iv;
-   vector<CigarOp> _cigar;
    RefID _partner_ref_id;
    int _partner_pos;
    int _num_mismatch = -1;
@@ -64,6 +62,7 @@ private:
    float _read_mass = 0.0;
 
 public:
+   vector<CigarOp> _cigar;
    ReadHit() = default;
    ReadHit( ReadID readID,
          GenomicInterval iv,
@@ -89,6 +88,7 @@ public:
    uint right() const;
    char strand() const;
    double mass() const;
+   //vector<CigarOp> cigars() const;
 };
 
 
@@ -206,10 +206,10 @@ class PairedHit{
 public:
    PairedHit() = default;
    PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead);
-   ReadHitPtr left_read();
+   const ReadHitPtr left_read() const;
    void set_left_read(ReadHitPtr lr);
    char strand() const;
-   ReadHitPtr right_read();
+   const ReadHitPtr right_read() const;
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;
    RefID ref_seq_id() const;
