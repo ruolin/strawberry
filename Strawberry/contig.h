@@ -61,12 +61,13 @@ class Contig{
    char _strand;
 public:
    std::vector<GenomicFeature> _genomic_feats;
-   Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is_ref);
+   Contig(RefID ref_id, char strand, const vector<GenomicFeature> &feats, bool is_ref);
    uint left() const;
    uint right() const;
-   static bool overlaps(const Contig &lhs, const Contig &rhs);
+   static bool overlaps_directional(const Contig &lhs, const Contig &rhs);
    bool operator<(const Contig &rhs) const;
    RefID ref_id() const;
+   const char strand() const;
 };
 
 #endif /* CONTIG_H_ */

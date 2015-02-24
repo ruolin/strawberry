@@ -18,9 +18,11 @@ using namespace std;
 
 int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
-   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
+   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
+   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
+   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
+
    //FaInterface fa_api(path);
    //FaSeqGetter fsg;
    //fa_api.load2FaSeqGetter(fsg, "mitochondria");
@@ -40,14 +42,16 @@ int main(){
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
    //cout<<read_clusters._ref_mRNAs.size()<<endl;
-   for(auto &i: read_clusters._ref_mRNAs){
-      cout<<i.left()<<":"<<i.ref_id()<<endl;
-   }
+//   for(auto &i: read_clusters._ref_mRNAs){
+//      cout<<i.left()<<":"<<i.ref_id()<<endl;
+//   }
    while(true){
       HitCluster cur;
       if(read_clusters.nextCluster_refGuide(cur) != -1){
-         if(cur.hasRefmRNAs())
-         cout<<"cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+//         if(cur.hasRefmRNAs())
+//            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+//         else
+//            cout<<"Novo cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
       }
       else{
          break;

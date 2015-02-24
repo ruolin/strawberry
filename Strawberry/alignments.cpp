@@ -66,12 +66,7 @@ bool HitCluster::addHit(const PairedHit &hit){
    if(_final){
       return false;
    }
-   if(_ref_id != -1){
-      assert(_ref_id == hit.ref_id());
-   }
-   else{
-      _ref_id = hit.ref_id();
-   }
+   assert(_ref_id == hit.ref_id());
 #ifdef DEBUG
    if(hit.left_read()){
        assert(hit.left_read()->_cigar.front().opcode == MATCH ||
@@ -87,7 +82,7 @@ bool HitCluster::addHit(const PairedHit &hit){
 }
 
 
-bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit)
+bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit)
 {
    uint hit_left = hit->left();
    uint hit_right = hit->right();
@@ -95,16 +90,17 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit)
    RefID hit_ref_id = hit->ref_id();
    uint hit_partner_pos = hit->partner_pos();
    ReadID hit_id = hit->read_id();
-   _leftmost = min(_leftmost, hit_left);
-   _rightmost = max(_rightmost, hit_right);
-
+   if(extend_by_hit){
+      _leftmost = min(_leftmost, hit_left);
+      _rightmost = max(_rightmost, hit_right);
+   }
    if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
 
       SMessage("Warning: hit start at %d is longer than max gene length, skipping\n", hit_left);
       return false;
    }
+   _ref_id = hit_ref_id;
    if(hit->is_singleton()){
-      _ref_id = hit->interval().seq_id();
       PairedHit ph(move(hit), nullptr);
       addHit(ph);
    }
@@ -201,7 +197,10 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
             mrna = &(*gseqs[i]->_unstranded_rnas[u++]);
             strand = '.';
          }
-
+         if(mrna->_exons.size() == 0){
+            cout<<"haha"<<endl;
+            continue;
+         }
          vector<GenomicFeature> feats;
          for(uint e = 0; e < mrna->_exons.size(); ++e){
             GffExon& ex = *(mrna->_exons[e]);
@@ -211,6 +210,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
                feats.push_back(GenomicFeature(S_INTRON, ex._iv.right()+1, next_ex._iv.left()-1-ex._iv.right() ));
             }
          }
+         assert(feats.size() > 0);
          Contig ref_contig(ref_id, strand, feats, true);
          ref_mrna_for_chr.push_back(ref_contig);
       }// end while loop
@@ -266,9 +266,15 @@ int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
    if(_refmRNA_offset >= _ref_mRNAs.size())
       return 0;
    clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
-   for(auto ref: clusterOut._ref_mRNAs){
-      if(Contig::overlaps(*ref, _ref_mRNAs[_refmRNA_offset])){
+   int i = 0;
+   while(i < clusterOut._ref_mRNAs.size()){
+      Contig* ref = clusterOut._ref_mRNAs[i];
+      if(Contig::overlaps_directional(*ref, _ref_mRNAs[_refmRNA_offset])){
          clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+         i=0;
+      }
+      else{
+         ++i;
       }
    }
    return clusterOut._ref_mRNAs.size();
@@ -304,7 +310,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       }
 
       if(clusterOut.size() == 0){ // add first hit
-         clusterOut.addOpenHit(move(new_hit));
+         clusterOut.addOpenHit(move(new_hit), true);
 //#ifdef DEBUG
 //         cout<<clusterOut.right()<<"\t denovo cluster right"<<endl;
 //#endif
@@ -318,7 +324,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(move(new_hit));
+         clusterOut.addOpenHit(move(new_hit), true);
       }
    }
    return clusterOut.size();
@@ -345,6 +351,12 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
             return clusterOut.size();
          if(hit_lt_cluster(*new_hit, clusterOut)){
             rewindHit(*new_hit);
+#ifdef DEBUG
+            if(_ref_mRNAs[_refmRNA_offset]._genomic_feats.size() == 0){
+               SMessage("cao!\n");
+               SError("Error: non valid reference mRNA at %d:%d",_ref_mRNAs[_refmRNA_offset].ref_id(),_ref_mRNAs[_refmRNA_offset].left());
+            }
+#endif
             uint next_ref_start_pos = _ref_mRNAs[_refmRNA_offset].left();
             uint next_ref_start_ref = _ref_mRNAs[_refmRNA_offset].ref_id();
 //#ifdef DEBUG
@@ -359,7 +371,7 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(move(new_hit));
+         clusterOut.addOpenHit(move(new_hit), false);
          if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
             random_device rd;
             mt19937 gen(rd());

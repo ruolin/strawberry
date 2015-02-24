@@ -104,8 +104,8 @@ bool GenomicFeature::operator<(const GenomicFeature & rhs) const
    return false;
 }
 
-Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is_ref):
-      _genomic_feats(move(feats)),
+Contig::Contig(RefID ref_id, char strand, const vector<GenomicFeature> &feats, bool is_ref):
+      _genomic_feats(feats),
       _is_ref(is_ref),
       _ref_id(ref_id),
       _strand(strand)
@@ -117,6 +117,8 @@ Contig::Contig(RefID ref_id, char strand, vector<GenomicFeature> &feats, bool is
 
 uint Contig::left() const
 {
+   //cout<<_genomic_feats.front().left()<<endl;
+
    return _genomic_feats.front().left();
 }
 
@@ -141,8 +143,15 @@ RefID Contig::ref_id() const
    return _ref_id;
 }
 
-bool Contig::overlaps(const Contig &lhs, const Contig &rhs){
+const char Contig::strand() const
+{
+   return _strand;
+}
+
+bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){
    if(lhs.ref_id() != rhs.ref_id())
+      return false;
+   if(lhs.strand() != rhs.strand())
       return false;
    if (lhs.left() >= rhs.left() && lhs.left() < rhs.right())
       return true;

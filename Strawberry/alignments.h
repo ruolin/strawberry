@@ -35,7 +35,7 @@ public:
    uint right() const;
    int size() const;
    bool addHit(const PairedHit &hit);
-   bool addOpenHit(unique_ptr<ReadHit> hit);
+   bool addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit);
    bool hasRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
