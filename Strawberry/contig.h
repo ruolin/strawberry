@@ -55,11 +55,12 @@ class Contig{
    bool _is_ref;
    std::vector<const PairedHit* > _mates_in_contig;
    std::string _seq;
-   std::string _annotated_gene_id;
-   std::string _annotated_trans_id;
    RefID _ref_id;
    char _strand;
+   std::string _annotated_trans_id;
 public:
+   const std::string annotated_trans_id() const;
+   void annotated_trans_id(std::string str);
    std::vector<GenomicFeature> _genomic_feats;
    Contig(RefID ref_id, char strand, const vector<GenomicFeature> &feats, bool is_ref);
    uint left() const;
@@ -68,6 +69,7 @@ public:
    bool operator<(const Contig &rhs) const;
    RefID ref_id() const;
    const char strand() const;
+
 };
 
 #endif /* CONTIG_H_ */

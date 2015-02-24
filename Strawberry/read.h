@@ -54,7 +54,7 @@ private:
    ReadID _read_id;
    GenomicInterval _iv;
    RefID _partner_ref_id;
-   int _partner_pos;
+   uint _partner_pos;
    int _num_mismatch = -1;
    int _num_hit = 1;
    int _trans_left=0; // position relate to transcriptom
@@ -80,7 +80,7 @@ public:
    bool contains_splice() const;
    GenomicInterval interval() const;
    RefID partner_ref_id() const;
-   int partner_pos() const;
+   uint partner_pos() const;
    RefID ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;
    bool is_singleton() const;

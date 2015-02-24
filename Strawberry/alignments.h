@@ -18,8 +18,8 @@ class HitCluster{
    bool _final = false; // HitCluster is finished
    double _raw_mass = 0.0;
    static int _next_id ;
-   std::unordered_map<ReadID, unique_ptr<PairedHit>> _open_mates;
 public:
+   std::unordered_map<ReadID, unique_ptr<PairedHit>> _open_mates;
    static const int _kMaxGeneLen = 1000000;
    static const int _kMaxFragPerCluster = 100000;
    std::vector<PairedHit> _hits;
@@ -35,7 +35,7 @@ public:
    uint right() const;
    int size() const;
    bool addHit(const PairedHit &hit);
-   bool addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit);
+   bool addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool extend_by_partner);
    bool hasRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
@@ -56,7 +56,7 @@ class ClusterFactory{
    uint _prev_pos = 0;
    RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
    uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
-   int _refmRNA_offset;
+   size_t _refmRNA_offset;
    bool _has_load_all_refs;
 public:
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
@@ -81,5 +81,5 @@ public:
    void rewindReference(HitCluster &clusterOut, int num_regress);
 };
 
-bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster);
-bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster);
+bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
+bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);

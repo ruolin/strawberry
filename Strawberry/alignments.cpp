@@ -82,7 +82,7 @@ bool HitCluster::addHit(const PairedHit &hit){
 }
 
 
-bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit)
+bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool extend_by_partner)
 {
    uint hit_left = hit->left();
    uint hit_right = hit->right();
@@ -93,6 +93,9 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit)
    if(extend_by_hit){
       _leftmost = min(_leftmost, hit_left);
       _rightmost = max(_rightmost, hit_right);
+   }
+   if(extend_by_partner){
+      _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
    }
    if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
 
@@ -107,6 +110,7 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit)
    else{
       unordered_map<ReadID, unique_ptr<PairedHit>>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
+
          if(hit_left <= hit_partner_pos){
             unique_ptr<PairedHit> open_hit (new PairedHit(move(hit), nullptr));
             unordered_map<ReadID, unique_ptr<PairedHit>>::iterator ins_pos;
@@ -114,7 +118,12 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit)
             tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
             if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
          } else{
-            return false;
+            // it is possible to reach here when two mRNA overlaps in genome.
+            unique_ptr<PairedHit> open_hit (new PairedHit(nullptr,move(hit)));
+            unordered_map<ReadID, unique_ptr<PairedHit>>::iterator ins_pos;
+            bool status;
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+            if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
          }
       } else{
 
@@ -198,7 +207,6 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
             strand = '.';
          }
          if(mrna->_exons.size() == 0){
-            cout<<"haha"<<endl;
             continue;
          }
          vector<GenomicFeature> feats;
@@ -210,8 +218,8 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
                feats.push_back(GenomicFeature(S_INTRON, ex._iv.right()+1, next_ex._iv.left()-1-ex._iv.right() ));
             }
          }
-         assert(feats.size() > 0);
          Contig ref_contig(ref_id, strand, feats, true);
+         ref_contig.annotated_trans_id(mrna->_transcript_id);
          ref_mrna_for_chr.push_back(ref_contig);
       }// end while loop
       sort(ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
@@ -263,14 +271,26 @@ double ClusterFactory::rewindHit(const ReadHit& rh)
 }
 
 int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
-   if(_refmRNA_offset >= _ref_mRNAs.size())
+   if(_refmRNA_offset >=  _ref_mRNAs.size()) {
+      _has_load_all_refs = true;
       return 0;
+   }
+
    clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
-   int i = 0;
+   if(_refmRNA_offset >= _ref_mRNAs.size()){
+      _has_load_all_refs = true;
+      return 1;
+   }
+
+   size_t i = 0;
    while(i < clusterOut._ref_mRNAs.size()){
       Contig* ref = clusterOut._ref_mRNAs[i];
       if(Contig::overlaps_directional(*ref, _ref_mRNAs[_refmRNA_offset])){
          clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+         if(_refmRNA_offset >= _ref_mRNAs.size()){
+            _has_load_all_refs = true;
+            return clusterOut._ref_mRNAs.size();
+         }
          i=0;
       }
       else{
@@ -310,21 +330,21 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       }
 
       if(clusterOut.size() == 0){ // add first hit
-         clusterOut.addOpenHit(move(new_hit), true);
+         clusterOut.addOpenHit(move(new_hit), true, true);
 //#ifdef DEBUG
 //         cout<<clusterOut.right()<<"\t denovo cluster right"<<endl;
 //#endif
       } else { //add the rest
-         if(hit_lt_cluster(*new_hit, clusterOut)){
+         if(hit_lt_cluster(*new_hit, clusterOut, _kMinOlapDist)){
             // should never reach here
             SMessage("Error in alignments.cpp: It appears that SAM/BAM not sorted!\n");
          }
-         if(hit_gt_cluster(*new_hit, clusterOut)){
+         if(hit_gt_cluster(*new_hit, clusterOut, _kMinOlapDist)){
             // read has gone to far.
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(move(new_hit), true);
+         clusterOut.addOpenHit(move(new_hit), true, true);
       }
    }
    return clusterOut.size();
@@ -349,29 +369,32 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
          double mass = next_valid_alignment(*new_hit);
          if(!_hit_factory->recordsRemain())
             return clusterOut.size();
-         if(hit_lt_cluster(*new_hit, clusterOut)){
+
+         if(hit_lt_cluster(*new_hit, clusterOut, _kMinOlapDist)){ // hit hasn't reach reference region
             rewindHit(*new_hit);
+            if(_has_load_all_refs){
+               rewindReference(clusterOut, num_added_refmRNA);
+               return nextCluster_denovo(clusterOut);
+            } else{
 #ifdef DEBUG
-            if(_ref_mRNAs[_refmRNA_offset]._genomic_feats.size() == 0){
-               SMessage("cao!\n");
-               SError("Error: non valid reference mRNA at %d:%d",_ref_mRNAs[_refmRNA_offset].ref_id(),_ref_mRNAs[_refmRNA_offset].left());
-            }
+               assert(_ref_mRNAs[_refmRNA_offset]._genomic_feats.size() > 0);
 #endif
-            uint next_ref_start_pos = _ref_mRNAs[_refmRNA_offset].left();
-            uint next_ref_start_ref = _ref_mRNAs[_refmRNA_offset].ref_id();
-//#ifdef DEBUG
-//            cout<<"next:"<<next_ref_start_pos<<"\t hit chr:"<<new_hit->ref_id()<<"\thit left "<<new_hit->left()<<"\t previous:\t"<<clusterOut.left()<<endl;
-//#endif
-            rewindReference(clusterOut, num_added_refmRNA);
-            return nextCluster_denovo(clusterOut, next_ref_start_pos, next_ref_start_ref);
-            // read hasn't reach reference region
+               uint next_ref_start_pos = _ref_mRNAs[_refmRNA_offset].left();
+               uint next_ref_start_ref = _ref_mRNAs[_refmRNA_offset].ref_id();
+   //#ifdef DEBUG
+   //            cout<<"next:"<<next_ref_start_pos<<"\t hit chr:"<<new_hit->ref_id()<<"\thit left "<<new_hit->left()<<"\t previous:\t"<<clusterOut.left()<<endl;
+   //#endif
+               rewindReference(clusterOut, num_added_refmRNA);
+               return nextCluster_denovo(clusterOut, next_ref_start_pos, next_ref_start_ref);
+            }
          }
-         if(hit_gt_cluster(*new_hit, clusterOut)){
-            // read has gone to far.
+
+         if(hit_gt_cluster(*new_hit, clusterOut, _kMinOlapDist)){ // read has gone to far.
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(move(new_hit), false);
+
+         clusterOut.addOpenHit(move(new_hit), false, false);
          if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
             random_device rd;
             mt19937 gen(rd());
@@ -384,19 +407,19 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
 }
 
 
-bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster){
+bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
    if(hit.ref_id() != cluster.ref_id())
       return hit.ref_id() < cluster.ref_id();
    else
-      return hit.right() < cluster.left();
+      return hit.right() + olap_radius < cluster.left();
 }
 
-bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster){
+bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
    if(hit.ref_id() != cluster.ref_id()){
       //cout<<"shouldn't\t"<<hit.ref_id()<<":"<<cluster.ref_id()<<endl;
       return hit.ref_id() > cluster.ref_id();
    }
    else{
-      return hit.left() > cluster.right();
+      return hit.left() > cluster.right() + olap_radius;
    }
 }

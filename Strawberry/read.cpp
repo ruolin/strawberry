@@ -11,7 +11,7 @@
 #include <string.h>
 #include "read.h"
 
-static const int kMaxIntronLength = 70000;
+static const int kMaxIntronLength = 60000;
 ReadHit::ReadHit(
    ReadID readID,
    GenomicInterval iv,
@@ -59,7 +59,7 @@ RefID ReadHit::ref_id() const {return _iv.seq_id();}
 
 RefID ReadHit::partner_ref_id() const { return _partner_ref_id;}
 
-int ReadHit::partner_pos() const { return _partner_pos;}
+uint ReadHit::partner_pos() const { return _partner_pos;}
 
 uint ReadHit::right() const {return _iv.right();}
 
@@ -230,8 +230,8 @@ bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size)
 bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    const bam1_t* hit_buf = (const bam1_t*)orig_bwt_buf;
    uint32_t sam_flag = hit_buf->core.flag;
-   int pos = hit_buf->core.pos + 1; // BAM file index starts at 0
-   int mate_pos = hit_buf->core.mpos + 1; // BAM file index starts at 0
+   uint pos = hit_buf->core.pos + 1; // BAM file index starts at 0
+   uint mate_pos = hit_buf->core.mpos + 1; // BAM file index starts at 0
    int target_id = hit_buf->core.tid;
    int mate_target_id = hit_buf->core.mtid;
    string mate_text_name;

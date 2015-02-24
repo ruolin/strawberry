@@ -148,6 +148,15 @@ const char Contig::strand() const
    return _strand;
 }
 
+const string Contig::annotated_trans_id() const{
+   return _annotated_trans_id;
+}
+
+void Contig::annotated_trans_id(string str){
+   assert(!str.empty());
+   _annotated_trans_id = str;
+}
+
 bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){
    if(lhs.ref_id() != rhs.ref_id())
       return false;

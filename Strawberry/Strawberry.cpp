@@ -20,8 +20,8 @@ int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
-   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
+   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
+   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/test1.bam";
 
    //FaInterface fa_api(path);
    //FaSeqGetter fsg;
@@ -41,6 +41,11 @@ int main(){
    //cout<<ref_seq_table.size()<<endl;
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
+   cout<<"number ref "<<read_clusters._ref_mRNAs.size()<<endl;
+   //   for(auto &i : read_clusters._ref_mRNAs){
+//      if(i._genomic_feats.size() == 0)
+//      cout<<"load ref: "<<i.annotated_trans_id()<<"\t"<<i._genomic_feats.front().left()<<endl;
+//   }
    //cout<<read_clusters._ref_mRNAs.size()<<endl;
 //   for(auto &i: read_clusters._ref_mRNAs){
 //      cout<<i.left()<<":"<<i.ref_id()<<endl;
@@ -48,10 +53,19 @@ int main(){
    while(true){
       HitCluster cur;
       if(read_clusters.nextCluster_refGuide(cur) != -1){
-//         if(cur.hasRefmRNAs())
-//            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
-//         else
-//            cout<<"Novo cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+         if(cur.hasRefmRNAs()){
+            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+         }
+         else{
+            cout<<"Novo cluster number of closed mates: "<<cur.ref_id()<<":"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+            cout<<"num oper mates: "<<cur.numOpenMates()<<endl;
+//            if(cur.numOpenMates() != 0){
+//               for(auto &i: cur._open_mates)
+//                  cout<<"open mates: "<<i.second->left_pos()<<endl;
+//               for(auto &i: cur._hits)
+//                  cout<<"close mates: "<<i.left_read()->left()<<"-"<<i.right_read()->left()<<endl;
+//            }
+         }
       }
       else{
          break;
@@ -63,7 +77,8 @@ int main(){
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
 }
 
-//246682583943122702
+//72339-74096
+//73931-74737
 /*
 
 int main() {
