@@ -54,11 +54,11 @@ int main(){
       HitCluster cur;
       if(read_clusters.nextCluster_refGuide(cur) != -1){
          if(cur.hasRefmRNAs()){
-            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "<<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.raw_mass()<<endl;
          }
          else{
-            cout<<"Novo cluster number of closed mates: "<<cur.ref_id()<<":"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
-            cout<<"num oper mates: "<<cur.numOpenMates()<<endl;
+            cout<<"Novo cluster number of closed mates: "<<cur.ref_id()<<":"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.raw_mass()<<endl;
+            //cout<<"num oper mates: "<<cur.numOpenMates()<<endl;
 //            if(cur.numOpenMates() != 0){
 //               for(auto &i: cur._open_mates)
 //                  cout<<"open mates: "<<i.second->left_pos()<<endl;

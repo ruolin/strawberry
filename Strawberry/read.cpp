@@ -53,6 +53,11 @@ bool ReadHit::contains_splice()const{
       return false;
 }
 
+bool ReadHit::is_first() const
+{
+   return _sam_flag & 0x40;
+}
+
 ReadID ReadHit::read_id() const {return _read_id;}
 
 RefID ReadHit::ref_id() const {return _iv.seq_id();}

@@ -88,6 +88,7 @@ public:
    uint right() const;
    char strand() const;
    double mass() const;
+   bool is_first() const;
    //vector<CigarOp> cigars() const;
 };
 

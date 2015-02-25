@@ -43,6 +43,15 @@ public:
    int numOpenMates() const{
       return _open_mates.size();
    }
+   void addRawMass(double m){
+      _raw_mass += m;
+   }
+   void subRawMass(double m){
+      _raw_mass -= m;
+   }
+   double raw_mass() const{
+      return _raw_mass;
+   }
 };
 
 

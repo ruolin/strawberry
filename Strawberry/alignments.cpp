@@ -331,6 +331,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
 
       if(clusterOut.size() == 0){ // add first hit
          clusterOut.addOpenHit(move(new_hit), true, true);
+         clusterOut.addRawMass(mass);
 //#ifdef DEBUG
 //         cout<<clusterOut.right()<<"\t denovo cluster right"<<endl;
 //#endif
@@ -345,6 +346,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
             break;
          }
          clusterOut.addOpenHit(move(new_hit), true, true);
+         clusterOut.addRawMass(mass);
       }
    }
    return clusterOut.size();
@@ -395,6 +397,7 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
          }
 
          clusterOut.addOpenHit(move(new_hit), false, false);
+         clusterOut.addRawMass(mass);
          if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
             random_device rd;
             mt19937 gen(rd());
