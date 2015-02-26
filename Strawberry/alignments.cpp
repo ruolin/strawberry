@@ -146,7 +146,6 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool ex
 bool HitCluster::makeUniqHits(){
    assert(_uniq_hits.empty());
 
-   copy(_hits.begin(), hits)
 }
 
 
