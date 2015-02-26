@@ -119,6 +119,22 @@ ReadID ReadTable::get_id(const string& name)
 HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
    _reads_table(reads_table),_ref_table(ref_table){}
 
+platform_t HitFactory::str2platform(const string str)
+{
+    if (str == "SOLiD")
+    {
+        return SOLID;
+    }
+    else if (str == "Illumina")
+    {
+        return ILLUMINA;
+    }
+    else
+    {
+        return UNKNOWN_PLATFORM;
+    }
+}
+
 bool HitFactory::parse_header_line(const string& hline){
 //#ifdef DEBUG
 //   cout<<hline<<endl;
@@ -134,14 +150,30 @@ bool HitFactory::parse_header_line(const string& hline){
             str2lower(fields[1]);
             RefID _ID = _ref_table.get_id(fields[1]);
             if(_ID != _num_seq_header_recs-1)
-               SError("Error: sort order of reads in BAM not consistent.\n");
+               SMessage("Error: sort order of reads in BAM not consistent.\n");
                return false;
+         }
+      }
+   }
+
+   if(cols[0] == '@RG'){
+      for(auto &i: cols){
+         vector<string> fields;
+         split(i, ":", fields);
+         if(fields[0] == "PL"){
+            platform_t p = str2platform(fields[1]);
+            assert(_read_group_props._platform == UNKNOWN_PLATFORM);
+            _read_group_props._platform = p;
          }
       }
    }
    return true;
 }
 
+const ReadGroupProperties&  HitFactory::read_group_properties()
+{
+   return _read_group_props;
+}
 
 BAMHitFactory::BAMHitFactory(const string& bam_file_name,
                             ReadTable &read_table,

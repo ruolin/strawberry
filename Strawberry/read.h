@@ -146,12 +146,15 @@ public:
 
 class HitFactory
 {
+private:
+   virtual platform_t HitFactory::str2platform(const string pl_str);
 protected:
    static const unsigned MAX_HEADER_LEN = 4 * 1024 * 1024; // 4 MB
    static const size_t kHitBufMaxSize = 10 * 1024;
    ReadTable& _reads_table;
    char _hit_buf[kHitBufMaxSize];
    int _num_seq_header_recs = 0;
+   ReadGroupProperties _read_group_props;
 public:
    RefSeqTable& _ref_table;
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
@@ -170,7 +173,7 @@ public:
    virtual void undo_hit() = 0;
    virtual bool parse_header_line(const string& hline);
    virtual bool inspect_header() = 0;
-
+   virtual const ReadGroupProperties& read_group_properties();
 };
 
 class BAMHitFactory : public HitFactory
