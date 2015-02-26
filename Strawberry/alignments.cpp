@@ -166,14 +166,18 @@ bool HitCluster::makeUniqHits(){
    size_t i = 0, j =0;
    while(i < _uniq_hits.size() && j < duplicated.size()){
       if(_uniq_hits[i] == duplicated[j]){
+         cout<<duplicated[j].mass()<<endl;
          _uniq_hits[i]._collapse_mass += duplicated[j++].mass();
       }
       else
          ++i;
    }
    if(duplicated.size() > 1){
-      for(auto &i: _uniq_hits){
-         cout<<i._collapse_mass<<endl;
+
+      for(auto &i: duplicated){
+         for(auto &j: _uniq_hits){
+            //if(i == j) cout<<"left_pos "<<j.left_pos()<<"\t"<<j.mass()<<endl;
+         }
       }
    }
    assert(j == duplicated.size());
