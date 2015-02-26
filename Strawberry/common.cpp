@@ -269,3 +269,97 @@ bool GenomicInterval::operator<(const GenomicInterval& rhs) const
      if ( rhs._seq_id != _seq_id) SError("cannot compare for different chrom\n");
      return (_left == rhs._left)?(_right < rhs._right):(_left < rhs._left);
 }
+
+EmpDist::EmpDist(const std::vector<double>& pdf,
+               const std::vector<double>& cdf,
+               size_t mode_pos, double mean,
+               double sd, size_t min, size_t max,
+               FLD_source fld):
+      _pdf(pdf), _cdf(cdf), _mode_pos(mode_pos),
+      _mean(mean), _sd(sd), _min(min), _max(max),
+      _fld_source(fld)
+{}
+
+void EmpDist::pdf(const std::vector<double>& pdf)
+{
+   _pdf = pdf;
+}
+
+double EmpDist::pdf(size_t i) const
+{
+   if( i >_max || i <_min)
+      return 0.0;
+   else
+      return _pdf[i];
+}
+
+void EmpDist::cdf(const std::vector<double>& cdf)
+{
+   _cdf = cdf;
+}
+
+double EmpDist::cdf(size_t i) const
+{
+    if( i >_max || i <_min)
+      return 0.0;
+   else
+      return _cdf[i];
+}
+
+void EmpDist::mode(size_t mode)
+{
+   _mode_pos = mode;
+}
+
+size_t EmpDist::mode() const
+{
+   return _mode_pos;
+}
+
+
+void EmpDist::mean(double mean){
+   _mean = mean;
+}
+
+double EmpDist::mean() const
+{
+   return _mean;
+}
+
+void EmpDist::max(size_t max)
+{
+   _max = max;
+}
+
+size_t EmpDist::max() const
+{
+   return _max;
+}
+
+void EmpDist::min(size_t min)
+{
+   _min = min;
+}
+size_t EmpDist::min() const
+{
+   return _min;
+}
+
+void EmpDist::sd(double sd)
+{
+   _sd = sd;
+}
+
+double EmpDist::sd() const
+{
+   return _sd;
+}
+
+void EmpDist::fld_source(FLD_source fld){
+   _fld_source = fld;
+}
+
+FLD_source EmpDist::fld_source() const
+{
+   return _fld_source;
+}

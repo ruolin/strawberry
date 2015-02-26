@@ -188,6 +188,98 @@ public:
   bool operator<(const GenomicInterval& d) const;
 };
 
+enum FLD_source
+{
+    LEARNED,
+    USER,
+    DEFAULT
+};
 
+class EmpDist{
+   // truncated dist between min and max
+   std::vector<double> _pdf;
+   std::vector<double> _cdf;
+   size_t _mode_pos;
+   double _mean;
+   double _sd;
+   size_t _min;
+   size_t _max;
+   FLD_source _fld_source;
+public:
+   EmpDist(const std::vector<double>& pdf, const std::vector<double>& cdf,
+         size_t mode_pos, double mean, double sd, size_t min, size_t max, FLD_source fld);
+   EmpDist() = default;
+
+   void pdf(const std::vector<double>& pdf);
+   double pdf(size_t i) const;
+
+   void cdf(const std::vector<double>& cdf);
+   double cdf(size_t i) const;
+
+   void mode(size_t mode);
+   size_t mode() const;
+
+   void mean(double mean);
+   double mean() const;
+
+   void max(size_t max);
+   size_t max() const;
+
+   void min(size_t min);
+   size_t min() const;
+
+   void sd(double sd);
+   double sd() const;
+
+   void fld_source(FLD_source fld);
+   FLD_source fld_source() const;
+};
+
+enum strandedness_t
+{
+   UNKNOWN_STRANDNESS,
+   STRANDED,
+   UNSTRANDED
+};
+
+enum mate_strand_orien_t
+{
+    UNKNOWN_MATE_ORIENTATION,
+    MATES_POINT_TOWARD,
+    MATES_POINT_SAME,
+    MATES_POINT_AWAY,
+    UNPAIRED,
+};
+
+enum mate_strand_mapping_t
+{
+   //should be either FR or RF or both
+   FF,
+   FR,
+   RF,
+   RR
+};
+
+enum platform_t
+{
+    UNKNOWN_PLATFORM,
+    ILLUMINA,
+    SOLID
+};
+
+struct ReadGroupProperties
+{
+   platform_t _platform;
+   strandedness_t _strandedness;
+   mate_strand_mapping_t _mate_strand_mapping;
+   mate_strand_orien_t _mate_strand_orien;
+   long double _total_mapped_mass;
+   long double _norm_mapped_mass;
+   std::unique_ptr<EmpDist> _frag_len_dist;
+   std::string _condition_name;
+   std::string _file_path;
+   int _num_replicates;
+   ReadGroupProperties() = default;
+};
 
 #endif /* COMMON_H_ */
