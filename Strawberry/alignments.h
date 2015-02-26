@@ -23,7 +23,7 @@ public:
    static const int _kMaxGeneLen = 1000000;
    static const int _kMaxFragPerCluster = 100000;
    std::vector<PairedHit> _hits;
-   std::vector<PairedHit> _non_redundant;
+   std::vector<PairedHit> _uniq_hits;
    std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
    HitCluster();
@@ -36,6 +36,7 @@ public:
    int size() const;
    bool addHit(const PairedHit &hit);
    bool addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool extend_by_partner);
+   bool makeUniqHits();
    bool hasRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
@@ -52,6 +53,7 @@ public:
    double raw_mass() const{
       return _raw_mass;
    }
+
 };
 
 

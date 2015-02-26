@@ -56,7 +56,7 @@ private:
    RefID _partner_ref_id;
    uint _partner_pos;
    int _num_mismatch = -1;
-   int _num_hit = 1;
+   int _num_hits = 1;
    int _trans_left=0; // position relate to transcriptom
    uint32_t _sam_flag = 0; //bitwise FLAG
    float _read_mass = 0.0;
@@ -83,12 +83,15 @@ public:
    uint partner_pos() const;
    RefID ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;
+   int numHits() const;
    bool is_singleton() const;
    uint left() const;
    uint right() const;
    char strand() const;
    double mass() const;
    bool is_first() const;
+   bool reverseCompl() const;
+   bool operator==(const ReadHit& rhs) const; // not considering read orientation
    //vector<CigarOp> cigars() const;
 };
 
@@ -200,8 +203,8 @@ typedef shared_ptr<ReadHit> ReadHitPtr;
 //PairedHit solely own the ReadHit objects by
 //using unique_ptr
 class PairedHit{
-   ReadHitPtr _left_read ;
-   ReadHitPtr _right_read;
+   ReadHitPtr _left_read = nullptr;
+   ReadHitPtr _right_read = nullptr;
    double _collapse_mass = 0.0;
 
 public:
@@ -219,7 +222,9 @@ public:
    uint edit_dist() const;
    bool contains_splice() const;
    ReadID read_id() const;
-
+   int numHits() const;
+   bool is_multi() const;
+   bool operator==(const PairedHit& rhs);
    bool paried_hit_lt(const PairedHit &rhs) const;
 };
 

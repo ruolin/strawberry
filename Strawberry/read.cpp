@@ -28,7 +28,7 @@ ReadHit::ReadHit(
       _partner_ref_id(partnerRef),
       _partner_pos(partnerPos),
       _num_mismatch(numMismatch),
-      _num_hit(numHit),
+      _num_hits(numHit),
       _sam_flag(samFlag)
 {}
 
@@ -38,9 +38,9 @@ uint ReadHit::read_len() const { return _iv.len();}
 
 double ReadHit::mass() const{
    if(is_singleton()){
-      return 1.0/_num_hit;
+      return 1.0/_num_hits;
    }else{
-      return 0.5/_num_hit;
+      return 0.5/_num_hits;
    }
 }
 
@@ -78,6 +78,7 @@ char ReadHit::strand() const {return _iv.strand();}
 
 uint ReadHit::left() const { return _iv.left();}
 
+int ReadHit::numHits() const { return _num_hits;}
 int ReadHit::num_mismatch() const { return _num_mismatch;}
 
 bool ReadHit::is_singleton() const
@@ -87,6 +88,17 @@ bool ReadHit::is_singleton() const
          partner_ref_id() != ref_id());
 }
 
+bool ReadHit::reverseCompl() const
+{
+   return _sam_flag  & 0x10;
+}
+
+// not considering read orientation
+bool ReadHit::operator==(const ReadHit& rhs) const
+{
+   assert(!_cigar.empty() && !rhs._cigar.empty());
+   return (_iv == rhs._iv && rhs._cigar == _cigar);
+}
 
 
 
@@ -443,6 +455,23 @@ uint PairedHit::edit_dist() const{
    return edits;
 }
 
+int PairedHit::numHits() const
+{
+   int num = 0;
+   if(_left_read){
+      num += _left_read->numHits();
+   }
+   if(_right_read){
+      num += _right_read->numHits();
+   }
+   return num;
+}
+
+bool PairedHit::is_multi() const
+{
+   return numHits() > 1;
+}
+
 bool PairedHit::contains_splice() const
 {
    if(_right_read)
@@ -469,6 +498,20 @@ RefID PairedHit::ref_id() const
    return -1;
 }
 
+bool PairedHit::operator==(const PairedHit& rhs)
+{
+   if((rhs.left_read() == nullptr) != (left_read() == nullptr))
+      return false;
+   if((rhs.right_read() == nullptr) != (right_read() == nullptr))
+      return false;
+   if(left_read()){
+      if(left_read() != rhs.left_read()) return false;
+   }
+   if(right_read()){
+      if(right_read() != rhs.right_read()) return false;
+   }
+   return true;
+}
 
 RefID RefSeqTable::get_id(const string& name) {
    if (name == "*") return -1;
