@@ -12,7 +12,7 @@
 #include<stdarg.h>
 #include<vector>
 #include <sys/stat.h>
-
+#include <memory>
 typedef void* pointer;
 #define SMALLOC(ptr,size)  if (!SMalloc((pointer*)(&ptr),size)) \
                                      SError("Error allocating memory.\n")
@@ -184,6 +184,7 @@ public:
   uint overlapLen(const GenomicInterval& other) const;
   //comparison operators required for sorting
   bool operator==(const GenomicInterval& d) const;
+  bool operator!=(const GenomicInterval& rhs) const;
   bool operator>(const GenomicInterval& d) const;
   bool operator<(const GenomicInterval& d) const;
 };
@@ -281,5 +282,36 @@ struct ReadGroupProperties
    int _num_replicates;
    ReadGroupProperties() = default;
 };
+
+template <class ForwardIterator, class OutputIterator>
+  ForwardIterator unique2 (ForwardIterator first, ForwardIterator last, OutputIterator out)
+{
+  if (first==last) return last;
+  typedef typename std::iterator_traits<ForwardIterator>::value_type value;
+  ForwardIterator result = first;
+  ForwardIterator begin = first;
+  ForwardIterator end =first;
+  while (++first != last)
+  {
+    if (!(*result == *first)){
+       while(begin != end){
+            value val = *(++begin);
+            *(out++) = val;
+       }
+      *(++result)=*first;
+      begin = first;
+      end = first;
+    }
+    else{
+       end = first;
+    }
+  }
+   while(begin != end){
+            value val = *(++begin);
+            *(out++) = val;
+   }
+  return ++result;
+}
+
 
 #endif /* COMMON_H_ */

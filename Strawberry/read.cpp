@@ -83,6 +83,9 @@ int ReadHit::num_mismatch() const { return _num_mismatch;}
 
 bool ReadHit::is_singleton() const
 {
+//#ifdef DEBUG
+//   cout<<partner_pos()<<endl;
+//#endif
    return (partner_pos() == 0 ||
          partner_ref_id() == -1 ||
          partner_ref_id() != ref_id());
@@ -97,10 +100,13 @@ bool ReadHit::reverseCompl() const
 bool ReadHit::operator==(const ReadHit& rhs) const
 {
    assert(!_cigar.empty() && !rhs._cigar.empty());
-   return (_iv == rhs._iv && rhs._cigar == _cigar);
+   return (_iv == rhs.interval() && rhs._cigar == _cigar);
 }
 
-
+bool ReadHit::operator!=(const ReadHit& rhs) const
+{
+   return !(*this == rhs);
+}
 
 ReadID ReadTable::get_id(const string& name)
 {
@@ -156,7 +162,7 @@ bool HitFactory::parse_header_line(const string& hline){
       }
    }
 
-   if(cols[0] == '@RG'){
+   if(cols[0] == "@RG"){
       for(auto &i: cols){
          vector<string> fields;
          split(i, ":", fields);
@@ -419,7 +425,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
 PairedHit::PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead):
             _left_read(move(leftRead)), _right_read(move(rightRead)){}
 
-const ReadHitPtr PairedHit::left_read() const {return move(_left_read);}
+const ReadHit& PairedHit::left_read_obj() const {return *_left_read;}
 
 char PairedHit::strand() const {
    if(_right_read && _left_read){
@@ -440,7 +446,7 @@ void PairedHit::set_left_read(ReadHitPtr lr)
    _left_read = move(lr);
 }
 
-const ReadHitPtr PairedHit::right_read() const {return move(_right_read);}
+const ReadHit& PairedHit::right_read_obj() const {return *_right_read;}
 
 void PairedHit::set_right_read(ReadHitPtr rr)
 {
@@ -530,19 +536,42 @@ RefID PairedHit::ref_id() const
    return -1;
 }
 
-bool PairedHit::operator==(const PairedHit& rhs)
+double PairedHit::mass() const
 {
-   if((rhs.left_read() == nullptr) != (left_read() == nullptr))
+   double m = 0.0;
+   if(_left_read)
+      m += _left_read->mass();
+   if(_right_read)
+      m += _right_read->mass();
+   return m;
+}
+
+bool PairedHit::operator==(const PairedHit& rhs) const
+{
+   if((rhs._left_read == nullptr) != (_left_read == nullptr))
       return false;
-   if((rhs.right_read() == nullptr) != (right_read() == nullptr))
+   if((rhs._right_read == nullptr) != (_right_read == nullptr))
       return false;
-   if(left_read()){
-      if(left_read() != rhs.left_read()) return false;
+   if(_left_read){
+      if(left_read_obj() != rhs.left_read_obj()) return false;
    }
-   if(right_read()){
-      if(right_read() != rhs.right_read()) return false;
+   if(_right_read){
+      if(right_read_obj() != rhs.right_read_obj()) return false;
    }
    return true;
+}
+
+bool PairedHit::operator !=(const PairedHit& rhs) const
+{
+   return !(*this == rhs);
+}
+
+bool PairedHit::operator<(const PairedHit& rhs) const
+{
+   if(left_pos() == rhs.left_pos())
+      return right_pos() < rhs.right_pos();
+   else
+      return left_pos() < rhs.left_pos();
 }
 
 RefID RefSeqTable::get_id(const string& name) {

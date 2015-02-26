@@ -92,6 +92,7 @@ public:
    bool is_first() const;
    bool reverseCompl() const;
    bool operator==(const ReadHit& rhs) const; // not considering read orientation
+   bool operator!=(const ReadHit& rhs) const;
    //vector<CigarOp> cigars() const;
 };
 
@@ -147,7 +148,7 @@ public:
 class HitFactory
 {
 private:
-   virtual platform_t HitFactory::str2platform(const string pl_str);
+   virtual platform_t str2platform(const string pl_str);
 protected:
    static const unsigned MAX_HEADER_LEN = 4 * 1024 * 1024; // 4 MB
    static const size_t kHitBufMaxSize = 10 * 1024;
@@ -203,20 +204,23 @@ public:
 
 typedef shared_ptr<ReadHit> ReadHitPtr;
 
-//PairedHit solely own the ReadHit objects by
-//using unique_ptr
-class PairedHit{
-   ReadHitPtr _left_read = nullptr;
-   ReadHitPtr _right_read = nullptr;
-   double _collapse_mass = 0.0;
 
+class PairedHit{
 public:
+   double _collapse_mass = 0.0;
+   ReadHitPtr _right_read ;
+   ReadHitPtr _left_read ;
    PairedHit() = default;
    PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead);
-   const ReadHitPtr left_read() const;
+   PairedHit& operator=(const PairedHit& rhs){
+      _left_read = rhs._left_read;
+      _right_read = rhs._right_read;
+      _collapse_mass = rhs._collapse_mass;
+   }
+   const ReadHit& left_read_obj() const;
    void set_left_read(ReadHitPtr lr);
    char strand() const;
-   const ReadHitPtr right_read() const;
+   const ReadHit& right_read_obj() const;
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;
    RefID ref_id() const;
@@ -227,7 +231,10 @@ public:
    ReadID read_id() const;
    int numHits() const;
    bool is_multi() const;
-   bool operator==(const PairedHit& rhs);
+   double mass() const;
+   bool operator==(const PairedHit& rhs) const;
+   bool operator!=(const PairedHit& rhs) const;
+   bool operator<(const PairedHit& rhs) const;
    bool paried_hit_lt(const PairedHit &rhs) const;
 };
 

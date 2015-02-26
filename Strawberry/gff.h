@@ -165,7 +165,7 @@ public:
       return _parent_gene;
    }
    void add_parent_mrna(const vector<GffmRNA*> & mrnas){
-      for(int i=0; i<mrnas.size(); i++){
+      for(size_t i=0; i<mrnas.size(); i++){
          _parent_mrnas.push_back(mrnas[i]);
       }
    }

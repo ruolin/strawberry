@@ -19,7 +19,7 @@ class HitCluster{
    double _raw_mass = 0.0;
    static int _next_id ;
 public:
-   std::unordered_map<ReadID, unique_ptr<PairedHit>> _open_mates;
+   std::unordered_map<ReadID, PairedHit> _open_mates;
    static const int _kMaxGeneLen = 1000000;
    static const int _kMaxFragPerCluster = 100000;
    std::vector<PairedHit> _hits;
@@ -35,7 +35,7 @@ public:
    uint right() const;
    int size() const;
    bool addHit(const PairedHit &hit);
-   bool addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool extend_by_partner);
+   bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
    bool makeUniqHits();
    bool hasRefmRNAs() const {
       return _ref_mRNAs.size() > 0;

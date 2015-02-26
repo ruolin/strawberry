@@ -8,6 +8,7 @@
 #include "alignments.h"
 #include "fasta.h"
 #include <algorithm>
+#include <iterator>
 #include <random>
 #ifdef DEBUG
    #include <iostream>
@@ -68,13 +69,13 @@ bool HitCluster::addHit(const PairedHit &hit){
    }
    assert(_ref_id == hit.ref_id());
 #ifdef DEBUG
-   if(hit.left_read()){
-       assert(hit.left_read()->_cigar.front().opcode == MATCH ||
-             hit.left_read()->_cigar.front().opcode == SOFT_CLIP);
+   if(hit._left_read){
+       assert(hit.left_read_obj()._cigar.front().opcode == MATCH ||
+             hit.left_read_obj()._cigar.front().opcode == SOFT_CLIP);
    }
-   if(hit.right_read()){
-         assert(hit.right_read()->_cigar.back().opcode == MATCH||
-               hit.right_read()->_cigar.back().opcode == SOFT_CLIP);
+   if(hit._right_read){
+         assert(hit.right_read_obj()._cigar.back().opcode == MATCH||
+               hit.right_read_obj()._cigar.back().opcode == SOFT_CLIP);
    }
 #endif
    _hits.push_back(hit);
@@ -82,7 +83,7 @@ bool HitCluster::addHit(const PairedHit &hit){
 }
 
 
-bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool extend_by_partner)
+bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
 {
    uint hit_left = hit->left();
    uint hit_right = hit->right();
@@ -104,39 +105,40 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool ex
    }
    _ref_id = hit_ref_id;
    if(hit->is_singleton()){
-      PairedHit ph(move(hit), nullptr);
+      PairedHit ph(hit, nullptr);
       addHit(ph);
    }
    else{
-      unordered_map<ReadID, unique_ptr<PairedHit>>::iterator iter_open = _open_mates.find(hit_id);
+      unordered_map<ReadID, PairedHit>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
 
          if(hit_left <= hit_partner_pos){
-            unique_ptr<PairedHit> open_hit (new PairedHit(move(hit), nullptr));
-            unordered_map<ReadID, unique_ptr<PairedHit>>::iterator ins_pos;
+            PairedHit open_hit(hit, nullptr);
+
+            unordered_map<ReadID, PairedHit>::iterator ins_pos;
             bool status;
             tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
             if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
          } else{
             // it is possible to reach here when two mRNA overlaps in genome.
-            unique_ptr<PairedHit> open_hit (new PairedHit(nullptr,move(hit)));
-            unordered_map<ReadID, unique_ptr<PairedHit>>::iterator ins_pos;
+            PairedHit open_hit(nullptr,hit);
+            unordered_map<ReadID, PairedHit>::iterator ins_pos;
             bool status;
             tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
             if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
          }
       } else{
 
-         if(iter_open->second->ref_id() != hit_ref_id)
+         if(iter_open->second.ref_id() != hit_ref_id)
             return false;
 
-         bool strand_agree = iter_open->second->strand() == hit_strand ||
-         iter_open->second->strand() == GenomicInterval::kStrandUnknown ||
+         bool strand_agree = iter_open->second.strand() == hit_strand ||
+         iter_open->second.strand() == GenomicInterval::kStrandUnknown ||
          hit_strand == GenomicInterval::kStrandUnknown;
 
-         assert(iter_open->second->left_pos() == hit_partner_pos && strand_agree);
-         iter_open->second->set_right_read(move(hit));
-         addHit(*iter_open->second);
+         assert(iter_open->second.left_pos() == hit_partner_pos && strand_agree);
+         iter_open->second.set_right_read(move(hit));
+         addHit(iter_open->second);
          _open_mates.erase(iter_open);
       }
    }
@@ -145,7 +147,37 @@ bool HitCluster::addOpenHit(unique_ptr<ReadHit> hit, bool extend_by_hit, bool ex
 
 bool HitCluster::makeUniqHits(){
    assert(_uniq_hits.empty());
-
+   if(_hits.empty())
+      return false;
+   sort(_hits.begin(), _hits.end());
+   _uniq_hits.resize(_hits.size());
+   auto it_hits = _hits.begin();
+   auto it_uniq = _uniq_hits.begin();
+   while(it_hits != _hits.end()){
+      *it_uniq = *it_hits;
+      it_uniq->_collapse_mass = it_uniq->mass();
+      ++it_uniq;
+      ++it_hits;
+   }
+   vector<PairedHit> duplicated;
+   auto last = unique2(_uniq_hits.begin(),_uniq_hits.end(), back_inserter(duplicated));
+   sort(duplicated.begin(), duplicated.end());
+   _uniq_hits.erase(last, _uniq_hits.end());
+   size_t i = 0, j =0;
+   while(i < _uniq_hits.size() && j < duplicated.size()){
+      if(_uniq_hits[i] == duplicated[j]){
+         _uniq_hits[i]._collapse_mass += duplicated[j++].mass();
+      }
+      else
+         ++i;
+   }
+   if(duplicated.size() > 1){
+      for(auto &i: _uniq_hits){
+         cout<<i._collapse_mass<<endl;
+      }
+   }
+   assert(j == duplicated.size());
+   return true;
 }
 
 
@@ -322,7 +354,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
 {
    if(!_hit_factory->recordsRemain()) return -1;
    while(true){
-      unique_ptr<ReadHit> new_hit(new ReadHit());
+      ReadHitPtr new_hit(new ReadHit());
       double mass = next_valid_alignment(*new_hit);
       //cout<<new_hit->left()<<endl;
       if(!_hit_factory->recordsRemain()){
@@ -336,7 +368,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       }
 
       if(clusterOut.size() == 0){ // add first hit
-         clusterOut.addOpenHit(move(new_hit), true, true);
+         clusterOut.addOpenHit(new_hit, true, true);
          clusterOut.addRawMass(mass);
 //#ifdef DEBUG
 //         cout<<clusterOut.right()<<"\t denovo cluster right"<<endl;
@@ -351,7 +383,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(move(new_hit), true, true);
+         clusterOut.addOpenHit(new_hit, true, true);
          clusterOut.addRawMass(mass);
       }
    }
@@ -373,7 +405,7 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
       //else
       // add as many as possible until encounter gap > _kMinOlapDist
       while(true){
-         unique_ptr<ReadHit> new_hit(new ReadHit());
+         ReadHitPtr new_hit(new ReadHit());
          double mass = next_valid_alignment(*new_hit);
          if(!_hit_factory->recordsRemain())
             return clusterOut.size();
@@ -402,7 +434,7 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
             break;
          }
 
-         clusterOut.addOpenHit(move(new_hit), false, false);
+         clusterOut.addOpenHit(new_hit, false, false);
          clusterOut.addRawMass(mass);
          if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
             random_device rd;

@@ -258,6 +258,10 @@ bool GenomicInterval::operator==(const GenomicInterval& rhs) const
      return (_left == rhs._left && _right == rhs._right);
 }
 
+bool GenomicInterval::operator!=(const GenomicInterval& rhs) const
+{
+   return !(*this == rhs);
+}
 bool GenomicInterval::operator>(const GenomicInterval& rhs) const
 {
      if ( rhs._seq_id != _seq_id) SError("cannot compare for different chrom\n");
