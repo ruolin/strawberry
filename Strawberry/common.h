@@ -13,6 +13,7 @@
 #include<vector>
 #include <sys/stat.h>
 #include <memory>
+#include<ostream>
 typedef void* pointer;
 #define SMALLOC(ptr,size)  if (!SMalloc((pointer*)(&ptr),size)) \
                                      SError("Error allocating memory.\n")
@@ -153,6 +154,8 @@ enum class Strand_t: char{
    StrandMinus,
    StrandBoth
 };
+
+std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
 
 class GenomicInterval {
 private:

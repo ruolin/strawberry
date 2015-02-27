@@ -40,25 +40,25 @@ int main(){
    hf->inspect_header();
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-
-   while(true){
-      HitCluster cur;
-      if(read_clusters.nextCluster_refGuide(cur) != -1){
-         if(cur.hasRefmRNAs()){
-            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "\
-                  <<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
-            cur.collapseHits();
-            cout<<"number of unique hits\t"<<cur._uniq_hits.size()<<endl;
-         }
-         else{
-            cout<<"Novo cluster number of closed mates: "<<cur.ref_id()<<":"<<
-                  cur.left()<<"-"<<cur.right()<<"\t"<<cur.raw_mass()<<endl;
-         }
-      }
-      else{
-         break;
-      }
-   }
+   read_clusters.closeHits();
+//   while(true){
+//      HitCluster cur;
+//      if(read_clusters.nextCluster_refGuide(cur) != -1){
+//         if(cur.hasRefmRNAs()){
+//            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "\
+//                  <<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
+//            cur.collapseHits();
+//            cout<<"number of unique hits\t"<<cur._uniq_hits.size()<<endl;
+//         }
+//         else{
+//            cout<<"Novo cluster number of closed mates: "<<cur.ref_id()<<":"<<
+//                  cur.left()<<"-"<<cur.right()<<"\t"<<cur.raw_mass()<<endl;
+//         }
+//      }
+//      else{
+//         break;
+//      }
+//   }
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
