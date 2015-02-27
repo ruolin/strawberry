@@ -87,7 +87,7 @@ public:
    bool is_singleton() const;
    uint left() const;
    uint right() const;
-   char strand() const;
+   Strand_t strand() const;
    double mass() const;
    bool is_first() const;
    bool reverseCompl() const;
@@ -155,7 +155,7 @@ protected:
    ReadTable& _reads_table;
    char _hit_buf[kHitBufMaxSize];
    int _num_seq_header_recs = 0;
-   ReadGroupProperties _read_group_props;
+   AssayProperties _assay_props;
 public:
    RefSeqTable& _ref_table;
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
@@ -174,7 +174,7 @@ public:
    virtual void undo_hit() = 0;
    virtual bool parse_header_line(const string& hline);
    virtual bool inspect_header() = 0;
-   virtual const ReadGroupProperties& read_group_properties();
+   virtual const AssayProperties& assay_properties();
 };
 
 class BAMHitFactory : public HitFactory
@@ -219,7 +219,7 @@ public:
    }
    const ReadHit& left_read_obj() const;
    void set_left_read(ReadHitPtr lr);
-   char strand() const;
+   Strand_t strand() const;
    const ReadHit& right_read_obj() const;
    void set_right_read(ReadHitPtr rr);
    bool is_paired() const;

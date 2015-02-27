@@ -15,6 +15,27 @@
 #endif
 using namespace std;
 
+/*
+ * Global utility function:
+ */
+bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
+   if(hit.ref_id() != cluster.ref_id())
+      return hit.ref_id() < cluster.ref_id();
+   else
+      return hit.right() + olap_radius < cluster.left();
+}
+
+bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
+   if(hit.ref_id() != cluster.ref_id()){
+      //cout<<"shouldn't\t"<<hit.ref_id()<<":"<<cluster.ref_id()<<endl;
+      return hit.ref_id() > cluster.ref_id();
+   }
+   else{
+      return hit.left() > cluster.right() + olap_radius;
+   }
+}
+
+
 int HitCluster::_next_id =0;
 HitCluster::HitCluster(): _id(++_next_id){}
 
@@ -87,7 +108,7 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
 {
    uint hit_left = hit->left();
    uint hit_right = hit->right();
-   char hit_strand = hit->strand();
+   Strand_t hit_strand = hit->strand();
    RefID hit_ref_id = hit->ref_id();
    uint hit_partner_pos = hit->partner_pos();
    ReadID hit_id = hit->read_id();
@@ -133,8 +154,8 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
             return false;
 
          bool strand_agree = iter_open->second.strand() == hit_strand ||
-         iter_open->second.strand() == GenomicInterval::kStrandUnknown ||
-         hit_strand == GenomicInterval::kStrandUnknown;
+         iter_open->second.strand() == Strand_t::StrandUnknown ||
+         hit_strand == Strand_t::StrandUnknown;
 
          assert(iter_open->second.left_pos() == hit_partner_pos && strand_agree);
          iter_open->second.set_right_read(move(hit));
@@ -145,7 +166,7 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
    return true;
 }
 
-bool HitCluster::makeUniqHits(){
+int HitCluster::collapseHits(){
    assert(_uniq_hits.empty());
    if(_hits.empty())
       return false;
@@ -166,24 +187,30 @@ bool HitCluster::makeUniqHits(){
    size_t i = 0, j =0;
    while(i < _uniq_hits.size() && j < duplicated.size()){
       if(_uniq_hits[i] == duplicated[j]){
-         cout<<duplicated[j].mass()<<endl;
          _uniq_hits[i]._collapse_mass += duplicated[j++].mass();
       }
       else
          ++i;
    }
-   if(duplicated.size() > 1){
-
-      for(auto &i: duplicated){
-         for(auto &j: _uniq_hits){
-            //if(i == j) cout<<"left_pos "<<j.left_pos()<<"\t"<<j.mass()<<endl;
-         }
-      }
-   }
+//#ifdef DEBUG
+//   if(duplicated.size() > 1){
+//
+//      for(auto &i: duplicated){
+//         for(auto &j: _uniq_hits){
+//            if(i == j) cout<<"left_pos "<<j.left_pos()<<"\t"<<j._collapse_mass<<endl;
+//         }
+//      }
+//   }
+//#endif
    assert(j == duplicated.size());
-   return true;
+   return _uniq_hits.size();
 }
 
+
+bool HitCluster::overlaps( const HitCluster& rhs) const{
+   if(ref_id() != rhs.ref_id()) return false;
+   return left() < rhs.left() ? right() >= rhs.left() : left() <= rhs.right();
+}
 
 bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt,
       const char *seqFile)
@@ -451,20 +478,40 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
    return clusterOut.size();
 }
 
+bool ClusterFactory::mergeClusters(HitCluster & dest, HitCluster &resource){
+   bool saw_forward = false;
+   bool saw_reverse = false;
 
-bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
-   if(hit.ref_id() != cluster.ref_id())
-      return hit.ref_id() < cluster.ref_id();
-   else
-      return hit.right() + olap_radius < cluster.left();
 }
 
-bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
-   if(hit.ref_id() != cluster.ref_id()){
-      //cout<<"shouldn't\t"<<hit.ref_id()<<":"<<cluster.ref_id()<<endl;
-      return hit.ref_id() > cluster.ref_id();
+bool ClusterFactory::closeHits(){
+   vector<double> frag_len_dist;
+   unique_ptr<HitCluster> last_cluster (new HitCluster());
+   if( -1 == nextCluster_refGuide(*last_cluster) ) {
+      return true;
    }
-   else{
-      return hit.left() > cluster.right() + olap_radius;
+   while(true){
+      unique_ptr<HitCluster> cur_cluster (new HitCluster());
+      if(-1 == nextCluster_refGuide(*cur_cluster)){
+         break;
+      }
+     if(cur_cluster->overlaps(*last_cluster) ){
+        if(!cur_cluster->hasRefmRNAs() && !last_cluster->hasRefmRNAs()) {
+           SError("Error: It is unlikely that novo cluster overlaps at (%d:%d-%d) with (%d:%d-%d) !n",
+                 last_cluster->ref_id(), last_cluster->left(), last_cluster->right(),
+                 cur_cluster->ref_id(), cur_cluster->left(), cur_cluster->right());
+        }
+//            merge_cluster(last_cluster, cur_cluster);
+//            last_cluster->throwOpenHits();
+//            last_cluster->collapseHits();
+//            inspectCluster(*last_cluster, frag_len_dist);
+      }
+      else{
+//            last_cluster->throwOpenHits();
+//            last_cluster->collapseHits();
+//            inspectCluster(*last_cluster, frag_len_dist);
+//            last_cluster = move(cur_cluster);
+      }
    }
 }
+

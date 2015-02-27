@@ -38,10 +38,8 @@ int main(){
    RefSeqTable ref_seq_table(true);
    unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
    hf->inspect_header();
-   //cout<<ref_seq_table.size()<<endl;
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-   cout<<"number ref "<<read_clusters._ref_mRNAs.size()<<endl;
 
    while(true){
       HitCluster cur;
@@ -49,10 +47,7 @@ int main(){
          if(cur.hasRefmRNAs()){
             cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "\
                   <<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
-            cur.makeUniqHits();
-            for(auto &i : cur._uniq_hits){
-               //cout<< "hits range: "<<i.left_pos()<<"-"<<i.right_pos()<<endl;
-            }
+            cur.collapseHits();
             cout<<"number of unique hits\t"<<cur._uniq_hits.size()<<endl;
          }
          else{

@@ -177,25 +177,13 @@ char* SlineReader::getLine(FILE* stream, off_t& f_pos)
    }
 }
 
-GenomicInterval::GenomicInterval(int chr, uint l, uint r, char o) {
-      _seq_id = chr;
+GenomicInterval::GenomicInterval(int chr, uint l, uint r, Strand_t o) :
+   _seq_id(chr),
+   _strand(o)
+{
       if (l>r) { _left = r; _right = l;}
       else { _left = l; _right = r;}
-      switch(o){
-      case '+':
-         _strand = kStrandPlus;
-         break;
-      case '-':
-         _strand = kStrandMinus;
-         break;
-      case '.':
-         _strand = kStrandUnknown;
-         break;
-      default:
-         SError("Error: stand %c must be '+', '-' or '.' \n", o);
-         break;
-      }
-   }
+}
 
 
 
@@ -207,7 +195,7 @@ void GenomicInterval::set_left(uint l) {_left = l;}
 
 void GenomicInterval::set_right(uint r) {_right = r;}
 
-char GenomicInterval::strand() const { return _strand;}
+Strand_t GenomicInterval::strand() const { return _strand;}
 
 int GenomicInterval::seq_id() const { return _seq_id;}
 
@@ -220,14 +208,14 @@ uint GenomicInterval::len() const { return _right-_left+1;}
 bool GenomicInterval::overlap(const GenomicInterval& other, bool nonStrandness) const
 {
      if( _seq_id != other._seq_id) return false;
-     if( !nonStrandness && other._strand != kStrandUnknown && _strand != kStrandUnknown && other._strand != _strand) return false;
+     if( !nonStrandness && other._strand != Strand_t::StrandUnknown && _strand != Strand_t::StrandUnknown && other._strand != _strand) return false;
      return _left < other._left ? ( other._left <= _right) : (_left <= other._right);
 }
 
 bool GenomicInterval::isContainedIn(const GenomicInterval &other, bool nonStrandness) const
 {
      if( other._seq_id != _seq_id) return false;
-     if( !nonStrandness && other._strand != kStrandUnknown && _strand != kStrandUnknown && other._strand != _strand) return false;
+     if( !nonStrandness && other._strand != Strand_t::StrandUnknown && _strand != Strand_t::StrandUnknown && other._strand != _strand) return false;
      if (_left < other._left || _right > other._right) return false;
      return true;
 }
@@ -254,7 +242,7 @@ uint GenomicInterval::overlapLen(const GenomicInterval& other) const
 bool GenomicInterval::operator==(const GenomicInterval& rhs) const
 {
      if ( rhs._seq_id != _seq_id) return false;
-     if( rhs._strand != kStrandUnknown && _strand != kStrandUnknown && rhs._strand != _strand) return false;
+     if( rhs._strand != Strand_t::StrandUnknown && _strand != Strand_t::StrandUnknown && rhs._strand != _strand) return false;
      return (_left == rhs._left && _right == rhs._right);
 }
 

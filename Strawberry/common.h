@@ -147,29 +147,33 @@ public:
      }
 };
 
+enum class Strand_t: char{
+   StrandUnknown,
+   StrandPlus,
+   StrandMinus,
+   StrandBoth
+};
+
 class GenomicInterval {
 private:
    uint _left = 1; // left < right always!
    uint _right = 0;
    int _seq_id = -1; // _chrom is seq id. -1 is for unmapped read
-   char _strand;
+   Strand_t _strand;
 
 public:
-   static const char kStrandPlus = '+';
-   static const char kStrandMinus = '-';
-   static const char kStrandUnknown = '.';
    GenomicInterval()=default;
    GenomicInterval(int chr,
                   uint l,
                   uint r,
-                  char o);
+                  Strand_t o);
 
   uint left() const;
   uint right() const;
   void set_seq_id(int id);
   void set_left(uint l);
   void set_right(uint r);
-  char strand() const;
+  Strand_t strand() const;
   int seq_id() const;
   uint len() const;
 
@@ -268,7 +272,7 @@ enum platform_t
     SOLID
 };
 
-struct ReadGroupProperties
+struct AssayProperties
 {
    platform_t _platform;
    strandedness_t _strandedness;
@@ -280,7 +284,7 @@ struct ReadGroupProperties
    std::string _condition_name;
    std::string _file_path;
    int _num_replicates;
-   ReadGroupProperties() = default;
+   AssayProperties() = default;
 };
 
 template <class ForwardIterator, class OutputIterator>

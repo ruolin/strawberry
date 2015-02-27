@@ -36,7 +36,8 @@ public:
    int size() const;
    bool addHit(const PairedHit &hit);
    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
-   bool makeUniqHits();
+   int collapseHits();
+   bool overlaps(const HitCluster& rhs) const;
    bool hasRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
@@ -55,10 +56,6 @@ public:
    }
 
 };
-
-
-#endif /* STRAWB_ALIGNMENTS_H_ */
-
 
 class ClusterFactory{
    static const int _kMinOlapDist = 50;
@@ -90,7 +87,11 @@ public:
 
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
+   static bool mergeClusters(HitCluster & dest, HitCluster &resource);
+   bool closeHits();
 };
 
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
+
+#endif /* STRAWB_ALIGNMENTS_H_ */

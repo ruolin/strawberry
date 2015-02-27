@@ -84,11 +84,11 @@ public:
    int _llen;
    uint _end;
    uint _start;
-   string _chrom;
    string _source;
-   char _strand;
-   float _score;
+   Strand_t _strand;
    bool _skip;
+   float _score;
+   string _chrom;
    string _gffline_type; // the type indicated by gff line
    //bool _is_cds; // for future
    GffFeat_t _feat_type; // the type which has been parsed
@@ -133,13 +133,13 @@ public:
    GffObj& operator=(const GffObj &rhs) = default;
    GffObj& operator=(GffObj &&rhs) = default;
    virtual int seq_id() const { return _iv.seq_id();}
-   virtual const char strand() const { return _iv.strand();}
+   virtual Strand_t strand() const { return _iv.strand();}
    virtual bool operator==(const GffObj &rhs){
       return _iv == rhs._iv;
    }
    virtual bool operator<(const GffObj &rhs){
       if(_iv.strand() == rhs._iv.strand()){
-         if(_iv.strand() == GenomicInterval::kStrandMinus) return _iv > rhs._iv;
+         if(_iv.strand() == Strand_t::StrandMinus) return _iv > rhs._iv;
          else return _iv < rhs._iv;
       }
       return false;
@@ -345,7 +345,7 @@ public:
    }
 
    GffLoci* findGene(const string gene_id);
-   GffmRNA* findmRNA(const string mrna_id, const char strand);
+   GffmRNA* findmRNA(const string mrna_id, const Strand_t strand);
 };
 
 

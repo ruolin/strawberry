@@ -144,11 +144,15 @@ GffLine::GffLine(const char* l)
          SMessage("Warning: invalid feature score at line:\n%s\n",l);
          return;
    }
-   _strand = *t[6];
-   if(_strand!=GenomicInterval::kStrandPlus && _strand!=GenomicInterval::kStrandMinus
-         && _strand!=GenomicInterval::kStrandUnknown){
-      SMessage("Warning: parsing strand (%c) from GFF line:\n%s\n",_strand,l);
+   switch(*t[6]){
+      case '+':
+         _strand = Strand_t::StrandPlus; break;
+      case '-':
+         _strand = Strand_t::StrandMinus; break;
+      default:
+         _strand = Strand_t::StrandUnknown; break;
    }
+
    _phase=*t[7];
    strncpy(fnamelc, t[2], 127);
    fnamelc[127]=0;
@@ -213,7 +217,7 @@ GffLine::GffLine(){
    _start=0;
    _end=0;
    _info=NULL;
-   _strand = GenomicInterval::kStrandUnknown;
+   _strand = Strand_t::StrandUnknown;
    _skip = false;
    //_is_cds=false; // for future
    _is_gff3=false;
@@ -387,10 +391,10 @@ GffLoci* GffSeqData::findGene(const string gene_id){
    }
 }
 
-GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
+GffmRNA* GffSeqData::findmRNA(const string mrna_id, const Strand_t strand){
    switch(strand)
    {
-      case '+':
+      case Strand_t::StrandPlus:
       {
          if(_forward_rnas.back()->_transcript_id == mrna_id){
             return &(*_forward_rnas.back());
@@ -402,7 +406,7 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
          }
          break;
       }
-      case '-':
+      case Strand_t::StrandMinus:
       {
          if(_reverse_rnas.back()->_transcript_id == mrna_id){
             return &(*_reverse_rnas.back());
@@ -414,7 +418,7 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
          }
          break;
       }
-      default:
+      case Strand_t::StrandUnknown:
       {
          if(_unstranded_rnas.back()->_transcript_id == mrna_id){
             return &(*_unstranded_rnas.back());
@@ -426,6 +430,8 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const char strand){
          }
          break;
       }
+      default:
+         assert(false);
    }
    return NULL;
 }
@@ -484,15 +490,18 @@ void GffReader::readAll(){
 
          unique_ptr<GffmRNA> mrna( new GffmRNA(_gfline, gene, *this));
          GffmRNA *cur_mrna = NULL;
-         if(mrna->strand() == GenomicInterval::kStrandPlus){
+         if(mrna->strand() == Strand_t::StrandPlus){
             gseq->addPlusRNA(move(mrna));
             cur_mrna = gseq->last_f_rna();
-         } else if(mrna->strand() == GenomicInterval::kStrandMinus){
+         } else if(mrna->strand() == Strand_t::StrandMinus){
             gseq->addMinusRNA(move(mrna));
             cur_mrna = gseq->last_r_rna();
-         } else{
+         } else if(mrna->strand() == Strand_t::StrandUnknown){
             gseq->addUnstrandedRNA(move(mrna));
             cur_mrna = gseq->last_u_rna();
+         }
+         else{
+            assert(false);
          }
          // mrna now is released
          // it is most possible that the last gene is the parent.

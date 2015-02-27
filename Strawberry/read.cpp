@@ -70,7 +70,7 @@ uint ReadHit::right() const {return _iv.right();}
 
 GenomicInterval ReadHit::interval() const { return _iv;}
 
-char ReadHit::strand() const {return _iv.strand();}
+Strand_t ReadHit::strand() const {return _iv.strand();}
 
 //vector<CigarOp> ReadHit::cigars() const {
 //   return _cigar;
@@ -168,17 +168,17 @@ bool HitFactory::parse_header_line(const string& hline){
          split(i, ":", fields);
          if(fields[0] == "PL"){
             platform_t p = str2platform(fields[1]);
-            assert(_read_group_props._platform == UNKNOWN_PLATFORM);
-            _read_group_props._platform = p;
+            assert(_assay_props._platform == UNKNOWN_PLATFORM);
+            _assay_props._platform = p;
          }
       }
    }
    return true;
 }
 
-const ReadGroupProperties&  HitFactory::read_group_properties()
+const AssayProperties&  HitFactory::assay_properties()
 {
-   return _read_group_props;
+   return _assay_props;
 }
 
 BAMHitFactory::BAMHitFactory(const string& bam_file_name,
@@ -374,13 +374,23 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       mate_pos = 0;
    }
 
-   char source_strand = GenomicInterval::kStrandUnknown;
+   Strand_t source_strand = Strand_t::StrandUnknown;
    unsigned char num_mismatches = 0;
 
    uint8_t* ptr = bam_aux_get(hit_buf, "XS");
    if(ptr){
       char src_strand_char = bam_aux2A(ptr);
-      source_strand = src_strand_char;
+      switch(src_strand_char){
+      case '+':
+         source_strand = Strand_t::StrandPlus;
+         break;
+      case '-':
+         source_strand = Strand_t::StrandMinus;
+         break;
+      default:
+         SMessage("Warning: Parsing spliced alignment without known strand information! \n");
+         break;
+      }
    }
 
    ptr = bam_aux_get(hit_buf, "NM");
@@ -403,7 +413,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
 
    if(is_spliced_alignment){
-      if(source_strand == GenomicInterval::kStrandUnknown)
+      if(source_strand == Strand_t::StrandUnknown)
          fprintf(stderr, "BAM record error: found spliced alignment without XS attribute\n");
    }
 
@@ -427,18 +437,18 @@ PairedHit::PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead):
 
 const ReadHit& PairedHit::left_read_obj() const {return *_left_read;}
 
-char PairedHit::strand() const {
+Strand_t PairedHit::strand() const {
    if(_right_read && _left_read){
       assert(_right_read->strand() == _left_read->strand() ||
-            _right_read->strand() == GenomicInterval::kStrandUnknown ||
-            _left_read->strand() == GenomicInterval::kStrandUnknown);
+            _right_read->strand() == Strand_t::StrandUnknown ||
+            _left_read->strand() == Strand_t::StrandUnknown);
          return _left_read->strand();
    } else if (_left_read)
       return _left_read->strand();
    else if (_right_read)
       return _right_read->strand();
    else
-      return 0;
+      assert(false);
 }
 
 void PairedHit::set_left_read(ReadHitPtr lr)
