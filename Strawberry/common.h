@@ -13,12 +13,11 @@
 #include<vector>
 #include <sys/stat.h>
 #include <memory>
+#include "logger.hpp"
 typedef void* pointer;
-#define SMALLOC(ptr,size)  if (!SMalloc((pointer*)(&ptr),size)) \
-                                     SError("Error allocating memory.\n")
+
+
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
-#define SREALLOC(ptr,size) if (!SRealloc((pointer*)(&ptr),size)) \
-                                     SError("Error allocating memory.\n")
 
 int fileExists(const char* fname);
 
@@ -44,7 +43,6 @@ inline void SFree(pointer* ptr)
    *ptr=NULL;
 }
 
-void SError(const char* format,...);
 
 
 inline void str2lower(char * str) {//changes string in place
@@ -71,14 +69,6 @@ inline void str2lupper(std::string &str){
       str[i] = toupper(str[i]);
 }
 
-void SMessage(const char* format,...);
-
-inline bool SMalloc(pointer* ptr,unsigned long size)
-{
-  //GASSERT(ptr);
-  if (size!=0) *ptr=malloc(size);
-  return *ptr!=NULL;
-}
 
 int stricmp(const char* a, const char* b, int n);
 
@@ -122,7 +112,9 @@ public:
             // so the next call will in fact return the same line
    SlineReader(const char* fname) {
       FILE* f=fopen(fname, "rb");
-      if (f==NULL) SError("Error opening file '%s'!\n",fname);
+      if (f==NULL) {
+         LOG_ERR("Error opening file: ",fname);
+      }
       closeFile=true;
       init(f);
       }
@@ -134,7 +126,7 @@ public:
      len=0;
      isEOF=false;
      allocated=1024;
-     SMALLOC(buf,allocated);
+     buf = new char[allocated];
      lcount=0;
      buf[0]=0;
      file=stream;

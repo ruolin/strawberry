@@ -121,7 +121,7 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
    }
    if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
 
-      SMessage("Warning: hit start at %d is longer than max gene length, skipping\n", hit_left);
+      LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
       return false;
    }
    _ref_id = hit_ref_id;
@@ -132,22 +132,11 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
    else{
       unordered_map<ReadID, PairedHit>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
-
-         if(hit_left <= hit_partner_pos){
-            PairedHit open_hit(hit, nullptr);
-
-            unordered_map<ReadID, PairedHit>::iterator ins_pos;
-            bool status;
-            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
-            if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
-         } else{
-            // it is possible to reach here when two mRNA overlaps in genome.
-            PairedHit open_hit(nullptr,hit);
-            unordered_map<ReadID, PairedHit>::iterator ins_pos;
-            bool status;
-            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
-            if(status == false) SMessage("Warning: Inserting read into open_mats failed\n");
-         }
+         PairedHit open_hit(hit, nullptr);
+         unordered_map<ReadID, PairedHit>::iterator ins_pos;
+         bool status;
+         tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+         assert(status);
       } else{
 
          if(iter_open->second.ref_id() != hit_ref_id)
@@ -227,7 +216,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
          int idx = gseqs[i]->get_gseq_id();
          int ref_table_id = rt.get_id(gseqs[i]->_g_seq_name);
          if( idx != ref_table_id ){
-            SMessage("Warning: Sam file and Gff file are not sorted in the same order!\n");
+            LOG_WARN("Warning: Sam file and Gff file are not sorted in the same order!");
             gseqs[i]->set_gseq_id(ref_table_id);
          }
       }
@@ -257,7 +246,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
          fsg = new FaSeqGetter();
          fa_api.load2FaSeqGetter(*fsg,gseqs[i]->_g_seq_name);
          if(fsg == NULL){
-            SMessage("Reference sequence %s can not be load!\n",gseqs[i]->_g_seq_name.c_str());
+            LOG_ERR("Reference sequence ", gseqs[i]->_g_seq_name, " can not be load!\n");
          }
       }
       int f_total = gseqs[i]->_forward_rnas.size();
@@ -320,8 +309,9 @@ double ClusterFactory::next_valid_alignment(ReadHit& readin){
          {
             const string cur_chr_name = _hit_factory->_ref_table.ref_name(readin.ref_id());
             const string last_chr_name = _hit_factory->_ref_table.ref_name(_prev_hit_ref_id);
-            SError("Error:BAM file not sort correctly! The current position is %s:%d and previous position is %s:%d.\n",
-                  cur_chr_name.c_str(), readin.left(), last_chr_name.c_str(), _prev_hit_pos);
+            LOG_ERR("BAM file not sort correctly!");
+            LOG_ERR("The current position is: ", cur_chr_name, ":", readin.left());
+            LOG_ERR("and previous position is: ", last_chr_name, ":", _prev_hit_pos);
          }
       }
 
@@ -407,7 +397,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       } else { //add the rest
          if(hit_lt_cluster(*new_hit, clusterOut, _kMinOlapDist)){
             // should never reach here
-            SMessage("Error in alignments.cpp: It appears that SAM/BAM not sorted!\n");
+            LOG_ERR("In alignments.cpp: It appears that SAM/BAM not sorted!");
          }
          if(hit_gt_cluster(*new_hit, clusterOut, _kMinOlapDist)){
             // read has gone to far.
@@ -497,9 +487,9 @@ bool ClusterFactory::closeHits(){
       }
      if(cur_cluster->overlaps(*last_cluster) ){
         if(!cur_cluster->hasRefmRNAs() && !last_cluster->hasRefmRNAs()) {
-           SError("Error: It is unlikely that novo cluster overlaps at (%d:%d-%d) with (%d:%d-%d) !n",
-                 last_cluster->ref_id(), last_cluster->left(), last_cluster->right(),
-                 cur_cluster->ref_id(), cur_cluster->left(), cur_cluster->right());
+           LOG_ERR("Error: It is unlikely that novo cluster overlaps");
+           LOG_ERR(last_cluster->ref_id(), ":", last_cluster->left(), "-", last_cluster->right());
+           LOG_ERR(cur_cluster->ref_id(),":", cur_cluster->left(), "-", cur_cluster->right());
         }
 //            merge_cluster(last_cluster, cur_cluster);
 //            last_cluster->throwOpenHits();

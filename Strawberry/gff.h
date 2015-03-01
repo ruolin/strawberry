@@ -105,7 +105,7 @@ public:
    const string parent() const
    {
       if(_parents.size() != 1)
-         SMessage("No parent or multiple parents for a mRNA object in: %s\n", _dupline);
+         LOG_WARN("No parent or multiple parents for a mRNA object in: %s\n", _dupline);
       else
          return _parents[0];
    }

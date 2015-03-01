@@ -25,8 +25,14 @@ void SubSeq::setup(uint s, uint l){
 
 //initialize .fa file and .fai file name
 FaIndex::FaIndex(const char* fname, const char* finame){
-   if(fileExists(fname) != 2) SError("Error: fasta file %s not found!\n", fname);
-   if (fileSize(fname)<=0) SError("Error: invalid fasta file %s !\n",fname);
+   if(fileExists(fname) != 2) {
+      LOG_ERR("Error: fasta file ", fname, " not found");
+      exit(1);
+   }
+   if (fileSize(fname)<=0) {
+      LOG_ERR("Error: invalid fasta file",fname);
+      exit(1);
+   }
    _fa_name.assign(fname);
    if(finame) {
       _fai_name.assign(finame);
@@ -44,15 +50,19 @@ int FaIndex::loadIndex(){
    _haveFai = false;
    FILE* fi = fopen(_fai_name.c_str(), "rb");
    if(!fi){
-      SMessage("Warning: cannot open fasta index file for reading./n",_fai_name.c_str());
-      return 0;
+      LOG_ERR("cannot open fasta index file for reading ",_fai_name.c_str());
+      LOG_ERR("Currently creating fasta index is not supported. Please use samtools to build fasta index.");
+      exit(1);
    }
    SlineReader fl(fi);
    char* line = nullptr;
    while( (line = fl.nextLine()) != nullptr ){
       if(*line == '#') continue;
       size_t idx = strcspn(line, " \t");
-      if(idx == strlen(line)) SError("Error parsing fasta index line: \n%s\n",line);
+      if(idx == strlen(line)) {
+         LOG_ERR("Error parsing fasta index line: ",line);
+         exit(1);
+      }
       char *p = (char*)(line+idx); //s now holds the genomic sequence name
       *(p++) = 0;
       uint len=0;
@@ -64,8 +74,10 @@ int FaIndex::loadIndex(){
          long long offset = -1;
          sscanf(p, "%d%lld%d%d", &len, &offset, &line_len, &bline_len);
       #endif
-      if(len==0 || line_len==0 || bline_len==0 || line_len > bline_len)
-         SError("Error parsing fasta index line: \n%s\n",line);
+      if(len==0 || line_len==0 || bline_len==0 || line_len > bline_len){
+         LOG_ERR("Error parsing fasta index line: ",line);
+         exit(1);
+      }
       #ifdef DEBUG
          //printf("%s\t%d\t%lld\t%d\t%d\n", line, len ,offset, line_len, bline_len);
       #endif
@@ -87,7 +99,7 @@ bool FaIndex::add_record(string seqname, const uint seqlen, const off_t fpos, co
    pair<FaRecord_p, bool> res;
    res = _records.insert( make_pair(seqname, FaRecord(seqname, seqlen, fpos, linelen, lineblen) ) );
    if(!res.second){
-      SMessage("duplicated seqname %s in fasta index file./n", seqname.c_str());
+      LOG_WARN("duplicated seqname ", seqname, " in fasta file");
    }
 
    return res.second;
@@ -121,7 +133,8 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    uint seq_len = _my_record._seq_len;
 
    if(seq_len == 0){
-      SError("Error: empty or zero-length fasta record %s\n", _my_record._seq_name.c_str());
+      LOG_ERR("Empty or zero-length fasta record ", _my_record._seq_name);
+      exit(1);
    }
    uint start_line_number = (start-1) / line_len;
    int start_char_in_line = (start-1) % line_len;
@@ -141,7 +154,8 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
       if (should_read_len > toread) should_read_len = toread; // in case we need just a few chars
       act_read_len = fread((void*)cur_char_p, 1, should_read_len, fh);
       if( act_read_len < should_read_len){
-         SError("Warning: reading %s encountered a premature eof. Please check input.\n", _fname.c_str());
+         LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
+         exit(1);
       }
       toread -= act_read_len;
       cur_char_p += act_read_len;
@@ -151,7 +165,8 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    while(toread >= line_len){
       act_read_len = fread((void*)cur_char_p, 1, line_len, fh);
       if(act_read_len < line_len){
-         SError("Warning: reading %s encountered a premature eof. Please check input.\n", _fname.c_str());
+         LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
+         exit(1);
       }
       toread -= act_read_len;
       cur_char_p += act_read_len;
@@ -161,7 +176,8 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    if(toread>0){ // read last line
       act_read_len = fread((void*)cur_char_p, 1, toread, fh);
       if(act_read_len < toread){
-         SError("Warning: reading %s encountered a premature eof. Please check input.\n", _fname.c_str());
+         LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
+         exit(1);
       }
       already_read_len += act_read_len;
    }
@@ -178,15 +194,13 @@ char* FaSeqGetter::fetchSeq(uint start, uint len){
 
 
 void FaInterface::initiate(const char* fpath){
-   if(!fpath){
-      SMessage("Error: unspecified fasta file or directory\n");
-   }
+   // fpath should be check non-empty in the caller
    _fa_path.assign(fpath);
    pair<ItFaidx, bool> ret;
    switch(fileExists(fpath)){
    case 0:
-      SError("Error: file or directory %s does not exist!\n",fpath);
-      break;
+      LOG_ERR("File or directory ",fpath, " does not exist!");
+      exit(1);
    case 2: // is a file. One file multiple chromosomes.
       // if .fai file is given instead of .fa
 
@@ -194,7 +208,8 @@ void FaInterface::initiate(const char* fpath){
       if(endsWith(_fa_path,".fai") ){
          string fa_name = _fa_path.substr(0, _fa_path.length()-4);
          if(!fileExists(fa_name.c_str() )  ){
-            SError("Error: Cannot find fasta file for index file %s \n",fpath);
+            LOG_ERR("Cannot find fasta file for index file ",fpath);
+            exit(1);
          }else{
             ret = _fa_indexes.insert(make_pair(fa_name, unique_ptr<FaIndex> (new FaIndex(fa_name.c_str(), fpath) ) ) );
             assert(ret.second);
@@ -205,7 +220,8 @@ void FaInterface::initiate(const char* fpath){
          assert(ret.second);
 
       } else {
-         SError("Error: Cannot find .fasta or .fa file.\n");
+         LOG_ERR("Cannot find .fasta or .fa file");
+         exit(1);
       }
 
       // this for loop initialize _seqname_2_fafile object
@@ -213,7 +229,7 @@ void FaInterface::initiate(const char* fpath){
          pair<unordered_map<string, string>::iterator, bool> ret_it;
          ret_it = _seqname_2_fafile.insert(make_pair(it_rec->first, ret.first->first));
          if(!ret_it.second){
-            SError("Error: please checking fasta file %s for possible duplicated sequence names.\n", ret.first->first.c_str());
+            LOG_ERR("Please checking fasta file ", ret.first->first,  "for possible duplicated sequence names" );
          }
       }//end for loop
 
@@ -231,7 +247,10 @@ void FaInterface::initiate(const char* fpath){
             strcat(fai_name, ent->d_name);
             string fa_name(fai_name);
             strcat(fai_name, ".fai");
-            if(strlen(fai_name) > 199) SError("file name is too long %s.\n", fai_name);
+            if(strlen(fai_name) > 199) {
+               LOG_ERR("file name is too long ", fai_name);
+               exit(1);
+            }
             // if index file exists
             if( fileExists(fai_name) ==2 ) {
                ret = _fa_indexes.insert(make_pair(fa_name, unique_ptr<FaIndex>(new FaIndex(fa_name.c_str(), fai_name) ) )  );
@@ -241,7 +260,7 @@ void FaInterface::initiate(const char* fpath){
                   pair<unordered_map<string, string>::iterator, bool> ret_it;
                   ret_it = _seqname_2_fafile.insert(make_pair(it_rec->first, ret.first->first));
                   if(!ret_it.second){
-                     SError("Error: please checking fasta file %s for possible duplicated sequence names.\n", ret.first->first.c_str());
+                     LOG_ERR("Please checking fasta file ", ret.first->first,  "for possible duplicated sequence names" );
                   }
                }//end for loop
             }
@@ -253,7 +272,7 @@ void FaInterface::initiate(const char* fpath){
       closedir(dir);
       break;
    default:
-      SError("Error: not a valid file or directory!\n", fpath);
+      LOG_ERR("Error: not a valid file or directory ", fpath);
       break;
    }
    _has_load = true;
@@ -262,7 +281,7 @@ void FaInterface::initiate(const char* fpath){
 void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){
    auto it_fa_name = _seqname_2_fafile.find(seqname);
    if(it_fa_name == _seqname_2_fafile.end()){
-      SError("Error: Reference sequence name \"%s\" cannot be found in fasta file. Please check fasta file header line. \n", seqname.c_str());
+      LOG_ERR("Reference sequence name ",seqname, " cannot be found in fasta file. Please check fasta file header line.");
    }
    string fa_name = it_fa_name->second;
    auto it_faidx = _fa_indexes.find(fa_name);
@@ -271,5 +290,5 @@ void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){
    if(it_faidx->second->getRecord(seqname, rec))
       getter.initial(fa_name, rec);
    else
-      SMessage("fetching seq name %s failed.\n", seqname.c_str());
+      LOG_ERR("Fetching seq name ", seqname, " failed");
 }

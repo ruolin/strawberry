@@ -11,9 +11,9 @@
 #include "fasta.h"
 #include "gff.h"
 #include "alignments.h"
+#include "logger.hpp"
 #include <chrono>
 using namespace std;
-
 
 
 int main(){
@@ -29,8 +29,6 @@ int main(){
    //cout<<"success\t"<<fsg.loadSeq()<<endl;
    //cout<<fsg.fetchSeq(80,4)<<endl;
    auto start = chrono::steady_clock::now();
-
-
    GffReader greader(ara_gtf);
    greader.readAll();
    greader.reverseExonOrderInMinusStrand();
@@ -59,6 +57,8 @@ int main(){
          break;
       }
    }
+
+
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;

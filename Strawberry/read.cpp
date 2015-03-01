@@ -156,7 +156,7 @@ bool HitFactory::parse_header_line(const string& hline){
             str2lower(fields[1]);
             RefID _ID = _ref_table.get_id(fields[1]);
             if(_ID != _num_seq_header_recs-1)
-               SMessage("Error: sort order of reads in BAM not consistent.\n");
+               LOG_ERR("Sort order of reads in BAM not consistent.");
                return false;
          }
       }
@@ -210,12 +210,12 @@ bool BAMHitFactory::inspect_header()
 {
    bam_header_t* header = _hit_file->header;
    if(header == NULL || header->l_text == 0){
-      SMessage("Warning: No BAM header\n");
+      LOG_WARN("No BAM header");
       return false;
    }
 
    if(header->l_text >= MAX_HEADER_LEN ){
-      SMessage("Warning: BAM header too large\n");
+      LOG_WARN("BAM header too large");
       return false;
    }
 
@@ -354,7 +354,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          opcode = REF_SKIP;
          is_spliced_alignment = true;
          if(length > (int) kMaxIntronLength){
-            SMessage("length %d is larger than max intron length %d \n", length, kMaxIntronLength);
+            LOG_WARN("At read ", bam1_qname(hit_buf), " length ", length, " is larger than max intron length ", kMaxIntronLength);
             return false;
          }
          break;
@@ -388,7 +388,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          source_strand = Strand_t::StrandMinus;
          break;
       default:
-         SMessage("Warning: Parsing spliced alignment without known strand information! \n");
+         LOG_WARN("At read ", bam1_qname(hit_buf), " parsing spliced alignment without known strand information");
          break;
       }
    }

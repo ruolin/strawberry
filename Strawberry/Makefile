@@ -18,14 +18,15 @@ gff.o : gff.h gff.cpp contig.h
 	${CXX} ${CXXFLAGS} -c gff.cpp
 alignments.o: alignments.h alignments.cpp
 	${CXX} ${CXXFLAGS} -c alignments.cpp
-RGproperty.o: RGproperty.h RGproperty.cpp common.h
-	${CXX} ${CXXFLAGS} -c RGproperty.cpp
 	
-Strawberry.o : Strawberry.cpp gff.h read.h fasta.h alignments.h RGproperty.h common.h
+logger.o: logger.cpp logger.hpp
+	${CXX} ${CXXFLAGS} -c logger.cpp
+
+Strawberry.o : Strawberry.cpp gff.h read.h fasta.h alignments.h logger.hpp common.h
 	${CXX} ${CXXFLAGS} -c Strawberry.cpp
 	
-$(MAIN_TARGET):	Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o RGproperty.o
-	$(CXX) ${CXXFLAGS} Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o RGproperty.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
+$(MAIN_TARGET):	Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o logger.o
+	$(CXX) ${CXXFLAGS} Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o logger.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
 
 all:	$(MAIN_TARGET)
 

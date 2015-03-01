@@ -50,7 +50,7 @@ void GffLine::extractAttr(const string attr, string &val) {
    char* vp=pos+attrlen;
    while (*vp==' ') vp++;
    if (*vp==';' || *vp==0)
-      SError("Error parsing value of GFF attribute \"%s\", line:\n%s\n", attr.c_str(), _dupline);
+      LOG_WARN("Error parsing value of GFF attribute ", attr.c_str(), "on line", _dupline);
    bool dq_enclosed=false; //value string enclosed by double quotes
    if (*vp=='"') {
       dq_enclosed=true;
@@ -120,13 +120,13 @@ GffLine::GffLine(const char* l)
    char* p=t[3];
    _start = (uint) atol(p);
    if(_start == 0){
-      SMessage("Warning: invalid start coordinate at line:\n%s\n",l);
+      LOG_WARN("Warning: invalid start coordinate at line:\n",l, "\n");
       return;
    }
    p=t[4];
    _end = (uint) atol(p);
    if (_end == 0){
-      SMessage("Warning: invalid end coordinate at line:\n%s\n",l);
+      LOG_WARN("Warning: invalid end coordinate at line:\n",l, "\n");
       return;
    }
    if (_end<_start) {
@@ -141,7 +141,7 @@ GffLine::GffLine(const char* l)
    else{
       _score = atof(p);
       if(_score == 0.0)
-         SMessage("Warning: invalid feature score at line:\n%s\n",l);
+         LOG_WARN("Warning: invalid feature score at line:\n",l, "\n");
          return;
    }
    switch(*t[6]){
@@ -323,7 +323,7 @@ GffmRNA* GffLoci::getRNA(const string rna) {
       for(auto it = _mrnas.begin(); it != _mrnas.end(); ++it){
          if((*it)->_transcript_id == rna) return *it;
       }
-      SMessage("Gene that contains %s does not show up in front of %s in gff file\n", rna.c_str(), rna.c_str());
+      LOG_ERR("Can not find the parent of mRNA", rna.c_str());
    }
    return NULL;
 }
@@ -386,7 +386,7 @@ GffLoci* GffSeqData::findGene(const string gene_id){
       for(auto it = _genes.begin(); it!= _genes.end(); it++){
          if( (*it)->_gene_id == gene_id) return &(*(*it));
       }
-      SError("Gff file does not contain gene_id: %s \n", gene_id.c_str());
+      LOG_ERR("Gff file does not contain gene_id: ", gene_id.c_str());
       return NULL;
    }
 }
@@ -402,7 +402,8 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const Strand_t strand){
             for(auto it = _forward_rnas.begin(); it!= _forward_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
+            LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
+            assert(false);
          }
          break;
       }
@@ -414,7 +415,8 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const Strand_t strand){
             for(auto it = _reverse_rnas.begin(); it!= _reverse_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
+            LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
+            assert(false);
          }
          break;
       }
@@ -426,7 +428,8 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const Strand_t strand){
             for(auto it = _unstranded_rnas.begin(); it!= _unstranded_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            SError("GFF error: exon's parent %s cannot be found!\n", mrna_id.c_str());
+            LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
+            assert(false);
          }
          break;
       }
@@ -456,7 +459,7 @@ bool GffReader::nextGffLine(){
          continue;
       }
       if(_gfline->_ID.empty() && _gfline->_parent.empty()){
-         SMessage("Warning: malformed GFF line, %s\n",_gfline->_dupline);
+         LOG_WARN("Warning: malformed GFF line",_gfline->_dupline);
          continue;
       }
       break;
