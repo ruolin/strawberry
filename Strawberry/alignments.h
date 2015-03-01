@@ -34,6 +34,7 @@ public:
    void right(uint right);
    uint right() const;
    int size() const;
+   Strand_t ref_strand() const;
    bool addHit(const PairedHit &hit);
    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
    int collapseHits();
@@ -58,7 +59,6 @@ public:
 };
 
 class ClusterFactory{
-   static const int _kMinOlapDist = 50;
    unique_ptr<HitFactory> _hit_factory;
    int _num_cluster = 0;
    uint _prev_pos = 0;
@@ -67,6 +67,7 @@ class ClusterFactory{
    size_t _refmRNA_offset;
    bool _has_load_all_refs;
 public:
+   static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    ClusterFactory(unique_ptr<HitFactory> hit_fac):
       _hit_factory(move(hit_fac)),
@@ -87,11 +88,11 @@ public:
 
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
-   static bool mergeClusters(HitCluster & dest, HitCluster &resource);
+   static void mergeClusters(HitCluster & dest, HitCluster &resource);
    bool closeHits();
 };
 
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
-
+bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster, uint olap_radius);
 #endif /* STRAWB_ALIGNMENTS_H_ */

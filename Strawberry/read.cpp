@@ -442,7 +442,10 @@ Strand_t PairedHit::strand() const {
       assert(_right_read->strand() == _left_read->strand() ||
             _right_read->strand() == Strand_t::StrandUnknown ||
             _left_read->strand() == Strand_t::StrandUnknown);
+      if(_left_read->strand() != Strand_t::StrandUnknown)
          return _left_read->strand();
+      else
+         return _right_read->strand();
    } else if (_left_read)
       return _left_read->strand();
    else if (_right_read)

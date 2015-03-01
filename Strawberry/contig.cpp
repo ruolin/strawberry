@@ -12,31 +12,30 @@
 #include <iostream>
 using namespace std;
 
-GenomicFeature::GenomicFeature(const Op_t& cc, uint offset, int len):
-         _code(cc),
+GenomicFeature::GenomicFeature(const Match_t& code, uint offset, int len):
          _genomic_offset(offset),
-         _genomic_length(len)
+         _match_op (MatchOp(code, (uint32_t)len))
 {
-   assert (_genomic_length >= 0);
+   assert (len >= 0);
 }
 
 void GenomicFeature::left(uint left)
 {
-      int right = _genomic_offset + _genomic_length;
+      int right = _genomic_offset + _match_op._len;
       _genomic_offset = left;
-      _genomic_length = right -left;
+      _match_op._len = right -left;
 }
 
 uint GenomicFeature::left() const { return _genomic_offset;}
 
 uint GenomicFeature::right() const
 {
-   return _genomic_offset + _genomic_length-1;
+   return _genomic_offset + _match_op._len-1;
 }
 
 void GenomicFeature::right(uint right)
 {
-      _genomic_length = right - _genomic_offset + 1;
+      _match_op._len = right - _genomic_offset + 1;
 }
 
 bool GenomicFeature::overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs)
@@ -71,16 +70,16 @@ int match_length(const GenomicFeature &op, int left, int right)
 {
    int len = 0;
    int left_off = op.left();
-   if(left_off + op._genomic_length > left && left_off < right){
+   if(left_off + op._match_op._len > left && left_off < right){
       if(left_off > left){
-         if(left_off + op._genomic_length <= right + 1)
-            len += op._genomic_length;
+         if(left_off + op._match_op._len <= right + 1)
+            len += op._match_op._len;
          else
             len += right -left_off;
       }
       else{
-         if(left_off + op._genomic_length <= right +1)
-            len += (left_off + op._genomic_length - left);
+         if(left_off + op._match_op._len <= right +1)
+            len += (left_off + op._match_op._len - left);
          else
             return right - left;
       }
@@ -90,28 +89,28 @@ int match_length(const GenomicFeature &op, int left, int right)
 
 bool GenomicFeature::operator==(const GenomicFeature & rhs) const
 {
-   return ( _code == rhs._code &&
+   return ( _match_op._code == rhs._match_op._code &&
          _genomic_offset == rhs._genomic_offset &&
-         _genomic_length == rhs._genomic_length);
+         _match_op._len == rhs._match_op._len);
 }
 
 bool GenomicFeature::operator<(const GenomicFeature & rhs) const
 {
    if(_genomic_offset != rhs._genomic_offset)
       return _genomic_offset < rhs._genomic_offset;
-   if(_genomic_length != rhs._genomic_length)
-      return _genomic_length < rhs._genomic_length;
+   if(_match_op._len != rhs._match_op._len)
+      return _match_op._len < rhs._match_op._len;
    return false;
 }
 
-Contig::Contig(RefID ref_id, char strand, const vector<GenomicFeature> &feats, bool is_ref):
+Contig::Contig(RefID ref_id, Strand_t strand, const vector<GenomicFeature> &feats, bool is_ref):
       _genomic_feats(feats),
       _is_ref(is_ref),
       _ref_id(ref_id),
       _strand(strand)
    {
-      assert(_genomic_feats.front()._code == S_MATCH);
-      assert(_genomic_feats.back()._code == S_MATCH);
+      assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
+      assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
    }
 
 
@@ -143,7 +142,7 @@ RefID Contig::ref_id() const
    return _ref_id;
 }
 
-const char Contig::strand() const
+Strand_t Contig::strand() const
 {
    return _strand;
 }
@@ -155,6 +154,10 @@ const string Contig::annotated_trans_id() const{
 void Contig::annotated_trans_id(string str){
    assert(!str.empty());
    _annotated_trans_id = str;
+}
+
+size_t Contig::featSize() const{
+   return _genomic_feats.size();
 }
 
 bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){

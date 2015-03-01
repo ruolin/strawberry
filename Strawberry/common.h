@@ -146,6 +146,8 @@ enum class Strand_t: char{
    StrandBoth
 };
 
+std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
+
 class GenomicInterval {
 private:
    uint _left = 1; // left < right always!

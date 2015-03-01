@@ -330,3 +330,16 @@ FLD_source EmpDist::fld_source() const
 {
    return _fld_source;
 }
+
+std::ostream& operator<<(std::ostream&os, const Strand_t& obj){
+   switch(obj){
+   case Strand_t::StrandPlus:
+      os<<"+";
+      break;
+   case Strand_t::StrandMinus:
+      os<<"-";
+      break;
+   default:
+      os<<".";
+   };
+}
