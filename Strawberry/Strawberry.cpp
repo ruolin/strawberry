@@ -38,7 +38,7 @@ int main(){
    hf->inspect_header();
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-   read_clusters.closeHits();
+   read_clusters.ParseClusters();
 //   while(true){
 //      HitCluster cur;
 //      if(read_clusters.nextCluster_refGuide(cur) != -1){

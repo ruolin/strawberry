@@ -10,23 +10,26 @@
 #include "read.h"
 #include "contig.h"
 #include "gff.h"
+class ClusterFactory;
+
 class HitCluster{
+   friend ClusterFactory;
    uint _leftmost = UINT_MAX;
    uint _rightmost = 0;
    int _id;
    RefID _ref_id = -1;
    bool _final = false; // HitCluster is finished
    double _raw_mass = 0.0;
-   static int _next_id ;
-public:
    std::unordered_map<ReadID, PairedHit> _open_mates;
-   static const int _kMaxGeneLen = 1000000;
-   static const int _kMaxFragPerCluster = 100000;
    std::vector<PairedHit> _hits;
    std::vector<PairedHit> _uniq_hits;
    std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
-   HitCluster();
+   std::vector<float> _dep_of_cov;
+public:
+   static const int _kMaxGeneLen = 1000000;
+   static const int _kMaxFragPerCluster = 100000;
+   HitCluster() = default;
    RefID ref_id() const;
    void ref_id(RefID id);
    uint left() const;
@@ -36,6 +39,7 @@ public:
    int size() const;
    Strand_t ref_strand() const;
    bool addHit(const PairedHit &hit);
+   void clearOpenMates();
    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
    int collapseHits();
    bool overlaps(const HitCluster& rhs) const;
@@ -89,7 +93,8 @@ public:
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
-   bool closeHits();
+   bool doc_cluster(const HitCluster & hit_cluster);
+   int ParseClusters();
 };
 
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);

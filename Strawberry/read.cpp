@@ -32,7 +32,10 @@ ReadHit::ReadHit(
       _sam_flag(samFlag)
 {}
 
-
+const vector<CigarOp>& ReadHit::cigar() const
+{
+   return _cigar;
+}
 
 uint ReadHit::read_len() const { return _iv.len();}
 
@@ -47,7 +50,7 @@ double ReadHit::mass() const{
 bool ReadHit::contains_splice()const{
       for (size_t i = 0; i < _cigar.size(); ++i){
 
-            if (_cigar[i].opcode == REF_SKIP)
+            if (_cigar[i]._type == REF_SKIP)
                return true;
       }
       return false;
@@ -336,23 +339,31 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          fprintf(stderr, "BAM error: CIGAR op has zero length (%s)\n",bam1_qname(hit_buf));
          return false;
       }
-      CigarOpCode opcode;
+      CigarOpCode _type;
       switch(bam1_cigar(hit_buf)[i] & BAM_CIGAR_MASK){
-      case BAM_CMATCH: opcode = MATCH;
+      case BAM_CMATCH: _type = MATCH;
          read_len += length;
+         cigar.push_back(CigarOp(_type, length));
          break;
-      case BAM_CINS: opcode = INS;
+      case BAM_CINS: _type = INS;
+         break;
+      case BAM_CDEL: _type = DEL;
          read_len += length;
+         cigar.push_back(CigarOp(_type, length));
          break;
-      case BAM_CDEL: opcode = DEL; break;
-      case BAM_CSOFT_CLIP: opcode = SOFT_CLIP;
-         read_len += length;
+      case BAM_CSOFT_CLIP:
+         _type = SOFT_CLIP;
          break;
-      case BAM_CHARD_CLIP: opcode = HARD_CLIP; break;
-      case BAM_CPAD: opcode = HARD_CLIP; break;
+      case BAM_CHARD_CLIP:
+         _type = HARD_CLIP;
+         break;
+      case BAM_CPAD:
+         _type = PAD;
+         break;
       case BAM_CREF_SKIP:
-         opcode = REF_SKIP;
+         _type = REF_SKIP;
          is_spliced_alignment = true;
+         cigar.push_back(CigarOp(_type, length));
          if(length > (int) kMaxIntronLength){
             LOG_WARN("At read ", bam1_qname(hit_buf), " length ", length, " is larger than max intron length ", kMaxIntronLength);
             return false;
@@ -360,8 +371,6 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          break;
       default: return false;
       }
-      if (opcode != HARD_CLIP)
-         cigar.push_back(CigarOp(opcode, length));
    }
 
    string mate_ref;

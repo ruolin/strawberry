@@ -38,21 +38,20 @@ enum CigarOpCode
 struct CigarOp
 {
 
-   CigarOpCode opcode : 3;
-   uint32_t length : 29;
+   CigarOpCode _type : 3;
+   uint32_t _length : 29;
 
-   CigarOp(CigarOpCode o, uint32_t l) : opcode(o), length(l) {}
-   bool operator==(const CigarOp& rhs) const { return opcode == rhs.opcode && length == rhs.length; }
+   CigarOp(CigarOpCode o, uint32_t l) : _type(o), _length(l) {}
+   bool operator==(const CigarOp& rhs) const { return _type == rhs._type && _length == rhs._length; }
 
 };
 
-typedef uint64_t ReadID;
-typedef int RefID;
 class ReadHit{
 private:
 
    ReadID _read_id;
    GenomicInterval _iv;
+   vector<CigarOp> _cigar;
    RefID _partner_ref_id;
    uint _partner_pos;
    int _num_mismatch = -1;
@@ -60,9 +59,7 @@ private:
    int _trans_left=0; // position relate to transcriptom
    uint32_t _sam_flag = 0; //bitwise FLAG
    float _read_mass = 0.0;
-
 public:
-   vector<CigarOp> _cigar;
    ReadHit() = default;
    ReadHit( ReadID readID,
          GenomicInterval iv,
@@ -80,6 +77,7 @@ public:
    bool contains_splice() const;
    GenomicInterval interval() const;
    RefID partner_ref_id() const;
+   const vector<CigarOp>& cigar() const;
    uint partner_pos() const;
    RefID ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;

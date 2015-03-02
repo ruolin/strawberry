@@ -48,8 +48,6 @@ bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster
    return true;
 }
 
-int HitCluster::_next_id =0;
-HitCluster::HitCluster(): _id(++_next_id){}
 
 RefID HitCluster::ref_id() const
 {
@@ -112,12 +110,12 @@ bool HitCluster::addHit(const PairedHit &hit){
    assert(_ref_id == hit.ref_id());
 #ifdef DEBUG
    if(hit._left_read){
-       assert(hit.left_read_obj()._cigar.front().opcode == MATCH ||
-             hit.left_read_obj()._cigar.front().opcode == SOFT_CLIP);
+       assert(hit.left_read_obj().cigar().front().opcode == MATCH ||
+             hit.left_read_obj().cigar().front().opcode == SOFT_CLIP);
    }
    if(hit._right_read){
-         assert(hit.right_read_obj()._cigar.back().opcode == MATCH||
-               hit.right_read_obj()._cigar.back().opcode == SOFT_CLIP);
+         assert(hit.right_read_obj().cigar().back().opcode == MATCH||
+               hit.right_read_obj().cigar().back().opcode == SOFT_CLIP);
    }
 #endif
    _hits.push_back(hit);
@@ -188,6 +186,11 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       }
    }
    return true;
+}
+
+void HitCluster::clearOpenMates()
+{
+   _open_mates.clear();
 }
 
 int HitCluster::collapseHits(){
@@ -552,7 +555,8 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
    }
 }
 
-bool ClusterFactory::closeHits(){
+int ClusterFactory::ParseClusters(){
+   int num_clusters = 0;
    vector<double> frag_len_dist;
    unique_ptr<HitCluster> last_cluster (new HitCluster());
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
@@ -571,7 +575,7 @@ bool ClusterFactory::closeHits(){
         }
         mergeClusters(*last_cluster, *cur_cluster);
       }
-     last_cluster->_open_mates.clear();
+     last_cluster->clearOpenMates();
      last_cluster->collapseHits();
 #ifdef DEBUG
      if(last_cluster->hasRefmRNAs()){
@@ -586,7 +590,13 @@ bool ClusterFactory::closeHits(){
 #endif
      last_cluster = move(cur_cluster);
    }
-   last_cluster->_open_mates.clear();
+   last_cluster->clearOpenMates();
    last_cluster->collapseHits();
+
+}
+
+bool ClusterFactory::doc_cluster(const HitCluster & hit_cluster){
+   assert(hit_cluster.right() > hit_cluster.left());
+   uint cluster_len = hit_cluster.right() -hit_cluster.left();
 
 }

@@ -10,7 +10,40 @@
 #include "contig.h"
 #include <algorithm>
 #include <iostream>
+#include "read.h"
 using namespace std;
+
+
+
+bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
+   vector<CigarOp> cig = rh.cigar();
+   uint offset = rh.left();
+   assert(!cig.empty());
+   for(size_t i = 0; i< cig.size(); ++i){
+      switch(cig[i]._type)
+      {
+      case MATCH:
+         feats.push_back(GenomicFeature(S_MATCH, offset, cig[i]._length));
+         offset += cig[i]._length;
+         break;
+      case REF_SKIP:
+         feats.push_back(GenomicFeature(S_INTRON, offset, cig[i]._length));
+         offset += cig[i]._length;
+         break;
+      case DEL:
+         if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
+            LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has suspicious DEL");
+            return false;
+         }
+         feats.back()._match_op._len += cig[i]._length;
+         offset += cig[i]._length;
+         break;
+      default:
+         return false;
+      }
+   }
+   return true;
+}
 
 GenomicFeature::GenomicFeature(const Match_t& code, uint offset, int len):
          _genomic_offset(offset),
@@ -113,6 +146,45 @@ Contig::Contig(RefID ref_id, Strand_t strand, const vector<GenomicFeature> &feat
       assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
    }
 
+Contig::Contig(const PairedHit& ph):
+      _is_ref(false),
+      _ref_id(ph.ref_id()),
+      _strand(ph.strand())
+{
+   vector<GenomicFeature> g_feats;
+   if(ph._left_read){
+      if(readhit_2_genomicFeats(ph.left_read_obj(), g_feats)){
+         if(ph._right_read){
+            int gap_len = (int)ph._right_read->left() - (int)ph._left_read->right() -1 ;
+            if( gap_len < 0){
+               gap_len = 0;
+               LOG_INPUT("Read at reference id: ", ph.ref_id()+1, " and position ", ph.left_pos(), " has suspicious GAP");
+            }
+            g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
+         }
+      }
+
+   }
+
+   else{
+      if(ph._right_read){
+         readhit_2_genomicFeats(ph.right_read_obj(), g_feats);
+      }
+      assert(false);
+   }
+
+   if(!is_sorted(g_feats.begin(), g_feats.end()))
+   {
+      sort(g_feats.begin(), g_feats.end());
+   }
+
+   uint check_right = ph.left_pos();
+   for(auto i = g_feats.cbegin(); i != g_feats.cend(); ++i){
+      check_right += i->_match_op._len;
+   }
+   assert(check_right = ph.right_pos()+1);
+   _genomic_feats = move(g_feats);
+}
 
 uint Contig::left() const
 {
@@ -175,3 +247,5 @@ bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){
       return true;
    return false;
 }
+
+

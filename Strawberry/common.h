@@ -15,7 +15,8 @@
 #include <memory>
 #include "logger.hpp"
 typedef void* pointer;
-
+typedef uint64_t ReadID;
+typedef int RefID;
 
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 

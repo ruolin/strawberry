@@ -13,13 +13,17 @@
 #include<cassert>
 #include<vector>
 #include<iostream>
-#include "read.h"
+#include "common.h"
+
+class PairedHit;
+class ReadHit;
+struct CigarOp;
 
 enum Match_t
 {
    S_MATCH,
    S_INTRON,
-   S_UNKNOWN
+   S_GAP
 };
 
 struct MatchOp{
@@ -59,7 +63,7 @@ public:
    }
 };
 
-
+bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature> & feats);
 
 /* Reduced representation of GffmRNA using a vector of GenomicFeatures which include intron
  * exon, and unknown*/
@@ -73,9 +77,11 @@ class Contig{
    std::string _annotated_trans_id;
    std::vector<GenomicFeature> _genomic_feats;
 public:
+   Contig() = default;
+   Contig(const PairedHit& ph);
+   Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, bool is_ref);
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
-   Contig(RefID ref_id, Strand_t strand, const vector<GenomicFeature> &feats, bool is_ref);
    uint left() const;
    uint right() const;
    static bool overlaps_directional(const Contig &lhs, const Contig &rhs);

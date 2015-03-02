@@ -13,11 +13,12 @@ using namespace std;
  * http://www.drdobbs.com/cpp/a-lightweight-logger-for-c/240147505
  */
 
-enum severity_type
+enum class severity_type
 {
  debug = 1,
  error,
- warning
+ warning,
+ input_error
 };
 
  class log_policy_interface
@@ -110,14 +111,17 @@ inline  void logger< log_policy >::print( Args...args )
   switch( severity )
   {
    case severity_type::debug:
-    log_stream<<"<DEBUG>: ";
-    break;
+      log_stream<<"<DEBUG>: ";
+      break;
    case severity_type::warning:
-    log_stream<<"<WARNING>: ";
-    break;
+      log_stream<<"<WARNING>: ";
+      break;
    case severity_type::error:
-    log_stream<<"<ERROR>: ";
-    break;
+      log_stream<<"<ERROR>: ";
+      break;
+   case severity_type::input_error:
+      log_stream<<"<INPUT_ERROR>: ";
+      break;
   };
   print_impl( args... );
   write_mutex.unlock();
@@ -155,6 +159,6 @@ inline std::string logger< log_policy >::get_logline_header()
  #define LOG log_inst.print< severity_type::debug >
  #define LOG_ERR log_inst.print< severity_type::error >
  #define LOG_WARN log_inst.print< severity_type::warning >
-
+ #define LOG_INPUT log_inst.print<severity_type::input_error>
 
 #endif /* LOGGER_HPP_ */
