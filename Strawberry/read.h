@@ -86,7 +86,7 @@ public:
    uint left() const;
    uint right() const;
    Strand_t strand() const;
-   double mass() const;
+   float mass() const;
    bool is_first() const;
    bool reverseCompl() const;
    bool operator==(const ReadHit& rhs) const; // not considering read orientation
@@ -204,8 +204,8 @@ typedef shared_ptr<ReadHit> ReadHitPtr;
 
 
 class PairedHit{
-public:
    double _collapse_mass = 0.0;
+public:
    ReadHitPtr _right_read ;
    ReadHitPtr _left_read ;
    PairedHit() = default;
@@ -229,11 +229,13 @@ public:
    ReadID read_id() const;
    int numHits() const;
    bool is_multi() const;
-   double mass() const;
+   float raw_mass() const;
    bool operator==(const PairedHit& rhs) const;
    bool operator!=(const PairedHit& rhs) const;
    bool operator<(const PairedHit& rhs) const;
    bool paried_hit_lt(const PairedHit &rhs) const;
+   void add_2_collapse_mass(float add);
+   float collapse_mass() const;
 };
 
 

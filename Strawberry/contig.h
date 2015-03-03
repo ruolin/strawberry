@@ -21,9 +21,9 @@ struct CigarOp;
 
 enum Match_t
 {
-   S_MATCH,
-   S_INTRON,
-   S_GAP
+   S_MATCH = 0,
+   S_INTRON = 1,
+   S_GAP = 2
 };
 
 struct MatchOp{
@@ -58,6 +58,10 @@ public:
 
    bool operator<(const GenomicFeature & rhs) const;
 
+   bool operator!=(const GenomicFeature &rhs) const{
+      return !(*this == rhs);
+   }
+
    void printOut(){
       printf("<%d,%d>\n", left(), right());
    }
@@ -70,13 +74,14 @@ bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature>
 
 class Contig{
    bool _is_ref;
-   std::vector<const PairedHit* > _mates_in_contig;
+   //std::vector<const PairedHit* > _mates_in_contig;
    std::string _seq;
    RefID _ref_id;
    Strand_t _strand;
    std::string _annotated_trans_id;
-   std::vector<GenomicFeature> _genomic_feats;
+   float _mass = 0.0;
 public:
+   std::vector<GenomicFeature> _genomic_feats;
    Contig() = default;
    Contig(const PairedHit& ph);
    Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, bool is_ref);
@@ -89,6 +94,8 @@ public:
    RefID ref_id() const;
    Strand_t strand() const;
    size_t featSize() const;
+   float mass() const;
+   //void mass(float m);
 };
 
 #endif /* CONTIG_H_ */

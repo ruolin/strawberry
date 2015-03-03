@@ -20,8 +20,8 @@ int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
-   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
+   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
+   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
 
    //FaInterface fa_api(path);
    //FaSeqGetter fsg;
@@ -57,17 +57,20 @@ int main(){
 //         break;
 //      }
 //   }
+
+//     vector<int> vec = {2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2
+//     ,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
+//     3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4};
+//   vector<int> dup;
+//   auto last = unique2(vec.begin(), vec.end(), back_inserter(dup));
+//   vec.erase(last, vec.end());
+//   for(int i: vec)
+//      cout<<i<<endl;
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
 }
 
-//   vector<int> vec = {1,2,2,4,4,6,6,6,6,7,7};
-//   vector<int> dup;
-//   unique2(vec.begin(), vec.end(), back_inserter(dup));
-//   for(int i: dup)
-//      cout<<i<<endl;
-   //cout<<read_table.get_id("Chr1:5928-8737C:AT1G01020.1:2:1623:1259:1588")<<endl;
 //72339-74096
 //73931-74737
 /*

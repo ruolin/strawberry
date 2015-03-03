@@ -23,22 +23,35 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
       switch(cig[i]._type)
       {
       case MATCH:
-         feats.push_back(GenomicFeature(S_MATCH, offset, cig[i]._length));
+         feats.push_back(GenomicFeature(Match_t::S_MATCH, offset, cig[i]._length));
          offset += cig[i]._length;
          break;
       case REF_SKIP:
-         feats.push_back(GenomicFeature(S_INTRON, offset, cig[i]._length));
+         feats.push_back(GenomicFeature(Match_t::S_INTRON, offset, cig[i]._length));
          offset += cig[i]._length;
          break;
       case DEL:
          if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
-            LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has suspicious DEL");
+            LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has suspicious DELETION");
             return false;
          }
          feats.back()._match_op._len += cig[i]._length;
          offset += cig[i]._length;
+         ++i;
+         feats.back()._match_op._len += cig[i]._length;
+         offset += cig[i]._length;
+         break;
+      case INS:
+         if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
+            LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has suspicious INSERTION");
+            return false;
+         }
+         ++i;
+         feats.back()._match_op._len += cig[i]._length;
+         offset += cig[i]._length;
          break;
       default:
+         LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has unknown cigar");
          return false;
       }
    }
@@ -161,6 +174,7 @@ Contig::Contig(const PairedHit& ph):
                LOG_INPUT("Read at reference id: ", ph.ref_id()+1, " and position ", ph.left_pos(), " has suspicious GAP");
             }
             g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
+            readhit_2_genomicFeats(ph.right_read_obj(), g_feats);
          }
       }
 
@@ -184,6 +198,7 @@ Contig::Contig(const PairedHit& ph):
    }
    assert(check_right = ph.right_pos()+1);
    _genomic_feats = move(g_feats);
+   _mass = ph.collapse_mass();
 }
 
 uint Contig::left() const
@@ -195,7 +210,13 @@ uint Contig::left() const
 
 uint Contig::right() const
 {
+
    return _genomic_feats.back().right();
+}
+
+float Contig::mass() const
+{
+   return _mass;
 }
 
 bool Contig::operator<(const Contig &rhs) const
@@ -205,6 +226,16 @@ bool Contig::operator<(const Contig &rhs) const
    }
    if(left() != rhs.left()){
       return left() < rhs.left();
+   }
+   if(right() != rhs.right()){
+      return right() < rhs.right();
+   }
+   if(_genomic_feats.size() != rhs._genomic_feats.size()){
+      return _genomic_feats.size() < rhs._genomic_feats.size();
+   }
+   for(size_t i=0; i<_genomic_feats.size(); ++i){
+      if(_genomic_feats[i] != rhs._genomic_feats[i])
+         return _genomic_feats[i] < rhs._genomic_feats[i];
    }
    return false;
 }

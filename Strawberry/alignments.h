@@ -12,6 +12,30 @@
 #include "gff.h"
 class ClusterFactory;
 
+struct IntronDOC{
+   uint left;
+   uint right;
+   size_t total_junc_reads;
+   size_t small_span_read;
+   vector<float> doc;
+   IntronDOC(uint l, uint r):
+      left(l),
+      right(r),
+      total_junc_reads(0),
+      small_span_read(0)
+   {}
+   bool operator==(const IntronDOC & rhs){
+      return (left == rhs.left && right == rhs.right);
+   }
+   bool operator<(const IntronDOC &rhs){
+      if(left != rhs.left)
+         return left < rhs.left;
+      if(right != rhs.right)
+         return right < rhs.right;
+      return false;
+   }
+};
+
 class HitCluster{
    friend ClusterFactory;
    uint _leftmost = UINT_MAX;
@@ -20,15 +44,17 @@ class HitCluster{
    RefID _ref_id = -1;
    bool _final = false; // HitCluster is finished
    double _raw_mass = 0.0;
+   Strand_t _strand;
    std::unordered_map<ReadID, PairedHit> _open_mates;
    std::vector<PairedHit> _hits;
    std::vector<PairedHit> _uniq_hits;
-   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory
+   std::vector<std::shared_ptr<Contig>> _ref_mRNAs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
    std::vector<float> _dep_of_cov;
 public:
    static const int _kMaxGeneLen = 1000000;
    static const int _kMaxFragPerCluster = 100000;
+   static const int _kMinFold4BothStrand = 10;
    HitCluster() = default;
    RefID ref_id() const;
    void ref_id(RefID id);
@@ -59,6 +85,10 @@ public:
    double raw_mass() const{
       return _raw_mass;
    }
+   Strand_t strand() const{
+      return _strand;
+   }
+   void guess_strand();
 
 };
 
@@ -70,6 +100,11 @@ class ClusterFactory{
    uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
    size_t _refmRNA_offset;
    bool _has_load_all_refs;
+   void compute_doc(const uint left,
+                     const uint right,
+                     const vector<Contig> & hits,
+                     vector<float> &exon_doc,
+                     vector<IntronDOC> &intron_doc);
 public:
    static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
@@ -93,9 +128,12 @@ public:
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
-   bool doc_cluster(const HitCluster & hit_cluster);
+   void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &doc);
+
    int ParseClusters();
 };
+
+
 
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);

@@ -110,12 +110,12 @@ bool HitCluster::addHit(const PairedHit &hit){
    assert(_ref_id == hit.ref_id());
 #ifdef DEBUG
    if(hit._left_read){
-       assert(hit.left_read_obj().cigar().front().opcode == MATCH ||
-             hit.left_read_obj().cigar().front().opcode == SOFT_CLIP);
+       assert(hit.left_read_obj().cigar().front()._type == MATCH ||
+             hit.left_read_obj().cigar().front()._type == SOFT_CLIP);
    }
    if(hit._right_read){
-         assert(hit.right_read_obj().cigar().back().opcode == MATCH||
-               hit.right_read_obj().cigar().back().opcode == SOFT_CLIP);
+         assert(hit.right_read_obj().cigar().back()._type == MATCH||
+               hit.right_read_obj().cigar().back()._type == SOFT_CLIP);
    }
 #endif
    _hits.push_back(hit);
@@ -203,22 +203,24 @@ int HitCluster::collapseHits(){
    auto it_uniq = _uniq_hits.begin();
    while(it_hits != _hits.end()){
       *it_uniq = *it_hits;
-      it_uniq->_collapse_mass = it_uniq->mass();
+      it_uniq->add_2_collapse_mass( it_uniq->raw_mass() );
       ++it_uniq;
       ++it_hits;
    }
    vector<PairedHit> duplicated;
+   duplicated.reserve(_hits.size());
    auto last = unique2(_uniq_hits.begin(),_uniq_hits.end(), back_inserter(duplicated));
-   sort(duplicated.begin(), duplicated.end());
    _uniq_hits.erase(last, _uniq_hits.end());
+   sort(duplicated.begin(), duplicated.end());
    size_t i = 0, j =0;
    while(i < _uniq_hits.size() && j < duplicated.size()){
       if(_uniq_hits[i] == duplicated[j]){
-         _uniq_hits[i]._collapse_mass += duplicated[j++].mass();
+         _uniq_hits[i].add_2_collapse_mass( duplicated[j++].raw_mass() );
       }
       else
          ++i;
    }
+
 //#ifdef DEBUG
 //   if(duplicated.size() > 1){
 //
@@ -237,6 +239,36 @@ int HitCluster::collapseHits(){
 bool HitCluster::overlaps( const HitCluster& rhs) const{
    if(ref_id() != rhs.ref_id()) return false;
    return left() < rhs.left() ? right() >= rhs.left() : left() <= rhs.right();
+}
+
+void HitCluster::guess_strand(){
+   int plus_intron_size =0;
+   int minus_intron_size =0;
+
+     for(auto r = _uniq_hits.cbegin(); r< _uniq_hits.cend(); ++r){
+        if(r->contains_splice()){
+           if(r->strand() == Strand_t::StrandPlus)
+              ++plus_intron_size;
+           else
+              ++minus_intron_size;
+        }
+     }
+     if(plus_intron_size == 0 && minus_intron_size >0){
+        _strand = Strand_t::StrandMinus;
+     }
+     else if(plus_intron_size > 0 && minus_intron_size ==0){
+        _strand = Strand_t::StrandPlus;
+     }
+     else if(plus_intron_size == 0 && minus_intron_size == 0){
+        _strand = Strand_t::StrandUnknown;
+     }
+     else{
+        if(plus_intron_size / minus_intron_size > _kMinFold4BothStrand)
+           _strand = Strand_t::StrandPlus;
+        if(minus_intron_size / plus_intron_size > _kMinFold4BothStrand)
+           _strand = Strand_t::StrandMinus;
+        _strand = Strand_t::StrandBoth;
+     }
 }
 
 bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt,
@@ -316,6 +348,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
          }
          Contig ref_contig(ref_id, strand, feats, true);
          ref_contig.annotated_trans_id(mrna->_transcript_id);
+         //cout<<"ref contig left pos "<<ref_contig.left()<<endl;
          ref_mrna_for_chr.push_back(ref_contig);
       }// end while loop
       sort(ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
@@ -577,6 +610,12 @@ int ClusterFactory::ParseClusters(){
       }
      last_cluster->clearOpenMates();
      last_cluster->collapseHits();
+     //last_cluster->guess_strand();
+     size_t s = last_cluster->right() - last_cluster->left();
+     vector<float> exon_doc(s, 0);
+     if(last_cluster->size() > 0){
+        compute_doc_4_cluster(*last_cluster, exon_doc);
+     }
 #ifdef DEBUG
      if(last_cluster->hasRefmRNAs()){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
@@ -592,11 +631,87 @@ int ClusterFactory::ParseClusters(){
    }
    last_cluster->clearOpenMates();
    last_cluster->collapseHits();
-
+   //last_cluster->guess_strand();
 }
 
-bool ClusterFactory::doc_cluster(const HitCluster & hit_cluster){
-   assert(hit_cluster.right() > hit_cluster.left());
-   uint cluster_len = hit_cluster.right() -hit_cluster.left();
 
+
+void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &doc){
+
+//#ifdef DEBUG
+//   bool print  = false;
+//   for(auto r = hit_cluster._uniq_hits.cbegin(); r< hit_cluster._uniq_hits.cend(); ++r){
+//      for(auto &i: r->left_read_obj().cigar()){
+//         if (i._type == INS)
+//            print = true;
+//      }
+//      if(print){
+//      Contig hit(*r);
+//         cout<<"the read is "<<hit.left()<<"-"<<hit.right()<<endl;
+//         cout<<"features are ";
+//      for(auto i: hit._genomic_feats){
+//         cout<<i._genomic_offset<<":"<<i._match_op._code<<":"<<i._match_op._len<<"; ";
+//      }
+//      cout<<endl;
+//      print = false;
+//      }
+//   }
+//#endif
+     vector<Contig> hits;
+     vector<IntronDOC> intron_counter;
+     for(auto r = hit_cluster._uniq_hits.cbegin(); r< hit_cluster._uniq_hits.cend(); ++r){
+        Contig hit(*r);
+        hits.push_back(hit);
+     }
+     sort(hits.begin(), hits.end());
+     compute_doc(hit_cluster.left(), hit_cluster.right(), hits, doc, intron_counter);
+//     for(auto &i: doc){
+//        cout<<"left: "<<i.left<<" right: "<<i.right<<" small: "<<i.small_span_read<<" total: "<<
+//              i.total_junc_reads<<endl;
+//
+//     }
+}
+
+void ClusterFactory::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
+      vector<float> &exon_doc,  vector<IntronDOC> &intron_doc){
+   assert(right > left);
+   for(size_t i = 0; i<hits.size(); ++i){
+      const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;
+      for(size_t j = 0; j<g_feats.size(); ++j){
+         const GenomicFeature & gf = g_feats[j];
+         if( gf._match_op._code == Match_t::S_MATCH){
+            for(size_t p = gf.left(); p < gf.right(); ++p){
+               exon_doc[p-left] += hits[i].mass();
+            }
+         }
+         else if( gf._match_op._code == Match_t::S_INTRON){
+            IntronDOC cur_intron(gf.left(), gf.right());
+            if(intron_doc.empty()){
+               ++(cur_intron.total_junc_reads);
+               if(g_feats[j-1]._match_op._len < kSmallOverHang &&
+                     g_feats[j+1]._match_op._len < kSmallOverHang){
+                  ++(cur_intron.small_span_read);
+               }
+               intron_doc.push_back(move(cur_intron));
+               continue;
+            }
+            auto it = lower_bound(intron_doc.begin(), intron_doc.end(), cur_intron);
+            if( *it == cur_intron){
+               ++(it->small_span_read);
+               if(g_feats[j-1]._match_op._len < kSmallOverHang &&
+                     g_feats[j+1]._match_op._len < kSmallOverHang){
+                  ++(it->small_span_read);
+               }
+            }
+            else{
+               ++(cur_intron.total_junc_reads);
+               if(g_feats[j-1]._match_op._len < kSmallOverHang &&
+                     g_feats[j+1]._match_op._len < kSmallOverHang){
+                  ++(cur_intron.small_span_read);
+               }
+               intron_doc.insert(it, cur_intron);
+            }
+         }
+      }
+   }
 }

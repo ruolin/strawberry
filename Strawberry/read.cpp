@@ -39,7 +39,7 @@ const vector<CigarOp>& ReadHit::cigar() const
 
 uint ReadHit::read_len() const { return _iv.len();}
 
-double ReadHit::mass() const{
+float ReadHit::mass() const{
    if(is_singleton()){
       return 1.0/_num_hits;
    }else{
@@ -99,11 +99,11 @@ bool ReadHit::reverseCompl() const
    return _sam_flag  & 0x10;
 }
 
-// not considering read orientation
+// not considering read orientation and cigar string
 bool ReadHit::operator==(const ReadHit& rhs) const
 {
    assert(!_cigar.empty() && !rhs._cigar.empty());
-   return (_iv == rhs.interval() && rhs._cigar == _cigar);
+   return (_iv == rhs.interval());
 }
 
 bool ReadHit::operator!=(const ReadHit& rhs) const
@@ -345,7 +345,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          read_len += length;
          cigar.push_back(CigarOp(_type, length));
          break;
-      case BAM_CINS: _type = INS;
+      case BAM_CINS: _type = INS; // INSERTION does not increase read length
+         cigar.push_back(CigarOp(_type, length));
          break;
       case BAM_CDEL: _type = DEL;
          read_len += length;
@@ -363,6 +364,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       case BAM_CREF_SKIP:
          _type = REF_SKIP;
          is_spliced_alignment = true;
+         read_len += length;
          cigar.push_back(CigarOp(_type, length));
          if(length > (int) kMaxIntronLength){
             LOG_WARN("At read ", bam1_qname(hit_buf), " length ", length, " is larger than max intron length ", kMaxIntronLength);
@@ -558,7 +560,7 @@ RefID PairedHit::ref_id() const
    return -1;
 }
 
-double PairedHit::mass() const
+float PairedHit::raw_mass() const
 {
    double m = 0.0;
    if(_left_read)
@@ -610,3 +612,11 @@ RefID RefSeqTable::get_id(const string& name) {
    return 0;
 }
 
+
+void PairedHit::add_2_collapse_mass(float add){
+   _collapse_mass += add;
+}
+
+float PairedHit::collapse_mass() const {
+   return _collapse_mass;
+}
