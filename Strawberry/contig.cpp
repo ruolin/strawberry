@@ -50,6 +50,8 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
          feats.back()._match_op._len += cig[i]._length;
          offset += cig[i]._length;
          break;
+      case SOFT_CLIP:
+         break;
       default:
          LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has unknown cigar");
          return false;
@@ -268,15 +270,7 @@ bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){
       return false;
    if(lhs.strand() != rhs.strand())
       return false;
-   if (lhs.left() >= rhs.left() && lhs.left() < rhs.right())
-      return true;
-   if (lhs.right() > rhs.left() && lhs.right() < rhs.right())
-      return true;
-   if (rhs.left() >= lhs.left() && rhs.left() < lhs.right())
-      return true;
-   if (rhs.right() > lhs.left() && rhs.right() < lhs.right())
-      return true;
-   return false;
+   return overlaps_locally(lhs.left(), lhs.right(), rhs.left(), rhs.right());
 }
 
 

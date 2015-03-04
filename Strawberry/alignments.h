@@ -12,27 +12,30 @@
 #include "gff.h"
 class ClusterFactory;
 
-struct IntronDOC{
+struct IntronTable{
    uint left;
    uint right;
    size_t total_junc_reads;
    size_t small_span_read;
    vector<float> doc;
-   IntronDOC(uint l, uint r):
+   IntronTable(uint l, uint r):
       left(l),
       right(r),
       total_junc_reads(0),
       small_span_read(0)
    {}
-   bool operator==(const IntronDOC & rhs){
+   bool operator==(const IntronTable & rhs){
       return (left == rhs.left && right == rhs.right);
    }
-   bool operator<(const IntronDOC &rhs){
+   bool operator<(const IntronTable &rhs){
       if(left != rhs.left)
          return left < rhs.left;
       if(right != rhs.right)
          return right < rhs.right;
       return false;
+   }
+   static bool overlap(const IntronTable& lhs, const IntronTable& rhs){
+      return overlaps_locally(lhs.left, lhs.right, rhs.left, rhs.right);
    }
 };
 
@@ -48,7 +51,7 @@ class HitCluster{
    std::unordered_map<ReadID, PairedHit> _open_mates;
    std::vector<PairedHit> _hits;
    std::vector<PairedHit> _uniq_hits;
-   std::vector<std::shared_ptr<Contig>> _ref_mRNAs; // the actually objects are owned by ClusterFactory
+   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory
    std::vector<GenomicFeature> _introns;
    std::vector<float> _dep_of_cov;
 public:
@@ -100,11 +103,13 @@ class ClusterFactory{
    uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
    size_t _refmRNA_offset;
    bool _has_load_all_refs;
+   string _current_chrom;
    void compute_doc(const uint left,
                      const uint right,
                      const vector<Contig> & hits,
                      vector<float> &exon_doc,
-                     vector<IntronDOC> &intron_doc);
+                     vector<IntronTable> &intron_doc,
+                     int smallOverhang);
 public:
    static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
@@ -128,8 +133,9 @@ public:
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
-   void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &doc);
-
+   void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
+                              vector<IntronTable>& intron_counter);
+   void filter_intron(uint cluster_left, vector<float> &exon_doc, vector<IntronTable>& intron_counter);
    int ParseClusters();
 };
 

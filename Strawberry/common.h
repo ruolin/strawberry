@@ -18,8 +18,8 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
-const static int kSmallOverHang = 6;
-
+const static float kSmallOverHangProp = 6/76.0;
+const static float kMinIsoformFrac = 0.05;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 int fileExists(const char* fname);
@@ -78,6 +78,19 @@ int stricmp(const char* a, const char* b, int n);
 
 bool SRealloc(pointer* ptr,unsigned long size);
 
+inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint rhs_right){
+
+   if (lhs_left >= rhs_left && lhs_left < rhs_right)
+      return true;
+   if (lhs_right > rhs_left && lhs_right < rhs_right)
+      return true;
+   if (rhs_left >= lhs_left && rhs_left < lhs_right)
+      return true;
+   if (rhs_right > lhs_left && rhs_right < lhs_right)
+      return true;
+   return false;
+
+}
 
 //--------------------------------------------------------
 // ************** simple line reading class for text files

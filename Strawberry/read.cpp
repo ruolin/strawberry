@@ -37,7 +37,22 @@ const vector<CigarOp>& ReadHit::cigar() const
    return _cigar;
 }
 
-uint ReadHit::read_len() const { return _iv.len();}
+uint ReadHit::read_len() const{
+   uint len = 0;
+   for(size_t i =0; i< _cigar.size(); ++i){
+      switch(_cigar[i]._type)
+      {
+      case MATCH:
+      case SOFT_CLIP:
+      case INS:
+         len +=_cigar[i]._length;
+         break;
+      default:
+         break;
+      }
+   }
+   return len;
+}
 
 float ReadHit::mass() const{
    if(is_singleton()){
@@ -354,6 +369,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          break;
       case BAM_CSOFT_CLIP:
          _type = SOFT_CLIP;
+         cigar.push_back(CigarOp(_type, length));
          break;
       case BAM_CHARD_CLIP:
          _type = HARD_CLIP;

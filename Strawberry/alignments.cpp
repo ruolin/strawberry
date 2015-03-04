@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <iterator>
 #include <random>
+#include <boost/math/distributions/binomial.hpp>
 #ifdef DEBUG
    #include <iostream>
 #endif
@@ -157,11 +158,25 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
    else{
       unordered_map<ReadID, PairedHit>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
-         PairedHit open_hit(hit, nullptr);
-         unordered_map<ReadID, PairedHit>::iterator ins_pos;
-         bool status;
-         tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
-         assert(status);
+         if(hit->partner_pos() > hit->right()){
+            PairedHit open_hit(hit, nullptr);
+            unordered_map<ReadID, PairedHit>::iterator ins_pos;
+            bool status;
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+            assert(status);
+         }
+         else if(hit->partner_pos() < hit->left()){
+            PairedHit open_hit(nullptr, hit);
+            unordered_map<ReadID, PairedHit>::iterator ins_pos;
+            bool status;
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+            assert(status);
+         }
+         else{
+            LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
+            return false;
+         }
+
       } else{
 
          if(iter_open->second.ref_id() != hit_ref_id)
@@ -198,10 +213,14 @@ int HitCluster::collapseHits(){
    if(_hits.empty())
       return false;
    sort(_hits.begin(), _hits.end());
+
    _uniq_hits.resize(_hits.size());
    auto it_hits = _hits.begin();
    auto it_uniq = _uniq_hits.begin();
    while(it_hits != _hits.end()){
+      //expand cluster by hits
+      _rightmost = max(_rightmost, it_hits->right_pos());
+      _leftmost = min(_leftmost, it_hits->left_pos());
       *it_uniq = *it_hits;
       it_uniq->add_2_collapse_mass( it_uniq->raw_mass() );
       ++it_uniq;
@@ -221,16 +240,6 @@ int HitCluster::collapseHits(){
          ++i;
    }
 
-//#ifdef DEBUG
-//   if(duplicated.size() > 1){
-//
-//      for(auto &i: duplicated){
-//         for(auto &j: _uniq_hits){
-//            if(i == j) cout<<"left_pos "<<j.left_pos()<<"\t"<<j._collapse_mass<<endl;
-//         }
-//      }
-//   }
-//#endif
    assert(j == duplicated.size());
    return _uniq_hits.size();
 }
@@ -588,13 +597,20 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
    }
 }
 
+/*
+ * The majar function which calls nextCluster() and finalizes cluster and
+ * assemble each cluster. Right now only nextCluster_refGuide() is implemented.
+ */
+
 int ClusterFactory::ParseClusters(){
    int num_clusters = 0;
+   const RefSeqTable & ref_t = _hit_factory->_ref_table;
    vector<double> frag_len_dist;
    unique_ptr<HitCluster> last_cluster (new HitCluster());
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
       return true;
    }
+   _current_chrom = ref_t.ref_name(last_cluster->ref_id());
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
       if(-1 == nextCluster_refGuide(*cur_cluster)){
@@ -608,13 +624,29 @@ int ClusterFactory::ParseClusters(){
         }
         mergeClusters(*last_cluster, *cur_cluster);
       }
+     if(_current_chrom != ref_t.ref_name(last_cluster->ref_id())){
+        _current_chrom = ref_t.ref_name(last_cluster->ref_id());
+     }
      last_cluster->clearOpenMates();
      last_cluster->collapseHits();
      //last_cluster->guess_strand();
-     size_t s = last_cluster->right() - last_cluster->left();
-     vector<float> exon_doc(s, 0);
+     vector<float> exon_doc;
+     vector<IntronTable> intron_counter;
      if(last_cluster->size() > 0){
-        compute_doc_4_cluster(*last_cluster, exon_doc);
+        compute_doc_4_cluster(*last_cluster, exon_doc, intron_counter);
+        filter_intron(last_cluster->left(), exon_doc, intron_counter);
+//#ifdef DEBUG
+//        int uniq = 0;
+//        for(size_t i = 0 ; i< exon_doc.size(); ++i){
+//           if(exon_doc[i] != uniq){
+//              cout<<exon_doc[i]<<" at "<< i <<endl;
+//              uniq = exon_doc[i];
+//           }
+//        }
+//        cout<<endl;
+//        cout<<last_cluster->left()<<" cluster "<<last_cluster->right()<<endl;
+//        exit(1);
+//#endif
      }
 #ifdef DEBUG
      if(last_cluster->hasRefmRNAs()){
@@ -636,7 +668,9 @@ int ClusterFactory::ParseClusters(){
 
 
 
-void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &doc){
+void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
+      vector<IntronTable>& intron_counter)
+{
 
 //#ifdef DEBUG
 //   bool print  = false;
@@ -658,14 +692,21 @@ void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vecto
 //   }
 //#endif
      vector<Contig> hits;
-     vector<IntronDOC> intron_counter;
+     uint read_len = hit_cluster._uniq_hits.front().left_read_obj().read_len();
      for(auto r = hit_cluster._uniq_hits.cbegin(); r< hit_cluster._uniq_hits.cend(); ++r){
+        if(read_len != r->left_read_obj().read_len()){
+           LOG_ERR("READ at ", r->left_read_obj().ref_id(), ":", r->left_read_obj().left()," has different length ", r->left_read_obj().read_len());
+           read_len = max(read_len, r->left_read_obj().read_len());
+        }
         Contig hit(*r);
         hits.push_back(hit);
      }
+     uint small_over_hang = read_len * kSmallOverHangProp;
      sort(hits.begin(), hits.end());
-     compute_doc(hit_cluster.left(), hit_cluster.right(), hits, doc, intron_counter);
-//     for(auto &i: doc){
+     size_t s = hit_cluster.right() - hit_cluster.left() + 1;
+     exon_doc.resize(s,0);
+     compute_doc(hit_cluster.left(), hit_cluster.right(), hits, exon_doc, intron_counter, small_over_hang);
+//     for(auto &i: intron_counter){
 //        cout<<"left: "<<i.left<<" right: "<<i.right<<" small: "<<i.small_span_read<<" total: "<<
 //              i.total_junc_reads<<endl;
 //
@@ -673,45 +714,99 @@ void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vecto
 }
 
 void ClusterFactory::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
-      vector<float> &exon_doc,  vector<IntronDOC> &intron_doc){
+      vector<float> &exon_doc,  vector<IntronTable> &intron_counter, int smallOverHang)
+{
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
       const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;
       for(size_t j = 0; j<g_feats.size(); ++j){
          const GenomicFeature & gf = g_feats[j];
          if( gf._match_op._code == Match_t::S_MATCH){
-            for(size_t p = gf.left(); p < gf.right(); ++p){
+            assert(gf.right() <= right);
+            for(size_t p = gf.left(); p < gf.right()+1; ++p){
                exon_doc[p-left] += hits[i].mass();
             }
          }
          else if( gf._match_op._code == Match_t::S_INTRON){
-            IntronDOC cur_intron(gf.left(), gf.right());
-            if(intron_doc.empty()){
+            IntronTable cur_intron(gf.left(), gf.right());
+            if(intron_counter.empty()){
                ++(cur_intron.total_junc_reads);
-               if(g_feats[j-1]._match_op._len < kSmallOverHang &&
-                     g_feats[j+1]._match_op._len < kSmallOverHang){
+               if(g_feats[j-1]._match_op._len < smallOverHang &&
+                     g_feats[j+1]._match_op._len < smallOverHang){
                   ++(cur_intron.small_span_read);
                }
-               intron_doc.push_back(move(cur_intron));
+               intron_counter.push_back(cur_intron);
                continue;
             }
-            auto it = lower_bound(intron_doc.begin(), intron_doc.end(), cur_intron);
+            auto it = lower_bound(intron_counter.begin(), intron_counter.end(), cur_intron);
             if( *it == cur_intron){
-               ++(it->small_span_read);
-               if(g_feats[j-1]._match_op._len < kSmallOverHang &&
-                     g_feats[j+1]._match_op._len < kSmallOverHang){
+               ++(it->total_junc_reads);
+               if(g_feats[j-1]._match_op._len < smallOverHang ||
+                     g_feats[j+1]._match_op._len < smallOverHang){
                   ++(it->small_span_read);
                }
             }
             else{
                ++(cur_intron.total_junc_reads);
-               if(g_feats[j-1]._match_op._len < kSmallOverHang &&
-                     g_feats[j+1]._match_op._len < kSmallOverHang){
+               if(g_feats[j-1]._match_op._len < smallOverHang &&
+                     g_feats[j+1]._match_op._len < smallOverHang){
                   ++(cur_intron.small_span_read);
                }
-               intron_doc.insert(it, cur_intron);
+               intron_counter.insert(it, cur_intron);
             }
          }
+      }
+   }
+}
+
+void ClusterFactory::filter_intron(uint cluster_left,
+      vector<float> &exon_doc, vector<IntronTable>& intron_counter)
+{
+   vector<int> bad_intron_pos;
+   vector<float> intron_doc(exon_doc.size(),0);
+   size_t total_intron = intron_counter.size();
+   /*
+    * First, filter intron which has overlapping counterpart has better support:
+    *    ratio of two lass than min_isoform_fraction
+    * Second,
+    */
+   for(size_t i = 0; i<total_intron; ++i){
+      for(size_t j = i+1; j<total_intron; ++j){
+         if(IntronTable::overlap(intron_counter[i], intron_counter[j])){
+             int depth_i = intron_counter[i].total_junc_reads;
+             int depth_j = intron_counter[j].total_junc_reads;
+            if( depth_i / (float)(depth_j) < kMinIsoformFrac){
+               bad_intron_pos.push_back(i);
+               LOG("Intron at ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
+                  depth_i," read supporting. ","Intron at ", _current_chrom,":",intron_counter[j].left, "-",
+                  intron_counter[j].right, " has ", depth_j, " read supporting. ");
+            }
+            if( depth_j / (float)(depth_i) < kMinIsoformFrac){
+               bad_intron_pos.push_back(j);
+               LOG("Intron at ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
+                  depth_i," read supporting. ","Intron at ", _current_chrom,":",intron_counter[j].left, "-",
+                  intron_counter[j].right, " has ", depth_j, " read supporting. ");
+            }
+         }
+      }
+   }
+   sort(bad_intron_pos.begin(), bad_intron_pos.end());
+   auto last = unique(bad_intron_pos.begin(), bad_intron_pos.end());
+   bad_intron_pos.erase(last, bad_intron_pos.end());
+   for(size_t i = 0; i<total_intron; ++i){
+      int total_read = intron_counter[i].total_junc_reads;
+      int small_read = intron_counter[i].small_span_read;
+      for(size_t k = intron_counter[i].left; k < intron_counter[i].right+1; ++k){
+         intron_doc[k-cluster_left] += total_read;
+      }
+      if(binary_search(bad_intron_pos.begin(), bad_intron_pos.end(),i))
+         continue;
+      if(small_read == 0)
+         continue;
+      double success = 2 * kSmallOverHangProp;
+      if(total_read < 100){
+         binomial_distribution<> small_anchor_dist(total_read, success);
+         double prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read);
       }
    }
 }
