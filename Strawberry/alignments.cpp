@@ -11,6 +11,8 @@
 #include <iterator>
 #include <random>
 #include <boost/math/distributions/binomial.hpp>
+#include <boost/math/distributions/normal.hpp>
+#include <math.h>
 #ifdef DEBUG
    #include <iostream>
 #endif
@@ -762,14 +764,13 @@ void ClusterFactory::compute_doc(const uint left, const uint right, const vector
 void ClusterFactory::filter_intron(uint cluster_left,
       vector<float> &exon_doc, vector<IntronTable>& intron_counter)
 {
+   using boost::math::binomial;
+   using boost::math::normal;
    vector<int> bad_intron_pos;
    vector<float> intron_doc(exon_doc.size(),0);
    size_t total_intron = intron_counter.size();
-   /*
-    * First, filter intron which has overlapping counterpart has better support:
-    *    ratio of two lass than min_isoform_fraction
-    * Second,
-    */
+
+//Filtering one:
    for(size_t i = 0; i<total_intron; ++i){
       for(size_t j = i+1; j<total_intron; ++j){
          if(IntronTable::overlap(intron_counter[i], intron_counter[j])){
@@ -777,13 +778,13 @@ void ClusterFactory::filter_intron(uint cluster_left,
              int depth_j = intron_counter[j].total_junc_reads;
             if( depth_i / (float)(depth_j) < kMinIsoformFrac){
                bad_intron_pos.push_back(i);
-               LOG("Intron at ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
+               LOG("Filtering overlapping intron by depth: ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
                   depth_i," read supporting. ","Intron at ", _current_chrom,":",intron_counter[j].left, "-",
                   intron_counter[j].right, " has ", depth_j, " read supporting. ");
             }
             if( depth_j / (float)(depth_i) < kMinIsoformFrac){
                bad_intron_pos.push_back(j);
-               LOG("Intron at ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
+               LOG("Filtering overlapping intron by depth: ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
                   depth_i," read supporting. ","Intron at ", _current_chrom,":",intron_counter[j].left, "-",
                   intron_counter[j].right, " has ", depth_j, " read supporting. ");
             }
@@ -793,6 +794,7 @@ void ClusterFactory::filter_intron(uint cluster_left,
    sort(bad_intron_pos.begin(), bad_intron_pos.end());
    auto last = unique(bad_intron_pos.begin(), bad_intron_pos.end());
    bad_intron_pos.erase(last, bad_intron_pos.end());
+//Filtering two:
    for(size_t i = 0; i<total_intron; ++i){
       int total_read = intron_counter[i].total_junc_reads;
       int small_read = intron_counter[i].small_span_read;
@@ -804,9 +806,23 @@ void ClusterFactory::filter_intron(uint cluster_left,
       if(small_read == 0)
          continue;
       double success = 2 * kSmallOverHangProp;
+      double prob_not_lt_observed = 1.0;
       if(total_read < 100){
-         binomial_distribution<> small_anchor_dist(total_read, success);
-         double prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read);
+         binomial small_anchor_dist(total_read, success);
+          prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-1);
+      }
+      else{
+         double normal_mean = total_read * success;
+         double normal_sd = sqrt(total_read * success*(1-success));
+         normal small_anchor_dist(normal_mean, normal_sd);
+         prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-0.5);
+         cout<<"total: "<<total_read<<" small: "<<small_read<<" prob: "<<prob_not_lt_observed<<endl;
+
+      }
+      if(prob_not_lt_observed < kBinomialOverHangAlpha) {
+         LOG("Filtering intron at by small anchor: ", _current_chrom, intron_counter[i].left,"-",intron_counter[i].right,
+               " has ", small_read, " small overhang read vs ", total_read, " total read.");
+         bad_intron_pos.push_back(i);
       }
    }
 }

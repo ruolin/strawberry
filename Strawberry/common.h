@@ -18,8 +18,9 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
-const static float kSmallOverHangProp = 6/76.0;
-const static float kMinIsoformFrac = 0.05;
+const static double kSmallOverHangProp = 6/76.0;
+const static double kMinIsoformFrac = 0.05;
+const static double kBinomialOverHangAlpha = 0.05;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 int fileExists(const char* fname);
