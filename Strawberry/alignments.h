@@ -12,33 +12,6 @@
 #include "gff.h"
 class ClusterFactory;
 
-struct IntronTable{
-   uint left;
-   uint right;
-   size_t total_junc_reads;
-   size_t small_span_read;
-   vector<float> doc;
-   IntronTable(uint l, uint r):
-      left(l),
-      right(r),
-      total_junc_reads(0),
-      small_span_read(0)
-   {}
-   bool operator==(const IntronTable & rhs){
-      return (left == rhs.left && right == rhs.right);
-   }
-   bool operator<(const IntronTable &rhs){
-      if(left != rhs.left)
-         return left < rhs.left;
-      if(right != rhs.right)
-         return right < rhs.right;
-      return false;
-   }
-   static bool overlap(const IntronTable& lhs, const IntronTable& rhs){
-      return overlaps_locally(lhs.left, lhs.right, rhs.left, rhs.right);
-   }
-};
-
 class HitCluster{
    friend ClusterFactory;
    uint _leftmost = UINT_MAX;
@@ -135,8 +108,10 @@ public:
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
    void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
                               vector<IntronTable>& intron_counter);
-   void filter_intron(uint cluster_left, vector<float> &exon_doc, vector<IntronTable>& intron_counter);
+   void filter_intron(uint cluster_left, vector<float> &exon_doc,
+         vector<IntronTable>& intron_counter,vector<size_t> &bad_introns);
    int ParseClusters();
+   void finalizeCluster(HitCluster & cluster);
 };
 
 
@@ -144,4 +119,5 @@ public:
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster, uint olap_radius);
+bool see_both_strand(const HitCluster &cluster, vector<int> & break_points);
 #endif /* STRAWB_ALIGNMENTS_H_ */

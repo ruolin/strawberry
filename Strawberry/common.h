@@ -20,7 +20,7 @@ typedef int RefID;
 
 const static double kSmallOverHangProp = 6/76.0;
 const static double kMinIsoformFrac = 0.05;
-const static double kBinomialOverHangAlpha = 0.05;
+const static double kBinomialOverHangAlpha = 0.1;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 int fileExists(const char* fname);
@@ -327,6 +327,34 @@ template <class ForwardIterator, class OutputIterator>
    }
   return ++result;
 }
+
+struct IntronTable{
+   uint left;
+   uint right;
+   size_t total_junc_reads;
+   size_t small_span_read;
+   vector<float> doc;
+   IntronTable(uint l, uint r):
+      left(l),
+      right(r),
+      total_junc_reads(0),
+      small_span_read(0)
+   {}
+   bool operator==(const IntronTable & rhs){
+      return (left == rhs.left && right == rhs.right);
+   }
+   bool operator<(const IntronTable &rhs){
+      if(left != rhs.left)
+         return left < rhs.left;
+      if(right != rhs.right)
+         return right < rhs.right;
+      return false;
+   }
+   static bool overlap(const IntronTable& lhs, const IntronTable& rhs){
+      return overlaps_locally(lhs.left, lhs.right, rhs.left, rhs.right);
+   }
+};
+
 
 
 #endif /* COMMON_H_ */

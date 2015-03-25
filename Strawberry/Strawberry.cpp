@@ -12,6 +12,7 @@
 #include "gff.h"
 #include "alignments.h"
 #include "logger.hpp"
+#include "assembly.h"
 #include <chrono>
 using namespace std;
 
@@ -68,6 +69,7 @@ int main(){
 //      cout<<i<<endl;
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
+   flowCycleCanceling();
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
 }
 
