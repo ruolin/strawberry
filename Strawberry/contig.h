@@ -95,7 +95,7 @@ public:
    Strand_t strand() const;
    size_t featSize() const;
    float mass() const;
-   //void mass(float m);
+   void mass(float m);
 };
 
 #endif /* CONTIG_H_ */

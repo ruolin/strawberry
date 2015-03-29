@@ -18,9 +18,12 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
+const static int kMaxIntronLength = 60000;
 const static double kSmallOverHangProp = 6/76.0;
 const static double kMinIsoformFrac = 0.05;
 const static double kBinomialOverHangAlpha = 0.1;
+const static bool enforce_ref_models = true;
+const static int kMinJuncSupport = 2;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 int fileExists(const char* fname);
@@ -73,6 +76,16 @@ inline void str2lupper(std::string &str){
       str[i] = toupper(str[i]);
 }
 
+inline double getMedian(const vector<float> &vec){
+   vector<float> dup = vec;
+   double median = 0.0;
+   size_t n = vec.size();
+   if(n % 2 ==0)
+      median = (dup[n/2] + dup[n/2-1]) / 2.0;
+   else
+      median = dup[n/2];
+   return median;
+}
 
 int stricmp(const char* a, const char* b, int n);
 
@@ -333,12 +346,14 @@ struct IntronTable{
    uint right;
    size_t total_junc_reads;
    size_t small_span_read;
-   vector<float> doc;
+   double median_depth;
+   //vector<float> doc;
    IntronTable(uint l, uint r):
       left(l),
       right(r),
       total_junc_reads(0),
-      small_span_read(0)
+      small_span_read(0),
+      median_depth(0)
    {}
    bool operator==(const IntronTable & rhs){
       return (left == rhs.left && right == rhs.right);

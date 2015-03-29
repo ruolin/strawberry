@@ -34,12 +34,15 @@ void assemble(const int &left,
         const std::vector<float> &exon_doc,
         const std::vector<IntronTable> &intron_counter,
         const std::vector<size_t> &bad_introns,
-        std::vector<GenomicFeature> &exons,
-        std::vector<GenomicFeature> &introns);
+        std::vector<GenomicFeature> &exons);
 
-void exonDoc2GFeats(const int &left, const std::vector<float> &exon_doc,
+void splicingGraph(const int &left, const std::vector<float> &exon_doc,
       const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
       std::vector<GenomicFeature> &exons);
+
+void createNetwork(const std::vector<GenomicFeature> &exons,
+      const std::vector<IntronTable> &intron_counter,
+      const std::vector<size_t> &bad_introns);
 
 void flowCycleCanceling();
 bool createDAG();

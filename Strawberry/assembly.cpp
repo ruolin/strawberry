@@ -25,14 +25,14 @@ typedef ListDigraph Graph;
 typedef int LimitValueType;
 
 
-void assemble( const int &left,
-        const std::vector<float> &exon_doc,
-        const std::vector<IntronTable> &intron_counter,
-        const std::vector<size_t> &bad_introns,
-        std::vector<GenomicFeature> &exons,
-        std::vector<GenomicFeature> &introns)
+void assemble(const int &left,
+        const vector<float> &exon_doc,
+        const vector<IntronTable> &intron_counter,
+        const vector<size_t> &bad_introns,
+        std::vector<GenomicFeature> &exons)
 {
-   exonDoc2GFeats(left, exon_doc, intron_counter, bad_introns, exons);
+   splicingGraph(left, exon_doc, intron_counter, bad_introns, exons);
+   createNetwork(exons, intron_counter, bad_introns);
 }
 
 // comparator used for searching in the split_bars object, which records the
@@ -44,7 +44,16 @@ bool comp_lt(const pair<uint, bool> & lhs, const pair<uint,bool> &rhs){
    return lhs.first < rhs.first;
 }
 
-void exonDoc2GFeats(const int &left, const std::vector<float> &exon_doc,
+bool search_left(const GenomicFeature &lhs, const uint rhs){
+   return lhs._genomic_offset < rhs;
+}
+
+bool search_right(const GenomicFeature & lhs, const uint rhs){
+   uint right = lhs._genomic_offset + lhs._match_op._len -1;
+   return right < rhs;
+}
+
+void splicingGraph(const int &left, const std::vector<float> &exon_doc,
       const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
       std::vector<GenomicFeature> &exons)
 {
@@ -90,6 +99,7 @@ void exonDoc2GFeats(const int &left, const std::vector<float> &exon_doc,
    auto e = exon_boundries.begin();
    size_t s = 0;
    while(e != exon_boundries.end() && s < split_bars.size()){
+
       uint bar = split_bars[s].first;
       bool left = split_bars[s].second;
       if(bar < e->first){
@@ -120,7 +130,7 @@ void exonDoc2GFeats(const int &left, const std::vector<float> &exon_doc,
    for(e = exon_boundries.begin(); e!= exon_boundries.end(); ++e){
       if(*e == exon_boundries.front()){
          if(binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt) ||
-               e->second == next(e)->first-1) ;
+               e->second == next(e)->first-1);
          else
             dropoff.push_back(e);
 
@@ -132,6 +142,33 @@ void exonDoc2GFeats(const int &left, const std::vector<float> &exon_doc,
             dropoff.push_back(e);
       }
       else{
+
+         // first two conditiosn cover situations when exon
+         // segments are created by coverage gaps not introns.
+         // The gap situation can be found in AT1G01020.
+         // It can be addressed here. But we leave this problem to buildDAG();
+         if( next(e)->first - e->second > 1 &&
+             !binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt)
+           )
+         {
+            if( binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->first-1,true), comp_lt));
+            else{
+               dropoff.push_back(e);
+            }
+            continue;
+         }
+
+         if (e->first - prev(e)->second > 1 &&
+               !binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->first-1,true), comp_lt)
+            )
+         {
+            if(binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt)) ;
+            else{
+               dropoff.push_back(e);
+            }
+            continue;
+         }
+
          if( ( binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->first-1,true), comp_lt) ||
                e->first == prev(e)->second+1
              ) &&
@@ -139,17 +176,53 @@ void exonDoc2GFeats(const int &left, const std::vector<float> &exon_doc,
                binary_search(split_bars.begin(), split_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt) ||
                e->second == next(e)->first-1
              ));
-         else
+         else{
             dropoff.push_back(e);
+         }
       }
    }
-   for(auto d: dropoff)
+   for(auto d: dropoff){
       exon_boundries.erase(d);
+   }
+   for(auto i: exon_boundries){
+      exons.push_back(GenomicFeature(Match_t::S_MATCH, i.first, i.second-i.first+1));
+   }
+   sort(exons.begin(), exons.end());
 #ifdef DEBUG
    for(auto i: exon_boundries){
       cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
    }
+   cout<<"---------------------"<<endl;
 #endif
+}
+
+void createNetwork(const vector<GenomicFeature> &exons,
+      const vector<IntronTable> &intron_counter,
+      const vector<size_t> &bad_introns){
+   Graph g;
+   Graph::ArcMap<LimitValueType> l(g), u(g), c(g);
+   Graph::NodeMap<const GenomicFeature*> node2feat(g);
+   vector<Graph::Node> nodes;
+   vector<Graph::Arc> arcs;
+   map<const GenomicFeature*, Graph::Node> feat2node;
+   for(size_t i = 0; i< exons.size(); ++i){
+      nodes.push_back(g.addNode());
+      node2feat[nodes[i]] = &exons[i];
+      feat2node[&exons[i]] = nodes[i];
+   }
+   for(size_t i =0; i< intron_counter.size(); ++i){
+      if( binary_search(bad_introns.begin(), bad_introns.end(), i) )
+         continue;
+      const IntronTable &intron = intron_counter[i];
+      auto e1 = lower_bound(exons.begin(), exons.end(), intron.left-1, search_right);
+      auto e2 = lower_bound(exons.begin(), exons.end(), intron.right+1, search_left);
+      //cout<< intron.left << " vs " << intron.right<<endl;
+      //cout<< e1->_genomic_offset+e1->_match_op._len<<" and "<< e2->_genomic_offset<<endl;
+      Graph::Arc a = g.addArc( feat2node[&(*e1)],  feat2node[&(*e2)]);
+      //l[a] = 1;
+      arcs.push_back(a);
+      //cout<<l[a]<<endl;
+   }
 }
 
 

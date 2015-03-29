@@ -221,6 +221,11 @@ float Contig::mass() const
    return _mass;
 }
 
+void Contig::mass(float m)
+{
+   _mass = m;
+}
+
 bool Contig::operator<(const Contig &rhs) const
 {
    if(_ref_id != rhs._ref_id){

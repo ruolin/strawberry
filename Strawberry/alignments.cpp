@@ -52,28 +52,6 @@ bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster
    return true;
 }
 
-bool see_both_strand(const HitCluster &cluster, vector<int> & break_points){
-   bool multiple_genes = false;
-   sort(cluster._hits.begin(), cluster._hits.end());
-   vector<uint> plus_starts;
-   vector<uint> minus_starts;
-   for(auto &hit: cluster._hits){
-      if(hit.contains_splice()){
-         if(hit.strand() == Strand_t::StrandPlus)
-            plus_starts.push_back(hit.left_pos());
-         else
-            minus_starts.push_back(hit.left_pos());
-      }
-   }
-   int max = max(plus_starts.size(), minus_starts.size());
-   int min = min(plus_starts.size(), minus_starts.size());
-   if (min == 0){
-      return false;
-   }
-   if( max / float(min)
-   return multiple_genes;
-}
-
 
 RefID HitCluster::ref_id() const
 {
@@ -129,11 +107,49 @@ Strand_t HitCluster::ref_strand() const{
    return strand;
 }
 
+Strand_t HitCluster::guessStrand() const{
+   if(_first_encounter_strand == Strand_t::StrandUnknown){
+      LOG("HitCluster ", _ref_id, ":", _leftmost,"-",_rightmost," does not have strand information. It is likely to be a single exon transcript." );
+      return Strand_t::StrandUnknown;
+   }
+   if(_first_encounter_strand == Strand_t::StrandPlus){
+      if(_hit_for_plus_strand >=3 ) return Strand_t::StrandPlus;
+      else{
+         if(_hit_for_plus_strand >= _hit_for_minus_strand) return Strand_t::StrandPlus;
+         else return Strand_t::StrandMinus;
+      }
+   }
+   else{
+      if(_hit_for_minus_strand >=3) return Strand_t::StrandMinus;
+      else{
+         if(_hit_for_minus_strand >= _hit_for_plus_strand) return Strand_t::StrandMinus;
+         else return Strand_t::StrandPlus;
+      }
+   }
+}
+
 bool HitCluster::addHit(const PairedHit &hit){
    if(_final){
       return false;
    }
    assert(_ref_id == hit.ref_id());
+   if(hit.contains_splice()){
+      if(hit.strand() == Strand_t::StrandPlus){
+         if(_hit_for_minus_strand == 0 && _hit_for_plus_strand == 0){
+            _first_encounter_strand = Strand_t::StrandPlus;
+         }
+         ++_hit_for_plus_strand;
+      }
+      else if(hit.strand() == Strand_t::StrandMinus){
+         if(_hit_for_minus_strand == 0 && _hit_for_plus_strand == 0){
+            _first_encounter_strand = Strand_t::StrandMinus;
+         }
+         ++_hit_for_minus_strand;
+      }
+      else{
+         assert(false);
+      }
+   }
 #ifdef DEBUG
    if(hit._left_read){
        assert(hit.left_read_obj().cigar().front()._type == MATCH ||
@@ -175,7 +191,15 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
       return false;
    }
-   _ref_id = hit_ref_id;
+
+   if(_ref_id == -1){
+      if(hit_ref_id != -1)
+         _ref_id = hit_ref_id;
+   } else{
+      assert(_ref_id == hit_ref_id);
+   }
+
+
    if(hit->is_singleton()){
       PairedHit ph(hit, nullptr);
       addHit(ph);
@@ -238,7 +262,6 @@ int HitCluster::collapseHits(){
    if(_hits.empty())
       return false;
    sort(_hits.begin(), _hits.end());
-
    _uniq_hits.resize(_hits.size());
    auto it_hits = _hits.begin();
    auto it_uniq = _uniq_hits.begin();
@@ -269,40 +292,73 @@ int HitCluster::collapseHits(){
    return _uniq_hits.size();
 }
 
+void HitCluster::setBoundaries(){
+/*
+ * Call this after collapseHits
+ */
+   assert(!_uniq_hits.empty());
+   if(enforce_ref_models && hasRefmRNAs()){
+      _leftmost = INT_MAX;
+      _rightmost = 0;
+      for(auto r : _ref_mRNAs){
+         _leftmost = min(_leftmost, r->left());
+         _rightmost = max(_rightmost, r->right());
+      }
+   }
+   else{
+      _leftmost = _uniq_hits.front().left_pos();
+      _rightmost = _uniq_hits.back().right_pos();
+   }
+}
+
 
 bool HitCluster::overlaps( const HitCluster& rhs) const{
    if(ref_id() != rhs.ref_id()) return false;
    return left() < rhs.left() ? right() >= rhs.left() : left() <= rhs.right();
 }
 
-void HitCluster::guess_strand(){
-   int plus_intron_size =0;
-   int minus_intron_size =0;
+//void HitCluster::guessStrand(){
+//   int plus_intron_size =0;
+//   int minus_intron_size =0;
+//
+//     for(auto r = _uniq_hits.cbegin(); r< _uniq_hits.cend(); ++r){
+//        if(r->contains_splice()){
+//           if(r->strand() == Strand_t::StrandPlus)
+//              ++plus_intron_size;
+//           else
+//              ++minus_intron_size;
+//        }
+//     }
+//     if(plus_intron_size == 0 && minus_intron_size >0){
+//        _strand = Strand_t::StrandMinus;
+//     }
+//     else if(plus_intron_size > 0 && minus_intron_size ==0){
+//        _strand = Strand_t::StrandPlus;
+//     }
+//     else if(plus_intron_size == 0 && minus_intron_size == 0){
+//        _strand = Strand_t::StrandUnknown;
+//     }
+//     else{
+//        if(plus_intron_size / minus_intron_size > _kMinFold4BothStrand)
+//           _strand = Strand_t::StrandPlus;
+//        if(minus_intron_size / plus_intron_size > _kMinFold4BothStrand)
+//           _strand = Strand_t::StrandMinus;
+//        _strand = Strand_t::StrandBoth;
+//     }
+//}
 
-     for(auto r = _uniq_hits.cbegin(); r< _uniq_hits.cend(); ++r){
-        if(r->contains_splice()){
-           if(r->strand() == Strand_t::StrandPlus)
-              ++plus_intron_size;
-           else
-              ++minus_intron_size;
-        }
-     }
-     if(plus_intron_size == 0 && minus_intron_size >0){
-        _strand = Strand_t::StrandMinus;
-     }
-     else if(plus_intron_size > 0 && minus_intron_size ==0){
-        _strand = Strand_t::StrandPlus;
-     }
-     else if(plus_intron_size == 0 && minus_intron_size == 0){
-        _strand = Strand_t::StrandUnknown;
-     }
-     else{
-        if(plus_intron_size / minus_intron_size > _kMinFold4BothStrand)
-           _strand = Strand_t::StrandPlus;
-        if(minus_intron_size / plus_intron_size > _kMinFold4BothStrand)
-           _strand = Strand_t::StrandMinus;
-        _strand = Strand_t::StrandBoth;
-     }
+bool HitCluster::see_both_strands(){
+   bool see_plus = false;
+   bool see_minus = false;
+   for(auto &hit: _hits){
+      if(hit.contains_splice()){
+         if(hit.strand() == Strand_t::StrandPlus)
+            see_plus = true;
+         else
+            see_minus = true;
+      }
+   }
+   return see_plus && see_minus;
 }
 
 bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt,
@@ -382,6 +438,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
          }
          Contig ref_contig(ref_id, strand, feats, true);
          ref_contig.annotated_trans_id(mrna->_transcript_id);
+         ref_contig.mass(1.0);
          //cout<<"ref contig left pos "<<ref_contig.left()<<endl;
          ref_mrna_for_chr.push_back(ref_contig);
       }// end while loop
@@ -521,8 +578,10 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
 {
    bool skip_read = false;
    if(!_hit_factory->recordsRemain()) return -1;
-   // add first hit
-   if(hasLoadRefmRNAs()){
+   if(!hasLoadRefmRNAs()){
+      return nextCluster_denovo(clusterOut);
+   }
+   else{
       //if all ref mRNAs have been loaded but alignments haven't
       int num_added_refmRNA = addRef2Cluster(clusterOut);
       if( num_added_refmRNA == 0){
@@ -581,13 +640,12 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
    vector<PairedHit> imcompatible_hits;
    vector<vector<PairedHit>::iterator> imcomp_hits_its;
    bool first_incompatible = false;
-   auto last_it = last._hits.begin();
-   for(; last_it != last._hits.end(); ++last_it){
-      if(last_it->contains_splice()){
-         if(last_it->strand() != last.ref_strand()){
+   for(auto hit_it = last._hits.begin(); hit_it != last._hits.end(); ++hit_it){
+      if(hit_it->contains_splice()){
+         if(hit_it->strand() != last.guessStrand()){
             first_incompatible = true;
-            imcompatible_hits.push_back(*last_it);
-            imcomp_hits_its.push_back(last_it);
+            imcompatible_hits.push_back(*hit_it);
+            imcomp_hits_its.push_back(hit_it);
          }
          else{
             first_incompatible = false;
@@ -595,13 +653,14 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
       }
       else{
          if(first_incompatible){
-            imcompatible_hits.push_back(*last_it);
+            imcompatible_hits.push_back(*hit_it);
+            imcomp_hits_its.push_back(hit_it);
          }
       }
    }
    for(auto it = imcompatible_hits.cbegin(); it != imcompatible_hits.cend(); ++it){
       if(hit_complete_within_cluster(*it, cur, 0))
-         cur._hits.push_back(*it);
+         cur.addHit(*it);
    }
    for(auto &i: imcomp_hits_its){
       last._hits.erase(i);
@@ -626,14 +685,32 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
    cluster.clearOpenMates();
    cluster.collapseHits();
    if(cluster.size() > 0){
+      cluster.setBoundaries();
        vector<float> exon_doc;
        vector<IntronTable> intron_counter;
        vector<size_t> bad_introns;
        vector<GenomicFeature> exons;
-       vector<GenomicFeature> introns;
-       compute_doc_4_cluster(cluster, exon_doc, intron_counter);
+       uint small_overhang;
+       compute_doc_4_cluster(cluster, exon_doc, intron_counter, small_overhang);
+       if(enforce_ref_models && cluster.hasRefmRNAs()){
+          vector<Contig> hits;
+          for(auto i: cluster._ref_mRNAs){
+             hits.push_back(*i);
+          }
+          compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
+//          if(cluster.left() == 5928){
+//             for(auto i: hits){
+//                for(auto j:i._genomic_feats){
+//                   cout<<"feature: "<<j._match_op._code<<" from "<<j._genomic_offset<< \
+//                         " to "<< j._genomic_offset+ j._match_op._len+1 <<endl;
+//                }
+//             }
+//          }
+       }
        filter_intron(cluster.left(), exon_doc, intron_counter, bad_introns);
-       assemble(cluster.left(), exon_doc, intron_counter, bad_introns, exons, introns);
+       //for(int i=0; i<intron_counter.size(); ++i)
+             //cout<<" bars "<<intron_counter[i].left<<"\t"<<intron_counter[i].right<<endl;
+       assemble(cluster.left(), exon_doc, intron_counter, bad_introns, exons);
    }
 }
 
@@ -655,17 +732,19 @@ int ClusterFactory::ParseClusters(){
    _current_chrom = ref_t.ref_name(last_cluster->ref_id());
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
-      vector<uint> break_points;
-      if(!last_cluster->hasRefmRNAs() && see_both_strand(*last_cluster, break_points)){
-         assert(break_points.size() == 2);
-         cur_cluster->left(break_points[0]);
-         cur_cluster->right(break_points[1]);
+      if(!last_cluster->hasRefmRNAs() && last_cluster->see_both_strands()){
+         cur_cluster->left(last_cluster->left());
+         cur_cluster->right(last_cluster->right());
+         cur_cluster->ref_id(last_cluster->ref_id());
       }
       else{
          if(-1 == nextCluster_refGuide(*cur_cluster)){
             break;
          }
       }
+//      cout<<"left: "<<last_cluster->left()<<"\t"<<last_cluster->_hit_for_minus_strand \
+//            <<"-:+"<<last_cluster->_hit_for_plus_strand \
+//      <<"first strand"<<last_cluster->_first_encounter_strand<<endl;
       if(cur_cluster->overlaps(*last_cluster) ){
 //         if(!cur_cluster->hasRefmRNAs() && !last_cluster->hasRefmRNAs()) {
 //            LOG_ERR("Error: It is unlikely that novo cluster overlaps");
@@ -673,6 +752,10 @@ int ClusterFactory::ParseClusters(){
 //            LOG_ERR(cur_cluster->ref_id(),":", cur_cluster->left(), "-", cur_cluster->right());
 //         }
          mergeClusters(*last_cluster, *cur_cluster);
+      }
+      if(last_cluster->ref_id() == -1){
+         last_cluster = move(cur_cluster);
+         continue;
       }
       if(_current_chrom != ref_t.ref_name(last_cluster->ref_id())){
          _current_chrom = ref_t.ref_name(last_cluster->ref_id());
@@ -696,7 +779,7 @@ int ClusterFactory::ParseClusters(){
 
 
 void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
-      vector<IntronTable>& intron_counter)
+      vector<IntronTable>& intron_counter, uint &small_overhang)
 {
 /*
  * exon_doc is for per-base read-depth
@@ -732,11 +815,11 @@ void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vecto
         Contig hit(*r);
         hits.push_back(hit);
      }
-     uint small_over_hang = read_len * kSmallOverHangProp;
+     small_overhang = read_len * kSmallOverHangProp;
      sort(hits.begin(), hits.end());
      size_t s = hit_cluster.right() - hit_cluster.left() + 1;
      exon_doc.resize(s,0);
-     compute_doc(hit_cluster.left(), hit_cluster.right(), hits, exon_doc, intron_counter, small_over_hang);
+     compute_doc(hit_cluster.left(), hit_cluster.right(), hits, exon_doc, intron_counter, small_overhang);
 //     for(auto &i: intron_counter){
 //        cout<<"left: "<<i.left<<" right: "<<i.right<<" small: "<<i.small_span_read<<" total: "<<
 //              i.total_junc_reads<<endl;
@@ -745,7 +828,7 @@ void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vecto
 }
 
 void ClusterFactory::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
-      vector<float> &exon_doc,  vector<IntronTable> &intron_counter, int smallOverHang)
+      vector<float> &exon_doc,  vector<IntronTable> &intron_counter, uint smallOverHang)
 {
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
@@ -753,12 +836,15 @@ void ClusterFactory::compute_doc(const uint left, const uint right, const vector
       for(size_t j = 0; j<g_feats.size(); ++j){
          const GenomicFeature & gf = g_feats[j];
          if( gf._match_op._code == Match_t::S_MATCH){
-            assert(gf.right() <= right);
-            for(size_t p = gf.left(); p < gf.right()+1; ++p){
+            size_t l  = gf.left() < left ? left: gf.left();
+            size_t r = gf.right() > right ? right: gf.right();
+            for(size_t p = l; p < r+1; ++p){
                exon_doc[p-left] += hits[i].mass();
             }
          }
          else if( gf._match_op._code == Match_t::S_INTRON){
+            if(gf.left() < left || gf.right() > right)
+               continue;
             IntronTable cur_intron(gf.left(), gf.right());
             if(intron_counter.empty()){
                ++(cur_intron.total_junc_reads);
@@ -795,7 +881,6 @@ void ClusterFactory::filter_intron(uint cluster_left,
       vector<float> &exon_doc, vector<IntronTable>& intron_counter, vector<size_t> &bad_intron_pos)
 {
    // bad_intron_pos for indexes for intron to be drop off in intron_counter
-
    using boost::math::binomial;
    using boost::math::normal;
    vector<float> intron_doc(exon_doc.size(),0.0);
@@ -826,12 +911,19 @@ void ClusterFactory::filter_intron(uint cluster_left,
    auto last = unique(bad_intron_pos.begin(), bad_intron_pos.end());
    bad_intron_pos.erase(last, bad_intron_pos.end());
 //Filtering two: by small overhang supporting read proportion
+//And at least two non small overhang supporting per intron
    for(size_t i = 0; i<total_intron; ++i){
       int total_read = intron_counter[i].total_junc_reads;
       int small_read = intron_counter[i].small_span_read;
+      //cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
+      if(total_read - small_read < kMinJuncSupport && !enforce_ref_models){
+         LOG("Filtering intron at by overall read support: ", _current_chrom,":", intron_counter[i].left,"-",intron_counter[i].right,
+               " has only ", total_read, " total read.");
+         bad_intron_pos.push_back(i);
+         continue;
+      }
       for(size_t k = intron_counter[i].left; k < intron_counter[i].right+1; ++k){
          intron_doc[k-cluster_left] += total_read;
-         //cout<<"dep: "<<intron_doc[k-cluster_left]<<endl;
       }
       if(binary_search(bad_intron_pos.begin(), bad_intron_pos.end(),i))
          continue;
@@ -848,7 +940,7 @@ void ClusterFactory::filter_intron(uint cluster_left,
          double normal_sd = sqrt(total_read * success*(1-success));
          normal small_anchor_dist(normal_mean, normal_sd);
          prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-0.5);
-         cout<<"total: "<<total_read<<" small: "<<small_read<<" prob: "<<prob_not_lt_observed<<endl;
+         //cout<<"total: "<<total_read<<" small: "<<small_read<<" prob: "<<prob_not_lt_observed<<endl;
 
       }
       if(prob_not_lt_observed < kBinomialOverHangAlpha) {
@@ -857,16 +949,24 @@ void ClusterFactory::filter_intron(uint cluster_left,
          bad_intron_pos.push_back(i);
       }
    }
-//Filtering three: by comparing intron depth to exon depth
+   sort(bad_intron_pos.begin(), bad_intron_pos.end());
+   last = unique(bad_intron_pos.begin(), bad_intron_pos.end());
+   bad_intron_pos.erase(last, bad_intron_pos.end());
+
+   //Filtering three: by comparing intron depth to exon depth
    for(size_t i=0; i<total_intron; ++i){
       if(binary_search(bad_intron_pos.begin(), bad_intron_pos.end(),i))
          continue;
       uint start = intron_counter[i].left - cluster_left;
       uint end = intron_counter[i].right - cluster_left;
       assert(end > start);
+
       float avg_intron_doc = accumulate(intron_doc.begin()+start, intron_doc.begin()+end,0.0);
       avg_intron_doc /= (end-start);
-      float avg_intron_exonic_doc = accumulate(exon_doc.begin()+start, exon_doc.begin()+end, 0.0);
+      vector<float> exon_doc_i(end-start+1);
+      copy(exon_doc.begin()+start, exon_doc.begin()+end, exon_doc_i.begin());
+      intron_counter[i].median_depth = getMedian(exon_doc_i);
+      float avg_intron_exonic_doc = accumulate(exon_doc_i.begin(), exon_doc_i.end(), 0.0);
       avg_intron_exonic_doc /= (end-start);
       if(avg_intron_exonic_doc != 0){
          if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
@@ -879,3 +979,4 @@ void ClusterFactory::filter_intron(uint cluster_left,
             <<" right: "<<intron_counter[i].right<<endl;
    }
 }
+

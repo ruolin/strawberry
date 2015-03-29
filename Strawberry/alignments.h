@@ -16,6 +16,9 @@ class HitCluster{
    friend ClusterFactory;
    uint _leftmost = UINT_MAX;
    uint _rightmost = 0;
+   int _hit_for_plus_strand = 0;
+   int _hit_for_minus_strand = 0;
+   Strand_t _first_encounter_strand = Strand_t::StrandUnknown;
    int _id;
    RefID _ref_id = -1;
    bool _final = false; // HitCluster is finished
@@ -40,7 +43,12 @@ public:
    uint right() const;
    int size() const;
    Strand_t ref_strand() const;
+   Strand_t guessStrand() const;
+   Strand_t strand() const{
+      return _strand;
+   }
    bool addHit(const PairedHit &hit);
+   void setBoundaries();
    void clearOpenMates();
    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
    int collapseHits();
@@ -61,11 +69,7 @@ public:
    double raw_mass() const{
       return _raw_mass;
    }
-   Strand_t strand() const{
-      return _strand;
-   }
-   void guess_strand();
-
+   bool see_both_strands();
 };
 
 class ClusterFactory{
@@ -82,7 +86,7 @@ class ClusterFactory{
                      const vector<Contig> & hits,
                      vector<float> &exon_doc,
                      vector<IntronTable> &intron_doc,
-                     int smallOverhang);
+                     uint smallOverhang);
 public:
    static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
@@ -107,7 +111,7 @@ public:
    void rewindReference(HitCluster &clusterOut, int num_regress);
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
    void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
-                              vector<IntronTable>& intron_counter);
+                              vector<IntronTable>& intron_counter, uint &small_overhang);
    void filter_intron(uint cluster_left, vector<float> &exon_doc,
          vector<IntronTable>& intron_counter,vector<size_t> &bad_introns);
    int ParseClusters();
@@ -119,5 +123,4 @@ public:
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius);
 bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster, uint olap_radius);
-bool see_both_strand(const HitCluster &cluster, vector<int> & break_points);
 #endif /* STRAWB_ALIGNMENTS_H_ */
