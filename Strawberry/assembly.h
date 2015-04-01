@@ -8,6 +8,7 @@
 #ifndef ASSEMBLY_H_
 #define ASSEMBLY_H_
 #include<vector>
+#include <lemon/list_graph.h>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include<boost/version.hpp>
@@ -17,33 +18,61 @@
 #include<boost/property_map/vector_property_map.hpp>
 #endif
 
-typedef boost::adjacency_list<boost::vecS,
-                             boost::vecS,
-                             boost::bidirectionalS,
-                             boost::property<boost::vertex_distance_t, int>,
-                             boost::property<boost::edge_weight_t, int>> DAG;
-
-typedef boost::graph_traits<DAG>::vertex_descriptor DAGVertex;
-//typedef boost::property_map<DAG, boost::vertex_name_t>::type name_map_t;
-//typedef boost::property_map<DAG, boost::edge_weight_t>::type edge_weight_map_t;
-
+//namespace lemon{
+//   class ListDigraph;
+//}
 class IntronTable;
 class GenomicFeature;
+class Contig;
+typedef lemon::ListDigraph Graph;
+class FlowNetwork{
+   Graph _g;
+   Graph::Node _source;
+   Graph::Node _sink;
+   static bool hasFlow(const Graph &g, const Graph::ArcMap<int> & flow, const Graph::Node node){
+      for(Graph::OutArcIt out(g, node); out != lemon::INVALID; ++out){
+         if (flow[out] > 0)
+            return true;
+      }
+      return false;
+   }
 
-void assemble(const int &left,
-        const std::vector<float> &exon_doc,
-        const std::vector<IntronTable> &intron_counter,
-        const std::vector<size_t> &bad_introns,
-        std::vector<GenomicFeature> &exons);
+   static void add_sink_source(Graph &g, Graph::Node &source, Graph::Node &sink);
 
-void splicingGraph(const int &left, const std::vector<float> &exon_doc,
-      const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
-      std::vector<GenomicFeature> &exons);
+   static bool comp_lt(const std::pair<uint, bool> & lhs, const std::pair<uint,bool> &rhs);
 
-void createNetwork(const std::vector<GenomicFeature> &exons,
-      const std::vector<IntronTable> &intron_counter,
-      const std::vector<size_t> &bad_introns);
+   static bool search_left(const GenomicFeature &lhs, const uint rhs);
 
-void flowCycleCanceling();
-bool createDAG();
+   static bool search_right(const GenomicFeature & lhs, const uint rhs);
+
+   static void flowDecompose(const Graph &g,
+         const Graph::ArcMap<int> &flow,
+         const Graph::Node &source,
+         const Graph::Node &sink,
+         std::vector<std::vector<Graph::Arc>> &paths );
+
+   static void flow2Transcript(const Graph &g,
+         const std::vector<std::vector<Graph::Arc>> &paths,
+         std::vector<std::vector<GenomicFeature>> &transcripts){
+
+   }
+public:
+   void initGraph(const int &left,
+           const std::vector<float> &exon_doc,
+           const std::vector<IntronTable> &intron_counter,
+           const std::vector<size_t> &bad_introns,
+           std::vector<GenomicFeature> &exons);
+
+   void splicingGraph(const int &left, const std::vector<float> &exon_doc,
+         const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
+         std::vector<GenomicFeature> &exons);
+
+   void createNetwork(const std::vector<GenomicFeature> &exons,
+         const std::vector<IntronTable> &intron_counter,
+         const std::vector<size_t> &bad_introns);
+
+   void addWeight(const std::vector<Contig> &hits, const std::vector<IntronTable> &intron_counter);
+   void solveNetwork();
+};
+
 #endif /* ASSEMBLY_H_ */

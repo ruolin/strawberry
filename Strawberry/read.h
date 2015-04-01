@@ -99,12 +99,12 @@ public:
 //
 class ReadTable
 {
+
 public:
    // This function should NEVER return zero
    ReadID get_id(const string& name);
-
+   uint _read_len_abs = 0;
 private:
-
    // This is FNV-1, see http://en.wikipedia.org/wiki/Fowler_Noll_Vo_hash
    inline uint64_t hashString(const char* __s)
    {
@@ -150,11 +150,11 @@ private:
 protected:
    static const unsigned MAX_HEADER_LEN = 4 * 1024 * 1024; // 4 MB
    static const size_t kHitBufMaxSize = 10 * 1024;
-   ReadTable& _reads_table;
    char _hit_buf[kHitBufMaxSize];
    int _num_seq_header_recs = 0;
    AssayProperties _assay_props;
 public:
+   ReadTable& _reads_table;
    RefSeqTable& _ref_table;
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
    HitFactory(HitFactory &rhs) = delete; //non-copible class.

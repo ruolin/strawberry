@@ -22,7 +22,7 @@ const static int kMaxIntronLength = 60000;
 const static double kSmallOverHangProp = 6/76.0;
 const static double kMinIsoformFrac = 0.05;
 const static double kBinomialOverHangAlpha = 0.1;
-const static bool enforce_ref_models = true;
+const static bool enforce_ref_models = false;
 const static int kMinJuncSupport = 2;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
@@ -60,7 +60,7 @@ inline void str2lower(char * str) {//changes string in place
 
 inline void str2lower(std::string &str){
    if (str.empty()) return ;
-   for(int i = 0; i<str.length(); i++)
+   for(size_t i = 0; i<str.length(); i++)
       str[i] = tolower(str[i]);
 }
 
@@ -72,7 +72,7 @@ inline void str2upper(char * str) {//changes string in place
 
 inline void str2lupper(std::string &str){
    if (str.empty()) return ;
-   for(int i = 0; i<str.length(); i++)
+   for(size_t i = 0; i<str.length(); i++)
       str[i] = toupper(str[i]);
 }
 

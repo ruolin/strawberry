@@ -42,6 +42,7 @@ public:
    void right(uint right);
    uint right() const;
    int size() const;
+   int len() const;
    Strand_t ref_strand() const;
    Strand_t guessStrand() const;
    Strand_t strand() const{

@@ -9,27 +9,37 @@
 #include "common.h"
 #include "contig.h"
 #include <iterator>
-#include <boost/graph/dag_shortest_paths.hpp>
 #include <iostream>
 
-#include <lemon/smart_graph.h>
+//#include <lemon/smart_graph.h>
 #include <lemon/lgf_reader.h>
 #include <lemon/lgf_writer.h>
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
-
-//#include <lemon/preflow.h>
+#include <lemon/bfs.h>
 
 using namespace lemon;
-typedef ListDigraph Graph;
 typedef int LimitValueType;
 
+bool FlowNetwork::comp_lt(const std::pair<uint, bool> & lhs, const std::pair<uint,bool> &rhs){
+      return lhs.first < rhs.first;
+   }
 
-void assemble(const int &left,
+bool FlowNetwork::search_left(const GenomicFeature &lhs, const uint rhs){
+   return lhs._genomic_offset < rhs;
+}
+
+bool FlowNetwork::search_right(const GenomicFeature & lhs, const uint rhs){
+   uint right = lhs._genomic_offset + lhs._match_op._len -1;
+   return right < rhs;
+}
+
+
+void FlowNetwork::initGraph(const int &left,
         const vector<float> &exon_doc,
         const vector<IntronTable> &intron_counter,
         const vector<size_t> &bad_introns,
-        std::vector<GenomicFeature> &exons)
+        vector<GenomicFeature> &exons)
 {
    splicingGraph(left, exon_doc, intron_counter, bad_introns, exons);
    createNetwork(exons, intron_counter, bad_introns);
@@ -40,24 +50,68 @@ void assemble(const int &left,
 // whether it is left boundary or right boundary.
 // left = true; right = false
 
-bool comp_lt(const pair<uint, bool> & lhs, const pair<uint,bool> &rhs){
-   return lhs.first < rhs.first;
+void FlowNetwork::add_sink_source(Graph &g, Graph::Node &source, Graph::Node &sink){
+   source = g.addNode();
+   sink = g.addNode();
+   for(Graph::NodeIt n(g); n != lemon::INVALID; ++n){
+      if( n == source || n == sink )
+         continue;
+      int out_edges = 0;
+      int in_edges = 0;
+      for(Graph::OutArcIt out(g, n); out != lemon::INVALID; ++out)
+         ++out_edges;
+      for(Graph::InArcIt in(g,n); in != lemon::INVALID; ++in)
+         ++in_edges;
+      if(in_edges == 0){
+         g.addArc(source, n);
+      }
+      if(out_edges == 0){
+         g.addArc(n, sink);
+      }
+   }
+   g.addArc(sink,source);
 }
 
-bool search_left(const GenomicFeature &lhs, const uint rhs){
-   return lhs._genomic_offset < rhs;
+
+
+void FlowNetwork::flowDecompose(const Graph &g,
+   const Graph::ArcMap<int> &flow,
+   const Graph::Node &source,
+   const Graph::Node &sink,
+   std::vector<std::vector<Graph::Arc>> &paths ){
+
+   Graph::ArcMap<int> copy_flow(g);
+   for(Graph::ArcIt arc(g); arc != lemon::INVALID; ++arc){
+      copy_flow[arc] = flow[arc];
+   }
+
+   while(hasFlow(g, copy_flow, source)){
+      int bottle_neck = INT_MAX;
+      std::vector<Graph::Arc> path;
+      Graph::Node cur_node = source;
+      while(cur_node != sink ){
+         for(Graph::OutArcIt out(g, cur_node); out != lemon::INVALID; ++out){
+            if(copy_flow[out] > 0){
+               bottle_neck = max(bottle_neck, copy_flow[out]);
+               cur_node = g.target(out);
+               path.push_back(out);
+               break;
+            }
+         }
+      }
+      for(auto edge: path){
+         --copy_flow[edge];
+      }
+      paths.push_back(path);
+   }
+   cout<<"num paths "<<paths.size()<<endl;
 }
 
-bool search_right(const GenomicFeature & lhs, const uint rhs){
-   uint right = lhs._genomic_offset + lhs._match_op._len -1;
-   return right < rhs;
-}
 
-void splicingGraph(const int &left, const std::vector<float> &exon_doc,
+void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_doc,
       const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
       std::vector<GenomicFeature> &exons)
 {
-
    vector<pair<uint,bool>> split_bars;
    for(size_t i=0; i<intron_counter.size(); ++i){
       if(binary_search(bad_introns.begin(), bad_introns.end(), i)){
@@ -92,6 +146,20 @@ void splicingGraph(const int &left, const std::vector<float> &exon_doc,
    }
    if( l != 0 && l < left+exon_doc.size() )
       exon_boundries.push_back(pair<uint,uint>(l, left+exon_doc.size()-1));
+
+   /*
+    * for single exon genes
+    * */
+   if(split_bars.size() == 0){
+      uint l = exon_boundries.front().first;
+      uint r = exon_boundries.back().second;
+      exons.push_back(GenomicFeature(Match_t::S_MATCH, l, r-l+1));
+#ifdef DEBUG
+      cout<<"left: "<<l<<" right: "<<r<<endl;
+   cout<<"---------------------"<<endl;
+#endif
+      return;
+   }
 
    /*
     * further divided preliminary exon segments into smaller pieces based on intorn boundries.
@@ -180,7 +248,9 @@ void splicingGraph(const int &left, const std::vector<float> &exon_doc,
             dropoff.push_back(e);
          }
       }
+
    }
+   //cout<<"ha"<<exon_boundries.front().first<<" "<<exon_boundries.front().second<<endl;
    for(auto d: dropoff){
       exon_boundries.erase(d);
    }
@@ -196,20 +266,20 @@ void splicingGraph(const int &left, const std::vector<float> &exon_doc,
 #endif
 }
 
-void createNetwork(const vector<GenomicFeature> &exons,
+void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
       const vector<IntronTable> &intron_counter,
       const vector<size_t> &bad_introns){
-   Graph g;
-   Graph::ArcMap<LimitValueType> l(g), u(g), c(g);
-   Graph::NodeMap<const GenomicFeature*> node2feat(g);
+
+   Graph::NodeMap<const GenomicFeature*> node2feat(_g);
    vector<Graph::Node> nodes;
-   vector<Graph::Arc> arcs;
+   //vector<Graph::Arc> arcs;
    map<const GenomicFeature*, Graph::Node> feat2node;
    for(size_t i = 0; i< exons.size(); ++i){
-      nodes.push_back(g.addNode());
+      nodes.push_back(_g.addNode());
       node2feat[nodes[i]] = &exons[i];
       feat2node[&exons[i]] = nodes[i];
    }
+
    for(size_t i =0; i< intron_counter.size(); ++i){
       if( binary_search(bad_introns.begin(), bad_introns.end(), i) )
          continue;
@@ -218,127 +288,65 @@ void createNetwork(const vector<GenomicFeature> &exons,
       auto e2 = lower_bound(exons.begin(), exons.end(), intron.right+1, search_left);
       //cout<< intron.left << " vs " << intron.right<<endl;
       //cout<< e1->_genomic_offset+e1->_match_op._len<<" and "<< e2->_genomic_offset<<endl;
-      Graph::Arc a = g.addArc( feat2node[&(*e1)],  feat2node[&(*e2)]);
-      //l[a] = 1;
-      arcs.push_back(a);
-      //cout<<l[a]<<endl;
+      Graph::Arc a = _g.addArc( feat2node[&(*e1)],  feat2node[&(*e2)]);
+      //arcs.push_back(a);
    }
+
+   for(size_t i=0; i < exons.size()-1; ++i){
+      uint right = exons[i]._genomic_offset + exons[i]._match_op._len -1;
+      if(exons[i+1]._genomic_offset - right == 1){
+         const Graph::Node &node_a = feat2node[&exons[i]];
+         const Graph::Node &node_b = feat2node[&exons[i+1]];
+         Graph::Arc a = _g.addArc(node_a, node_b);
+         //arcs.push_back(a);
+      }
+   }
+   add_sink_source(_g, _source, _sink);
+//   for(auto a: arcs){
+//      l[a] = 1;
+//   }
+
+//    digraphWriter(g).                  // write g to the standard output
+//           arcMap("cost", c).          // write 'cost' for for arcs
+//           arcMap("flow", flow).          // write 'flow' for for arcs
+//           arcMap("l_i", l).
+//           arcMap("u_i", u).
+//           node("source", source).             // write s to 'source'
+//           node("target", sink).             // write t to 'target'
+//           run();
+//   for(Graph::ArcIt a(g); a != INVALID; ++a){
+//      if(g.source(a) == source ){
+//         //cout<<"haha"<<endl;
+//         cout<< node2feat[g.target(a)]->_genomic_offset<<endl;
+//      }
+//      if(g.target(a) == sink){
+//         cout<< node2feat[g.source(a)]->_genomic_offset<<endl;
+//      }
+//      cout<<l[a]<<endl;
+//   }
 }
 
 
+void FlowNetwork::solveNetwork(){
+   Graph::ArcMap<LimitValueType> l(_g), u(_g), c(_g);
+   NetworkSimplex<Graph, LimitValueType, LimitValueType> FlowNetwork(_g);
 
-
-
-
-void flowCycleCanceling()
-{
-   /**
-    * calculate min cost max flow via network canceling
-    * sample graph (arcs are dircted from left to right
-    *
-    *     2     5
-    *    / \   / \
-    *   /   \ /   \
-    *  0     4--6--1
-    *   \   / \   /
-    *    \ /   \ /
-    *     3     7
-    *
-    * vertex 0 represents the source, 1 target
-    * cost are set to 1, ecept for source and target arcs
-    * cost for (3,4) = 2
-    */
-
-   Graph g;
-
-   // lower and upper bounds, cost
-   ListDigraph::ArcMap<LimitValueType> l_i(g), u_i(g), c_i(g);
-
-   // source and sink vertices
-   Graph::Node n0 = g.addNode(), n1 = g.addNode();
-
-   // other nodes/vertices
-   Graph::Node n2 = g.addNode(), n3 = g.addNode(), n4 = g.addNode(), n5 = g.addNode(),
-      n6 = g.addNode(), n7 = g.addNode();
-
-   Graph::Arc a02 = g.addArc(n0, n2), a03 = g.addArc(n0, n3), a24 = g.addArc(n2, n4),
-         a34 = g.addArc(n3, n4), a45 = g.addArc(n4, n5), a46 = g.addArc(n4, n6),
-         a47 = g.addArc(n4, n7), a51 = g.addArc(n5, n1), a61 = g.addArc(n6, n1),
-         a71 = g.addArc(n7, n1);
-
-   std::vector<Graph::Arc> arcs = { a02, a03, a24, a34, a45, a46, a47, a51, a61, a71 };
-
-        // arcs for circulation! (source to target and vice versa)
-   Graph::Arc ts = g.addArc(n1, n0);
-   Graph::Arc st = g.addArc(n0, n1);
-
-
-   // graph must be finished before initializing network canceling !
-   NetworkSimplex<Graph, LimitValueType, LimitValueType> network(g);
-
-        // bounds for circulation arcs
-   l_i[ts] = 0; u_i[ts] = network.INF; c_i[ts] = 0;
-   l_i[st] = 0; u_i[ts] = network.INF; c_i[ts] = 0;
-
-        // set cost for arcs
-
-   for ( auto & a : arcs )
-   {
-      l_i[a] = 0;
-      u_i[a] = network.INF;
-      c_i[a] = (g.source(a) == n0|| g.target(a) == n1 ) ? 0 : 1;
+   for(Graph::ArcIt arc(_g); arc != INVALID; ++arc){
+      u[arc] = FlowNetwork.INF;
+      c[arc] = 1;
+      l[arc] = 1;
    }
+   FlowNetwork.lowerMap(l).upperMap(u).costMap(c);
 
-   for (int i=4; i<8; ++i){
-      l_i[arcs[i]] = 1;
-   }
-   c_i[a34] = 2; // arc (3,4)
-
-        //set lower/upper bounds, cost
-   network.lowerMap(l_i).upperMap(u_i).costMap(c_i);
-
-   NetworkSimplex<Graph>::ProblemType ret = network.run();
+   NetworkSimplex<Graph>::ProblemType ret = FlowNetwork.run();
 
    // get flow of arcs
-   ListDigraph::ArcMap<LimitValueType> flow(g);
-   network.flowMap(flow);
-
-   digraphWriter(g).                  // write g to the standard output
-           arcMap("cost", c_i).          // write 'cost' for for arcs
-           arcMap("flow", flow).          // write 'flow' for for arcs
-           arcMap("l_i", l_i).
-           arcMap("u_i", u_i).
-           node("source", n0).             // write s to 'source'
-           node("target", n1).             // write t to 'target'
-           run();
-
-   switch ( ret )
-   {
-   case NetworkSimplex<Graph>::INFEASIBLE:
-      std::cerr << "INFEASIBLE" << std::endl;
-   break;
-   case NetworkSimplex<Graph>::OPTIMAL:
-      std::cerr << "OPTIMAL" << std::endl;
-   break;
-   case NetworkSimplex<Graph>::UNBOUNDED:
-      std::cerr << "UNBOUNDED" << std::endl;
-   break;
+   Graph::ArcMap<LimitValueType> flow(_g);
+   FlowNetwork.flowMap(flow);
+   if(ret == NetworkSimplex<Graph>::INFEASIBLE || ret == NetworkSimplex<Graph>::UNBOUNDED){
+      fprintf(stderr, "Infeasible or unbounded FlowNetwork flow\n");
    }
-
-   // determine flow from source and flow to target
-   double flowToT = 0, flowToS = 0;
-   for (ListDigraph::ArcMap<LimitValueType>::ItemIt a(flow); a != INVALID; ++a)
-   {
-      if ( g.target(a) == n1 )
-         flowToT += network.flow(a);
-
-      if ( g.source(a) == n0 )
-         flowToS += network.flow(a);
-   }
-
-   std::cerr << "flow to t = " << flowToT << " flow from s = " << flowToS << std::endl;
-   std::cerr << "total cost = " << network.totalCost<double>() << std::endl;
-
+   vector<vector<Graph::Arc>> paths;
+   vector<vector<GenomicFeature>> transcripts;
+   flowDecompose(_g, flow, _source, _sink, paths);
 }
-
-

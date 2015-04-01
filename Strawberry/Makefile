@@ -18,18 +18,18 @@ read.o: read.h contig.h read.cpp
 	${CXX} ${CXXFLAGS} -c read.cpp
 gff.o : gff.h gff.cpp contig.h
 	${CXX} ${CXXFLAGS} -c gff.cpp
-alignments.o: alignments.h alignments.cpp
-	${CXX} ${CXXFLAGS} -c alignments.cpp
+alignments.o: alignments.h alignments.cpp 
+	${CXX} ${CXXFLAGS} -c alignments.cpp $(LEMON_INCLUDE)
 assembly.o: assembly.h assembly.cpp
-	${CXX} ${CXXFLAGS} -c assembly.cpp $(LEMON_INCLUDE) 
+	${CXX} ${CXXFLAGS} -c assembly.cpp $(LEMON_INCLUDE)
 logger.o: logger.cpp logger.hpp
 	${CXX} ${CXXFLAGS} -c logger.cpp
 
 Strawberry.o : Strawberry.cpp gff.h read.h fasta.h alignments.h logger.hpp common.h assembly.o
-	${CXX} ${CXXFLAGS} -c Strawberry.cpp
+	${CXX} ${CXXFLAGS} -c Strawberry.cpp 
 	
 $(MAIN_TARGET):	Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o logger.o assembly.o
-	$(CXX) ${CXXFLAGS} Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o logger.o assembly.o -o $(MAIN_TARGET) $(INCLUDES)  $(LIBS) 
+	$(CXX) ${CXXFLAGS} Strawberry.o gff.o read.o contig.o fasta.o common.o alignments.o logger.o assembly.o -o $(MAIN_TARGET) $(INCLUDES) $(LIBS) 
 
 all:	$(MAIN_TARGET)
 

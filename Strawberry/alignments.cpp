@@ -98,6 +98,10 @@ int HitCluster::size() const {
    return _hits.size();
 }
 
+int HitCluster::len() const{
+   return _rightmost - _leftmost + 1;
+}
+
 Strand_t HitCluster::ref_strand() const{
    assert(!_ref_mRNAs.empty());
    Strand_t strand = _ref_mRNAs[0]->strand();
@@ -481,6 +485,7 @@ double ClusterFactory::next_valid_alignment(ReadHit& readin){
       _prev_hit_pos = readin.left();
       break;
    }
+   _hit_factory->_reads_table._read_len_abs = max(_hit_factory->_reads_table._read_len_abs, readin.read_len());
    return raw_mass;
 }
 
@@ -684,20 +689,32 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
 void ClusterFactory::finalizeCluster(HitCluster & cluster){
    cluster.clearOpenMates();
    cluster.collapseHits();
-   if(cluster.size() > 0){
+   double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
+   cutoff /= (double)cluster.len();
+   if(cutoff > 1){
       cluster.setBoundaries();
-       vector<float> exon_doc;
-       vector<IntronTable> intron_counter;
-       vector<size_t> bad_introns;
-       vector<GenomicFeature> exons;
-       uint small_overhang;
-       compute_doc_4_cluster(cluster, exon_doc, intron_counter, small_overhang);
-       if(enforce_ref_models && cluster.hasRefmRNAs()){
-          vector<Contig> hits;
-          for(auto i: cluster._ref_mRNAs){
-             hits.push_back(*i);
-          }
-          compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
+      vector<float> exon_doc;
+      vector<IntronTable> intron_counter;
+      vector<size_t> bad_introns;
+      vector<GenomicFeature> exons;
+      uint small_overhang;
+      vector<Contig> hits;
+      uint read_len = _hit_factory->_reads_table._read_len_abs;
+      for(auto r = cluster._uniq_hits.cbegin(); r< cluster._uniq_hits.cend(); ++r){
+         Contig hit(*r);
+         hits.push_back(hit);
+      }
+      small_overhang = read_len * kSmallOverHangProp;
+      sort(hits.begin(), hits.end());
+      size_t s = cluster.right() - cluster.left() + 1;
+      exon_doc.resize(s,0);
+      compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
+      if(enforce_ref_models && cluster.hasRefmRNAs()){
+         vector<Contig> hits;
+         for(auto i: cluster._ref_mRNAs){
+            hits.push_back(*i);
+         }
+         compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
 //          if(cluster.left() == 5928){
 //             for(auto i: hits){
 //                for(auto j:i._genomic_feats){
@@ -706,11 +723,12 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
 //                }
 //             }
 //          }
-       }
-       filter_intron(cluster.left(), exon_doc, intron_counter, bad_introns);
-       //for(int i=0; i<intron_counter.size(); ++i)
-             //cout<<" bars "<<intron_counter[i].left<<"\t"<<intron_counter[i].right<<endl;
-       assemble(cluster.left(), exon_doc, intron_counter, bad_introns, exons);
+      }
+      filter_intron(cluster.left(), exon_doc, intron_counter, bad_introns);
+      //for(int i=0; i<intron_counter.size(); ++i)
+      //cout<<" bars "<<intron_counter[i].left<<"\t"<<intron_counter[i].right<<endl;
+      FlowNetwork flow_network;
+      flow_network.initGraph(cluster.left(), exon_doc, intron_counter, bad_introns, exons);
    }
 }
 
@@ -777,55 +795,6 @@ int ClusterFactory::ParseClusters(){
    finalizeCluster(*last_cluster);
 }
 
-
-void ClusterFactory::compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
-      vector<IntronTable>& intron_counter, uint &small_overhang)
-{
-/*
- * exon_doc is for per-base read-depth
- * intron_counter is for per-intron number of supporting reads.
- * */
-
-//#ifdef DEBUG
-//   bool print  = false;
-//   for(auto r = hit_cluster._uniq_hits.cbegin(); r< hit_cluster._uniq_hits.cend(); ++r){
-//      for(auto &i: r->left_read_obj().cigar()){
-//         if (i._type == INS)
-//            print = true;
-//      }
-//      if(print){
-//      Contig hit(*r);
-//         cout<<"the read is "<<hit.left()<<"-"<<hit.right()<<endl;
-//         cout<<"features are ";
-//      for(auto i: hit._genomic_feats){
-//         cout<<i._genomic_offset<<":"<<i._match_op._code<<":"<<i._match_op._len<<"; ";
-//      }
-//      cout<<endl;
-//      print = false;
-//      }
-//   }
-//#endif
-     vector<Contig> hits;
-     uint read_len = hit_cluster._uniq_hits.front().left_read_obj().read_len();
-     for(auto r = hit_cluster._uniq_hits.cbegin(); r< hit_cluster._uniq_hits.cend(); ++r){
-        if(read_len != r->left_read_obj().read_len()){
-           LOG_ERR("READ at ", r->left_read_obj().ref_id(), ":", r->left_read_obj().left()," has different length ", r->left_read_obj().read_len());
-           read_len = max(read_len, r->left_read_obj().read_len());
-        }
-        Contig hit(*r);
-        hits.push_back(hit);
-     }
-     small_overhang = read_len * kSmallOverHangProp;
-     sort(hits.begin(), hits.end());
-     size_t s = hit_cluster.right() - hit_cluster.left() + 1;
-     exon_doc.resize(s,0);
-     compute_doc(hit_cluster.left(), hit_cluster.right(), hits, exon_doc, intron_counter, small_overhang);
-//     for(auto &i: intron_counter){
-//        cout<<"left: "<<i.left<<" right: "<<i.right<<" small: "<<i.small_span_read<<" total: "<<
-//              i.total_junc_reads<<endl;
-//
-//     }
-}
 
 void ClusterFactory::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
       vector<float> &exon_doc,  vector<IntronTable> &intron_counter, uint smallOverHang)
@@ -978,5 +947,9 @@ void ClusterFactory::filter_intron(uint cluster_left,
       //cout << avg_intron_doc<<":"<<avg_intron_exonic_doc<<" left: "<<intron_counter[i].left \
             <<" right: "<<intron_counter[i].right<<endl;
    }
+}
+
+void FlowNetwork::addWeight(const std::vector<Contig> &hits, const std::vector<IntronTable> &intron_counter){
+
 }
 
