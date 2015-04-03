@@ -440,7 +440,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
                feats.push_back(GenomicFeature(Match_t::S_INTRON, ex._iv.right()+1, next_ex._iv.left()-1-ex._iv.right() ));
             }
          }
-         Contig ref_contig(ref_id, strand, feats, true);
+         Contig ref_contig(ref_id, strand, feats, 1.0, true);
          ref_contig.annotated_trans_id(mrna->_transcript_id);
          ref_contig.mass(1.0);
          //cout<<"ref contig left pos "<<ref_contig.left()<<endl;
@@ -691,7 +691,7 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
    cluster.collapseHits();
    double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
    cutoff /= (double)cluster.len();
-   if(cutoff > 1){
+   if(cutoff > kMinDepth4Locus){
       cluster.setBoundaries();
       vector<float> exon_doc;
       vector<IntronTable> intron_counter;
@@ -728,7 +728,11 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
       //for(int i=0; i<intron_counter.size(); ++i)
       //cout<<" bars "<<intron_counter[i].left<<"\t"<<intron_counter[i].right<<endl;
       FlowNetwork flow_network;
-      flow_network.initGraph(cluster.left(), exon_doc, intron_counter, bad_introns, exons);
+      Graph::NodeMap<const GenomicFeature*> node_map(flow_network._g);
+      Graph::ArcMap<int> cost_map(flow_network._g);
+      flow_network.initGraph(cluster.left(), exon_doc, intron_counter, bad_introns, exons,node_map);
+      flow_network.addWeight(hits, intron_counter, node_map, cost_map);
+      flow_network.solveNetwork(cost_map);
    }
 }
 
@@ -816,27 +820,27 @@ void ClusterFactory::compute_doc(const uint left, const uint right, const vector
                continue;
             IntronTable cur_intron(gf.left(), gf.right());
             if(intron_counter.empty()){
-               ++(cur_intron.total_junc_reads);
+               cur_intron.total_junc_reads += hits[i].mass();
                if(g_feats[j-1]._match_op._len < smallOverHang &&
                      g_feats[j+1]._match_op._len < smallOverHang){
-                  ++(cur_intron.small_span_read);
+                  cur_intron.small_span_read += hits[i].mass();
                }
                intron_counter.push_back(cur_intron);
                continue;
             }
             auto it = lower_bound(intron_counter.begin(), intron_counter.end(), cur_intron);
             if( *it == cur_intron){
-               ++(it->total_junc_reads);
+               it->total_junc_reads += hits[i].mass();
                if(g_feats[j-1]._match_op._len < smallOverHang ||
                      g_feats[j+1]._match_op._len < smallOverHang){
-                  ++(it->small_span_read);
+                  it->small_span_read += hits[i].mass();
                }
             }
             else{
-               ++(cur_intron.total_junc_reads);
+               cur_intron.total_junc_reads += hits[i].mass();
                if(g_feats[j-1]._match_op._len < smallOverHang &&
                      g_feats[j+1]._match_op._len < smallOverHang){
-                  ++(cur_intron.small_span_read);
+                  cur_intron.small_span_read += hits[i].mass();
                }
                intron_counter.insert(it, cur_intron);
             }
@@ -859,15 +863,15 @@ void ClusterFactory::filter_intron(uint cluster_left,
    for(size_t i = 0; i<total_intron; ++i){
       for(size_t j = i+1; j<total_intron; ++j){
          if(IntronTable::overlap(intron_counter[i], intron_counter[j])){
-             int depth_i = intron_counter[i].total_junc_reads;
-             int depth_j = intron_counter[j].total_junc_reads;
-            if( depth_i / (float)(depth_j) < kMinIsoformFrac){
+             float depth_i = intron_counter[i].total_junc_reads;
+             float depth_j = intron_counter[j].total_junc_reads;
+            if( depth_i / depth_j < kMinIsoformFrac){
                bad_intron_pos.push_back(i);
                LOG("Filtering overlapping intron by depth: ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
                   depth_i," read supporting. ","Intron at ", _current_chrom,":",intron_counter[j].left, "-",
                   intron_counter[j].right, " has ", depth_j, " read supporting. ");
             }
-            if( depth_j / (float)(depth_i) < kMinIsoformFrac){
+            if( depth_j / depth_i < kMinIsoformFrac){
                bad_intron_pos.push_back(j);
                LOG("Filtering overlapping intron by depth: ", _current_chrom,":",intron_counter[i].left,"-",intron_counter[i].right, " has ",
                   depth_i," read supporting. ","Intron at ", _current_chrom,":",intron_counter[j].left, "-",
@@ -882,8 +886,8 @@ void ClusterFactory::filter_intron(uint cluster_left,
 //Filtering two: by small overhang supporting read proportion
 //And at least two non small overhang supporting per intron
    for(size_t i = 0; i<total_intron; ++i){
-      int total_read = intron_counter[i].total_junc_reads;
-      int small_read = intron_counter[i].small_span_read;
+      float total_read = intron_counter[i].total_junc_reads;
+      float small_read = intron_counter[i].small_span_read;
       //cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
       if(total_read - small_read < kMinJuncSupport && !enforce_ref_models){
          LOG("Filtering intron at by overall read support: ", _current_chrom,":", intron_counter[i].left,"-",intron_counter[i].right,
@@ -896,12 +900,12 @@ void ClusterFactory::filter_intron(uint cluster_left,
       }
       if(binary_search(bad_intron_pos.begin(), bad_intron_pos.end(),i))
          continue;
-      if(small_read == 0)
+      if(small_read == 0.0)
          continue;
       double success = 2 * kSmallOverHangProp;
       double prob_not_lt_observed = 1.0;
       if(total_read < 100){
-         binomial small_anchor_dist(total_read, success);
+         binomial small_anchor_dist((int)total_read, success);
           prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-1);
       }
       else{
@@ -932,10 +936,10 @@ void ClusterFactory::filter_intron(uint cluster_left,
 
       float avg_intron_doc = accumulate(intron_doc.begin()+start, intron_doc.begin()+end,0.0);
       avg_intron_doc /= (end-start);
-      vector<float> exon_doc_i(end-start+1);
-      copy(exon_doc.begin()+start, exon_doc.begin()+end, exon_doc_i.begin());
-      intron_counter[i].median_depth = getMedian(exon_doc_i);
-      float avg_intron_exonic_doc = accumulate(exon_doc_i.begin(), exon_doc_i.end(), 0.0);
+      vector<float> exon_doc_dup(end-start+1);
+      copy(exon_doc.begin()+start, exon_doc.begin()+end, exon_doc_dup.begin());
+      intron_counter[i].median_depth = getMedian(exon_doc_dup);
+      float avg_intron_exonic_doc = accumulate(exon_doc_dup.begin(), exon_doc_dup.end(), 0.0);
       avg_intron_exonic_doc /= (end-start);
       if(avg_intron_exonic_doc != 0){
          if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
@@ -947,9 +951,5 @@ void ClusterFactory::filter_intron(uint cluster_left,
       //cout << avg_intron_doc<<":"<<avg_intron_exonic_doc<<" left: "<<intron_counter[i].left \
             <<" right: "<<intron_counter[i].right<<endl;
    }
-}
-
-void FlowNetwork::addWeight(const std::vector<Contig> &hits, const std::vector<IntronTable> &intron_counter){
-
 }
 

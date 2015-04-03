@@ -22,8 +22,12 @@ const static int kMaxIntronLength = 60000;
 const static double kSmallOverHangProp = 6/76.0;
 const static double kMinIsoformFrac = 0.05;
 const static double kBinomialOverHangAlpha = 0.1;
-const static bool enforce_ref_models = false;
-const static int kMinJuncSupport = 2;
+const static bool enforce_ref_models = true;
+const static float kMinJuncSupport = 2.0; // min number of spliced aligned reads for a valid intron
+const static int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
+                                        // weights on non-intron edges.
+const static double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
+                                           //select locus have enough reads covered.
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 int fileExists(const char* fname);
@@ -344,15 +348,15 @@ template <class ForwardIterator, class OutputIterator>
 struct IntronTable{
    uint left;
    uint right;
-   size_t total_junc_reads;
-   size_t small_span_read;
+   float total_junc_reads;
+   float small_span_read;
    double median_depth;
    //vector<float> doc;
    IntronTable(uint l, uint r):
       left(l),
       right(r),
-      total_junc_reads(0),
-      small_span_read(0),
+      total_junc_reads(0.0),
+      small_span_read(0.0),
       median_depth(0)
    {}
    bool operator==(const IntronTable & rhs){

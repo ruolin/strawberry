@@ -73,18 +73,18 @@ bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature>
  * exon, and unknown*/
 
 class Contig{
-   bool _is_ref;
    //std::vector<const PairedHit* > _mates_in_contig;
    std::string _seq;
    RefID _ref_id;
    Strand_t _strand;
    std::string _annotated_trans_id;
-   float _mass = 0.0;
+   double _mass = 0.0;
+   bool _is_ref;
 public:
    std::vector<GenomicFeature> _genomic_feats;
    Contig() = default;
    Contig(const PairedHit& ph);
-   Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, bool is_ref);
+   Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, double mass,bool is_ref);
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
    uint left() const;

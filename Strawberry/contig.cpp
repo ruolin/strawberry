@@ -151,11 +151,12 @@ bool GenomicFeature::operator<(const GenomicFeature & rhs) const
    return false;
 }
 
-Contig::Contig(RefID ref_id, Strand_t strand, const vector<GenomicFeature> &feats, bool is_ref):
+Contig::Contig(RefID ref_id, Strand_t strand, const vector<GenomicFeature> &feats, double mass, bool is_ref):
       _genomic_feats(feats),
       _is_ref(is_ref),
       _ref_id(ref_id),
-      _strand(strand)
+      _strand(strand),
+      _mass(mass)
    {
       assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
       assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);

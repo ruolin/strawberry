@@ -26,9 +26,7 @@ class GenomicFeature;
 class Contig;
 typedef lemon::ListDigraph Graph;
 class FlowNetwork{
-   Graph _g;
-   Graph::Node _source;
-   Graph::Node _sink;
+   float _max_weight = 0.0;
    static bool hasFlow(const Graph &g, const Graph::ArcMap<int> & flow, const Graph::Node node){
       for(Graph::OutArcIt out(g, node); out != lemon::INVALID; ++out){
          if (flow[out] > 0)
@@ -57,11 +55,15 @@ class FlowNetwork{
 
    }
 public:
+   Graph _g;
+   Graph::Node _source;
+   Graph::Node _sink;
    void initGraph(const int &left,
            const std::vector<float> &exon_doc,
            const std::vector<IntronTable> &intron_counter,
            const std::vector<size_t> &bad_introns,
-           std::vector<GenomicFeature> &exons);
+           std::vector<GenomicFeature> &exons,
+           Graph::NodeMap<const GenomicFeature*> &node2feat);
 
    void splicingGraph(const int &left, const std::vector<float> &exon_doc,
          const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
@@ -69,10 +71,19 @@ public:
 
    void createNetwork(const std::vector<GenomicFeature> &exons,
          const std::vector<IntronTable> &intron_counter,
-         const std::vector<size_t> &bad_introns);
+         const std::vector<size_t> &bad_introns,
+         Graph::NodeMap<const GenomicFeature*> &node_map);
 
-   void addWeight(const std::vector<Contig> &hits, const std::vector<IntronTable> &intron_counter);
-   void solveNetwork();
+   void addWeight(const std::vector<Contig> &hits,
+         const std::vector<IntronTable> &intron_counter,
+         const Graph::NodeMap<const GenomicFeature*> &node_map,
+         Graph::ArcMap<int> &arc_map);
+   // return the positions of exons in
+   std::vector<vector<size_t>> findConstraints(const std::vector<GenomicFeature> &exons,
+         const std::vector<Contig> &hits);
+
+   void solveNetwork(Graph::ArcMap<int> &cost_map);
+
 };
 
 #endif /* ASSEMBLY_H_ */

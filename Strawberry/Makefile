@@ -20,7 +20,7 @@ gff.o : gff.h gff.cpp contig.h
 	${CXX} ${CXXFLAGS} -c gff.cpp
 alignments.o: alignments.h alignments.cpp 
 	${CXX} ${CXXFLAGS} -c alignments.cpp $(LEMON_INCLUDE)
-assembly.o: assembly.h assembly.cpp
+assembly.o: assembly.h assembly.cpp common.h
 	${CXX} ${CXXFLAGS} -c assembly.cpp $(LEMON_INCLUDE)
 logger.o: logger.cpp logger.hpp
 	${CXX} ${CXXFLAGS} -c logger.cpp
