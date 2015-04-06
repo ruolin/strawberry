@@ -46,8 +46,8 @@ public:
    void right(uint right);
    uint right() const;
 
-   bool overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs);
-
+   bool overlaps(const GenomicFeature& lhs, const GenomicFeature& rhs);
+   static bool overlap_in_genome(const GenomicFeature& feat, uint s, uint e);
    bool contains(const GenomicFeature& other) const;
 
    bool properly_contains(const GenomicFeature& other) const;

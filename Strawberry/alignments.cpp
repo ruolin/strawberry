@@ -730,7 +730,20 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
       FlowNetwork flow_network;
       Graph::NodeMap<const GenomicFeature*> node_map(flow_network._g);
       Graph::ArcMap<int> cost_map(flow_network._g);
-      flow_network.initGraph(cluster.left(), exon_doc, intron_counter, bad_introns, exons,node_map);
+      flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, bad_introns, exons);
+      vector<vector<size_t>> constraints;
+      constraints = flow_network.findConstraints(exons, hits);
+//#ifdef DEBUG
+//      if(constraints.size() > 0){
+//         for(auto cstr : constraints){
+//            for(auto ex: cstr){
+//               cout<<"constraints: "<<exons[ex]._genomic_offset<<"\t";
+//            }
+//            cout<<endl;
+//         }
+//      }
+//#endif
+      flow_network.createNetwork(exons, intron_counter, bad_introns, constraints, node_map);
       flow_network.addWeight(hits, intron_counter, node_map, cost_map);
       flow_network.solveNetwork(cost_map);
    }

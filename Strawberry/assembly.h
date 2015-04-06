@@ -72,6 +72,7 @@ public:
    void createNetwork(const std::vector<GenomicFeature> &exons,
          const std::vector<IntronTable> &intron_counter,
          const std::vector<size_t> &bad_introns,
+         const std::vector<std::vector<size_t>> &constraints,
          Graph::NodeMap<const GenomicFeature*> &node_map);
 
    void addWeight(const std::vector<Contig> &hits,
@@ -79,7 +80,8 @@ public:
          const Graph::NodeMap<const GenomicFeature*> &node_map,
          Graph::ArcMap<int> &arc_map);
    // return the positions of exons in
-   std::vector<vector<size_t>> findConstraints(const std::vector<GenomicFeature> &exons,
+   std::vector<std::vector<size_t>> findConstraints(
+         const std::vector<GenomicFeature> &exons,
          const std::vector<Contig> &hits);
 
    void solveNetwork(Graph::ArcMap<int> &cost_map);

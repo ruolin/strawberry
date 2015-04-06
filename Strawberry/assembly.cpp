@@ -16,8 +16,7 @@
 #include <lemon/lgf_writer.h>
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
-#include <lemon/bfs.h>
-
+#include <lemon/core.h>
 using namespace lemon;
 typedef int LimitValueType;
 
@@ -34,16 +33,16 @@ bool FlowNetwork::search_right(const GenomicFeature & lhs, const uint rhs){
    return right < rhs;
 }
 
-void FlowNetwork::initGraph(const int &left,
-        const vector<float> &exon_doc,
-        const vector<IntronTable> &intron_counter,
-        const vector<size_t> &bad_introns,
-        vector<GenomicFeature> &exons,
-        Graph::NodeMap<const GenomicFeature*> &node2feat)
-{
-   splicingGraph(left, exon_doc, intron_counter, bad_introns, exons);
-   createNetwork(exons, intron_counter, bad_introns, node2feat);
-}
+//void FlowNetwork::initGraph(const int &left,
+//        const vector<float> &exon_doc,
+//        const vector<IntronTable> &intron_counter,
+//        const vector<size_t> &bad_introns,
+//        vector<GenomicFeature> &exons,
+//        Graph::NodeMap<const GenomicFeature*> &node2feat)
+//{
+//   splicingGraph(left, exon_doc, intron_counter, bad_introns, exons);
+//   createNetwork(exons, intron_counter, bad_introns, node2feat);
+//}
 
 // comparator used for searching in the split_bars object, which records the
 // intron boundaries. We use pair<uint,bool> to indicate its position and
@@ -272,6 +271,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
       const vector<IntronTable> &intron_counter,
       const vector<size_t> &bad_introns,
+      const vector<vector<size_t>> &constraints,
       Graph::NodeMap<const GenomicFeature*> &node2feat){
 
    vector<Graph::Node> nodes;
@@ -283,6 +283,7 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
       feat2node[&exons[i]] = nodes[i];
    }
 
+   // 1) add arc defined by intron
    for(size_t i =0; i< intron_counter.size(); ++i){
       if( binary_search(bad_introns.begin(), bad_introns.end(), i) )
          continue;
@@ -295,6 +296,7 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
       //arcs.push_back(a);
    }
 
+   // 2) add arc defined by consecutive exons
    for(size_t i=0; i < exons.size()-1; ++i){
       uint right = exons[i]._genomic_offset + exons[i]._match_op._len -1;
       if(exons[i+1]._genomic_offset - right == 1){
@@ -304,6 +306,50 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
          //arcs.push_back(a);
       }
    }
+
+   vector<vector<Graph::Arc>> path_cstrs;
+   InDegMap<Graph> inDeg(_g);
+   OutDegMap<Graph> outDeg(_g);
+   for(auto c: constraints){
+      vector<Graph::Arc> path_cstr;
+
+      size_t s_idx = c.front();
+      size_t t_idx = c.back();
+      const Graph::Node &s = feat2node[&exons[s_idx]];
+      const Graph::Node &t = feat2node[&exons[t_idx]];
+
+      //At least one of the internal nodes have >1 out-degree and >1 in-degree
+      bool is_valid = false;
+      for(size_t idx = 1; idx<c.size()-1; ++idx){
+         const Graph::Node &n = feat2node[&exons[c[idx]]];
+//         if(exons[c[idx]]._genomic_offset == 7384){
+//            cout<<"haha"<<inDeg[n]<<"\t"<<outDeg[n]<<endl;
+//         }
+
+         if(inDeg[n] > 1 && outDeg[n] > 1)
+            is_valid = true;
+      }
+
+      if(ArcLookUp<ListDigraph>(_g)(s,t) == INVALID && is_valid){
+
+         LOG("Path Constraints:\t");
+         for(size_t i = 0; i< c.size()-1; ++i){
+            const Graph::Node &pre = feat2node[&exons[c[i]]];
+            const Graph::Node &sec = feat2node[&exons[c[i+1]]];
+            LOG("(", exons[c[i]].left(), ",",exons[c[i]].right(),\
+                ")-(", exons[c[i+1]].left(),",",exons[c[i+1]].right(),")\t");
+#ifdef DEBUG
+            cout<<exons[c[i]]._genomic_offset<<"---"<<exons[c[i+1]]._genomic_offset<<endl;
+#endif
+            Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
+            assert(arc_found != INVALID);
+            path_cstr.push_back(arc_found);
+         }
+         path_cstrs.push_back(path_cstr);
+      }
+   }
+
+   if(path_cstrs.empty()) return;
 //   for(auto a: arcs){
 //      l[a] = 1;
 //   }
@@ -374,6 +420,84 @@ void FlowNetwork::addWeight(const std::vector<Contig> &hits,
    }
 }
 
+vector<vector<size_t>> FlowNetwork::findConstraints(
+
+   const std::vector<GenomicFeature> &exons,
+   const std::vector<Contig> &hits)
+{
+   vector<vector<size_t>> result;
+   for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
+      vector<size_t> constraint;
+      vector<GenomicFeature> introns;
+      uint start = 0;
+      uint end = 0;
+      for(auto feat = mp->_genomic_feats.cbegin(); feat != mp->_genomic_feats.cend(); ++feat){
+         if(feat->_match_op._code != Match_t::S_GAP){
+            if(feat->_match_op._code == Match_t::S_INTRON){
+               introns.push_back(*feat);
+            }
+            if(start == 0){
+               start = feat->left();
+               end = feat->right();
+            }
+            else{
+               end = feat->right();
+            }
+         }
+         // if Match_t::S_GAP
+         else{
+            assert(end>start);
+            for(size_t i = 0; i< exons.size(); ++i){
+               if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
+                  bool valid = true;
+                  for(auto intron: introns){
+                     if(intron.contains(exons[i])){
+                        valid = false;
+                        break;
+                     }
+                  }
+
+                  if(valid)
+                     constraint.push_back(i);
+
+               }
+            }
+            if(constraint.size() > 2){
+               result.push_back(constraint);
+            }
+            start = 0;
+            constraint.clear();
+            introns.clear();
+         }
+         // repeat Match_t::S_GAP
+         if(*feat == mp->_genomic_feats.back()){
+            assert(end>start);
+            for(size_t i = 0; i< exons.size(); ++i){
+               if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
+                  bool valid = true;
+                  for(auto intron: introns){
+                     if(intron.contains(exons[i])){
+
+                        valid = false;
+                        break;
+                     }
+                  }
+                  if(valid)
+                     constraint.push_back(i);
+               }
+            }
+            if(constraint.size() > 2){
+               result.push_back(constraint);
+            }
+         }
+      }
+   }
+   sort(result.begin(), result.end());
+   auto new_end = unique(result.begin(), result.end());
+   result.erase(new_end, result.end());
+   return result;
+}
+
 void FlowNetwork::solveNetwork(Graph::ArcMap<int> &cost_map){
    add_sink_source(_g, _source, _sink);
    Graph::ArcMap<LimitValueType> l(_g), u(_g);
@@ -396,10 +520,12 @@ void FlowNetwork::solveNetwork(Graph::ArcMap<int> &cost_map){
    vector<vector<Graph::Arc>> paths;
    vector<vector<GenomicFeature>> transcripts;
    flowDecompose(_g, flow, _source, _sink, paths);
-   for(auto p: paths){
-      for(auto e: p){
-         cout<<cost_map[e]<<"\t";
-      }
-      cout<<endl;
-   }
+//#ifdef DEBUG
+//   for(auto p: paths){
+//      for(auto e: p){
+//         cout<<cost_map[e]<<"\t";
+//      }
+//      cout<<endl;
+//   }
+//#endif
 }

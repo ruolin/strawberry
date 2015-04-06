@@ -86,8 +86,9 @@ void GenomicFeature::right(uint right)
       _match_op._len = right - _genomic_offset + 1;
 }
 
-bool GenomicFeature::overlap_in_genome(const GenomicFeature& lhs, const GenomicFeature& rhs)
+bool GenomicFeature::overlaps(const GenomicFeature& lhs, const GenomicFeature& rhs)
 {
+   //Assume in the same chromosome or contig
    if (lhs.left() >= rhs.left() && lhs.left() < rhs.right())
       return true;
    if (lhs.right() > rhs.left() && lhs.right() < rhs.right())
@@ -95,6 +96,19 @@ bool GenomicFeature::overlap_in_genome(const GenomicFeature& lhs, const GenomicF
    if (rhs.left() >= lhs.left() && rhs.left() < lhs.right())
       return true;
    if (rhs.right() > lhs.left() && rhs.right() < lhs.right())
+      return true;
+   return false;
+}
+
+bool GenomicFeature::overlap_in_genome(const GenomicFeature& feat, uint s, uint e){
+   //Assume in the same chromosome or contig
+   if(feat.left() >= s && feat.left() < e)
+      return true;
+   if(feat.right() > s && feat.right() < e)
+      return true;
+   if(s >= feat.left() && s < feat.right())
+      return true;
+   if (e > feat.left() && e < feat.right())
       return true;
    return false;
 }
