@@ -22,7 +22,7 @@ const static int kMaxIntronLength = 60000;
 const static double kSmallOverHangProp = 6/76.0;
 const static double kMinIsoformFrac = 0.05;
 const static double kBinomialOverHangAlpha = 0.1;
-const static bool enforce_ref_models = true;
+const static bool enforce_ref_models = false;
 const static float kMinJuncSupport = 2.0; // min number of spliced aligned reads for a valid intron
 const static int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
@@ -53,8 +53,8 @@ inline void SFree(pointer* ptr)
    if (*ptr) free(*ptr);
    *ptr=NULL;
 }
-
-
+void reverseString(char str[], int length);
+char* Sitoa(int num, char* str, int base);
 
 inline void str2lower(char * str) {//changes string in place
   if (str==NULL) return;
@@ -344,6 +344,8 @@ template <class ForwardIterator, class OutputIterator>
    }
   return ++result;
 }
+
+
 
 struct IntronTable{
    uint left;

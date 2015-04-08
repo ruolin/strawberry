@@ -18,7 +18,7 @@ using namespace std;
 
 int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
-   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes.gff";
+   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
    const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
@@ -38,34 +38,11 @@ int main(){
    hf->inspect_header();
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-   read_clusters.ParseClusters();
-//   while(true){
-//      HitCluster cur;
-//      if(read_clusters.nextCluster_refGuide(cur) != -1){
-//         if(cur.hasRefmRNAs()){
-//            cout<<"number of Ref mRNAs "<<cur._ref_mRNAs.size()<<"\tRef cluster: "\
-//                  <<cur.ref_id()<<"\t"<<cur.left()<<"-"<<cur.right()<<"\t"<<cur.size()<<endl;
-//            cur.collapseHits();
-//            cout<<"number of unique hits\t"<<cur._uniq_hits.size()<<endl;
-//         }
-//         else{
-//            cout<<"Novo cluster number of closed mates: "<<cur.ref_id()<<":"<<
-//                  cur.left()<<"-"<<cur.right()<<"\t"<<cur.raw_mass()<<endl;
-//         }
-//      }
-//      else{
-//         break;
-//      }
-//   }
+   FILE *pFile;
+   pFile = fopen("assembled_transcripts.gtf", "w");
+   read_clusters.ParseClusters(pFile);
+   fclose(pFile);
 
-//     vector<int> vec = {2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2
-//     ,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,
-//     3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,4};
-//   vector<int> dup;
-//   auto last = unique2(vec.begin(), vec.end(), back_inserter(dup));
-//   vec.erase(last, vec.end());
-//   for(int i: vec)
-//      cout<<i<<endl;
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;

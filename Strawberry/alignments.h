@@ -115,8 +115,9 @@ public:
                               vector<IntronTable>& intron_counter, uint &small_overhang);
    void filter_intron(uint cluster_left, vector<float> &exon_doc,
          vector<IntronTable>& intron_counter,vector<size_t> &bad_introns);
-   int ParseClusters();
-   void finalizeCluster(HitCluster & cluster);
+   int ParseClusters(FILE *f);
+   void finalizeAndAssemble(HitCluster & cluster, FILE *f);
+   static void mergeFeatures(const vector<GenomicFeature> & feats, vector<GenomicFeature> & result);
 };
 
 

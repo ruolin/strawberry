@@ -156,10 +156,10 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       uint l = exon_boundries.front().first;
       uint r = exon_boundries.back().second;
       exons.push_back(GenomicFeature(Match_t::S_MATCH, l, r-l+1));
-#ifdef DEBUG
-      cout<<"left: "<<l<<" right: "<<r<<endl;
-   cout<<"---------------------"<<endl;
-#endif
+//#ifdef DEBUG
+//      cout<<"left: "<<l<<" right: "<<r<<endl;
+//   cout<<"---------------------"<<endl;
+//#endif
       return;
    }
 
@@ -268,14 +268,20 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 #endif
 }
 
-void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
+void FlowNetwork::createNetwork(
+      const vector<Contig> &hits,
+      const vector<GenomicFeature> &exons,
       const vector<IntronTable> &intron_counter,
       const vector<size_t> &bad_introns,
       const vector<vector<size_t>> &constraints,
-      Graph::NodeMap<const GenomicFeature*> &node2feat){
+      Graph::NodeMap<const GenomicFeature*> &node2feat,
+      Graph::ArcMap<int> &cost_map,
+      Graph::ArcMap<int> &min_flow_map,
+      vector<vector<Graph::Arc>> &path_cstrs)
+{
 
    vector<Graph::Node> nodes;
-   //vector<Graph::Arc> arcs;
+   vector<Graph::Arc> arcs;
    map<const GenomicFeature*, Graph::Node> feat2node;
    for(size_t i = 0; i< exons.size(); ++i){
       nodes.push_back(_g.addNode());
@@ -293,7 +299,7 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
       //cout<< intron.left << " vs " << intron.right<<endl;
       //cout<< e1->_genomic_offset+e1->_match_op._len<<" and "<< e2->_genomic_offset<<endl;
       Graph::Arc a = _g.addArc( feat2node[&(*e1)],  feat2node[&(*e2)]);
-      //arcs.push_back(a);
+      arcs.push_back(a);
    }
 
    // 2) add arc defined by consecutive exons
@@ -303,11 +309,12 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
          const Graph::Node &node_a = feat2node[&exons[i]];
          const Graph::Node &node_b = feat2node[&exons[i+1]];
          Graph::Arc a = _g.addArc(node_a, node_b);
-         //arcs.push_back(a);
+         arcs.push_back(a);
       }
    }
+   addWeight(hits, intron_counter, node2feat, cost_map);
 
-   vector<vector<Graph::Arc>> path_cstrs;
+   //Now add subpath constraints to the just created graph.
    InDegMap<Graph> inDeg(_g);
    OutDegMap<Graph> outDeg(_g);
    for(auto c: constraints){
@@ -338,9 +345,9 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
             const Graph::Node &sec = feat2node[&exons[c[i+1]]];
             LOG("(", exons[c[i]].left(), ",",exons[c[i]].right(),\
                 ")-(", exons[c[i+1]].left(),",",exons[c[i+1]].right(),")\t");
-#ifdef DEBUG
-            cout<<exons[c[i]]._genomic_offset<<"---"<<exons[c[i+1]]._genomic_offset<<endl;
-#endif
+//#ifdef DEBUG
+//            cout<<exons[c[i]]._genomic_offset<<"---"<<exons[c[i+1]]._genomic_offset<<endl;
+//#endif
             Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
             assert(arc_found != INVALID);
             path_cstr.push_back(arc_found);
@@ -349,7 +356,51 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
       }
    }
 
-   if(path_cstrs.empty()) return;
+   if(path_cstrs.empty()){
+      for(auto arc: arcs){
+         min_flow_map[arc] = 1;
+      }
+      return;
+   }
+
+   vector<Graph::Arc> one_d_path_cstrs;
+   for(auto p: path_cstrs){
+     for(auto e: p)
+        one_d_path_cstrs.push_back(e);
+   }
+   sort(one_d_path_cstrs.begin(), one_d_path_cstrs.end());
+   auto new_end = unique(one_d_path_cstrs.begin(), one_d_path_cstrs.end());
+   one_d_path_cstrs.erase(new_end, one_d_path_cstrs.end());
+
+   for(auto edge: arcs){
+      if(find(one_d_path_cstrs.begin(), one_d_path_cstrs.end(), edge) == one_d_path_cstrs.end()){
+         vector<Graph::Arc> path;
+         path.push_back(edge);
+         path_cstrs.push_back(path);
+      }
+   }
+
+   for(auto p: path_cstrs){
+      assert(!p.empty());
+      if(p.size()>1){
+         // a subpath
+         int cost = 0;
+         for(auto arc : p){
+            cost += cost_map[arc];
+         }
+         const Graph::Node s = _g.source(p.front());
+         const Graph::Node t = _g.target(p.back());
+         assert( findArc(_g, s,t) == INVALID);
+         const Graph::Arc a = _g.addArc(s,t);
+         cost_map[a] = cost;
+         min_flow_map[a] = 1;
+      }
+      else{
+         // or a arc
+         min_flow_map[p[0]] = 1;
+      }
+   }
+
 //   for(auto a: arcs){
 //      l[a] = 1;
 //   }
@@ -374,8 +425,8 @@ void FlowNetwork::createNetwork(const vector<GenomicFeature> &exons,
 //   }
 }
 
-void FlowNetwork::addWeight(const std::vector<Contig> &hits,
-      const std::vector<IntronTable> &intron_counter,
+void FlowNetwork::addWeight(const vector<Contig> &hits,
+      const vector<IntronTable> &intron_counter,
       const Graph::NodeMap<const GenomicFeature*> &node_map,
       Graph::ArcMap<int> &arc_map)
 {
@@ -498,16 +549,20 @@ vector<vector<size_t>> FlowNetwork::findConstraints(
    return result;
 }
 
-void FlowNetwork::solveNetwork(Graph::ArcMap<int> &cost_map){
+void FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
+      const vector<GenomicFeature> &exons,
+      const vector<vector<Graph::Arc>> &path_cstrs,
+      Graph::ArcMap<int> &cost_map,
+      Graph::ArcMap<int> &min_flow_map,
+      vector<vector<GenomicFeature>> &transcripts){
    add_sink_source(_g, _source, _sink);
-   Graph::ArcMap<LimitValueType> l(_g), u(_g);
+   Graph::ArcMap<LimitValueType> u(_g);
    NetworkSimplex<Graph, LimitValueType, LimitValueType> FlowNetwork(_g);
 
    for(Graph::ArcIt arc(_g); arc != INVALID; ++arc){
       u[arc] = FlowNetwork.INF;
-      l[arc] = 1;
    }
-   FlowNetwork.lowerMap(l).upperMap(u).costMap(cost_map);
+   FlowNetwork.lowerMap(min_flow_map).upperMap(u).costMap(cost_map);
 
    NetworkSimplex<Graph>::ProblemType ret = FlowNetwork.run();
 
@@ -518,14 +573,55 @@ void FlowNetwork::solveNetwork(Graph::ArcMap<int> &cost_map){
       fprintf(stderr, "Infeasible or unbounded FlowNetwork flow\n");
    }
    vector<vector<Graph::Arc>> paths;
-   vector<vector<GenomicFeature>> transcripts;
    flowDecompose(_g, flow, _source, _sink, paths);
-//#ifdef DEBUG
-//   for(auto p: paths){
-//      for(auto e: p){
-//         cout<<cost_map[e]<<"\t";
-//      }
-//      cout<<endl;
-//   }
-//#endif
+
+   //put paths into vector<vector<GenomicFeature>>
+   for(auto p: paths){
+      vector<GenomicFeature> tscp;
+      for(size_t i = 1; i <p.size(); ++i){
+         const Graph::Arc e = p[i];
+         const Graph::Node &arc_s = _g.source(e);
+         const Graph::Node &arc_t = _g.target(e);
+         bool is_edge = true;
+         // this loop transform the path constrains to original meaning: a set of arcs.
+         for(auto cstr: path_cstrs){
+            const Graph::Node &path_s = _g.source(cstr.front());
+            const Graph::Node &path_t = _g.target(cstr.back());
+            if(arc_s == path_s && arc_t == path_t){
+
+               is_edge = false;
+
+               for(size_t idx = 0; idx<cstr.size()-1; ++idx){
+                  const Graph::Node &n1 = _g.source(cstr[idx]);
+                  const Graph::Node &n2 = _g.source(cstr[idx+1]);
+                  tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[n1]->_genomic_offset, node_map[n1]->_match_op._len));
+                  if(idx+1 < cstr.size()-1)
+                     if(node_map[n2]->left()-node_map[n1]->right() > 1){
+                        tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[n1]->right()+1, node_map[n2]->left()-1-node_map[n1]->right()));
+                     }
+               }
+
+               const Graph::Node &n1 = _g.source(cstr.back());
+               const Graph::Node &n2 = _g.target(cstr.back());
+               tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[n1]->_genomic_offset, node_map[n1]->_match_op._len));
+               if(node_map[n2]->left()-node_map[n1]->right() > 1){
+                  tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[n1]->right()+1, node_map[n2]->left()-1-node_map[n1]->right()));
+               }
+
+               break;
+            }
+         }
+         // else it is edge originally
+         if(is_edge){
+            //cout<<node_map[s]->left()<<"-"<<node_map[s]->right()<<"\t";
+            tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[arc_s]->_genomic_offset, node_map[arc_s]->_match_op._len));
+            if( i+1 < p.size()){
+               if(node_map[arc_t]->left()-node_map[arc_s]->right() > 1){
+                  tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[arc_s]->right()+1, node_map[arc_t]->left()-1-node_map[arc_s]->right()));
+               }
+            }
+         }
+      }
+      transcripts.push_back(tscp);
+   }
 }

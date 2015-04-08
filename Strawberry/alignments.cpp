@@ -686,7 +686,7 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
    }
 }
 
-void ClusterFactory::finalizeCluster(HitCluster & cluster){
+void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
    cluster.clearOpenMates();
    cluster.collapseHits();
    double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
@@ -700,6 +700,7 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
       uint small_overhang;
       vector<Contig> hits;
       uint read_len = _hit_factory->_reads_table._read_len_abs;
+      cluster._strand = cluster.guessStrand();
       for(auto r = cluster._uniq_hits.cbegin(); r< cluster._uniq_hits.cend(); ++r){
          Contig hit(*r);
          hits.push_back(hit);
@@ -730,41 +731,44 @@ void ClusterFactory::finalizeCluster(HitCluster & cluster){
       FlowNetwork flow_network;
       Graph::NodeMap<const GenomicFeature*> node_map(flow_network._g);
       Graph::ArcMap<int> cost_map(flow_network._g);
+      Graph::ArcMap<int> min_flow_map(flow_network._g);
+      vector<vector<Graph::Arc>> path_cstrs;
+      vector<vector<GenomicFeature>> assembled_feats;
       flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, bad_introns, exons);
       vector<vector<size_t>> constraints;
       constraints = flow_network.findConstraints(exons, hits);
-//#ifdef DEBUG
-//      if(constraints.size() > 0){
-//         for(auto cstr : constraints){
-//            for(auto ex: cstr){
-//               cout<<"constraints: "<<exons[ex]._genomic_offset<<"\t";
-//            }
-//            cout<<endl;
-//         }
-//      }
-//#endif
-      flow_network.createNetwork(exons, intron_counter, bad_introns, constraints, node_map);
-      flow_network.addWeight(hits, intron_counter, node_map, cost_map);
-      flow_network.solveNetwork(cost_map);
+      flow_network.createNetwork(hits, exons, intron_counter, bad_introns,
+            constraints, node_map, cost_map, min_flow_map, path_cstrs);
+      flow_network.solveNetwork(node_map, exons, path_cstrs,cost_map, min_flow_map,assembled_feats);
+
+      int tscp_id = 0;
+      for(auto feats: assembled_feats){
+         ++tscp_id;
+         vector<GenomicFeature> merged_feats;
+         mergeFeatures(feats, merged_feats);
+         Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
+         assembled_transcript.print2gtf(pfile, _hit_factory->_ref_table, cluster._id,tscp_id);
+      }
    }
 }
 
 
 
-int ClusterFactory::ParseClusters(){
+int ClusterFactory::ParseClusters(FILE *pfile){
 /*
  * The majar function which calls nextCluster() and finalizes cluster and
  * assemble each cluster. Right now only nextCluster_refGuide() is implemented.
  * if no reference mRNA than nextCluster_refGuide will will nextCluster_denovo()
  */
-   int num_clusters = 0;
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    vector<double> frag_len_dist;
    unique_ptr<HitCluster> last_cluster (new HitCluster());
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
       return true;
    }
+
    _current_chrom = ref_t.ref_name(last_cluster->ref_id());
+
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
       if(!last_cluster->hasRefmRNAs() && last_cluster->see_both_strands()){
@@ -777,6 +781,7 @@ int ClusterFactory::ParseClusters(){
             break;
          }
       }
+      ++_num_cluster;
 //      cout<<"left: "<<last_cluster->left()<<"\t"<<last_cluster->_hit_for_minus_strand \
 //            <<"-:+"<<last_cluster->_hit_for_plus_strand \
 //      <<"first strand"<<last_cluster->_first_encounter_strand<<endl;
@@ -795,9 +800,10 @@ int ClusterFactory::ParseClusters(){
       if(_current_chrom != ref_t.ref_name(last_cluster->ref_id())){
          _current_chrom = ref_t.ref_name(last_cluster->ref_id());
       }
-      finalizeCluster(*last_cluster);
+      last_cluster->_id = _num_cluster;
+      finalizeAndAssemble(*last_cluster, pfile);
 #ifdef DEBUG
-     if(last_cluster->hasRefmRNAs()){
+//     if(last_cluster->hasRefmRNAs()){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
 //           for(auto &h: last_cluster->_hits){
 //              cout<<"spliced read on strand"<<h.strand()<<"\t"<< h.left_pos()<<"-"<<h.right_pos()<<endl;
@@ -805,11 +811,12 @@ int ClusterFactory::ParseClusters(){
             cout<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
                   <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
             cout<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
-         }
+//         }
 #endif
      last_cluster = move(cur_cluster);
    }
-   finalizeCluster(*last_cluster);
+   last_cluster->_id = ++_num_cluster;
+   finalizeAndAssemble(*last_cluster, pfile);
 }
 
 
@@ -966,3 +973,16 @@ void ClusterFactory::filter_intron(uint cluster_left,
    }
 }
 
+void ClusterFactory::mergeFeatures(const vector<GenomicFeature> & feats, vector<GenomicFeature> &result){
+   size_t i=0;
+   for(; i<feats.size(); ++i){
+      result.push_back(feats[i]);
+      GenomicFeature & f = result.back();
+      while(f.right() + 1 == feats[i+1].left() &&
+         f._match_op._code == feats[i+1]._match_op._code)
+      {
+         f._match_op._len += feats[i+1]._match_op._len;
+         ++i;
+      }
+   }
+}

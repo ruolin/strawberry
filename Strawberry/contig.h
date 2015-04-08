@@ -17,6 +17,7 @@
 
 class PairedHit;
 class ReadHit;
+class RefSeqTable;
 struct CigarOp;
 
 enum Match_t
@@ -96,6 +97,7 @@ public:
    size_t featSize() const;
    float mass() const;
    void mass(float m);
+   void print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, int tscp_id);
 };
 
 #endif /* CONTIG_H_ */

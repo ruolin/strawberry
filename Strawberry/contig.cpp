@@ -293,4 +293,58 @@ bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){
    return overlaps_locally(lhs.left(), lhs.right(), rhs.left(), rhs.right());
 }
 
+void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, int tscp_id){
+   const char* ref = ref_lookup.ref_name(_ref_id).c_str();
+   char strand = 0;
+   switch(_strand){
+   case Strand_t::StrandPlus:
+      strand = '+';
+      break;
+   case Strand_t::StrandMinus:
+      strand = '-';
+      break;
+   default:
+      strand = '.';
+      break;
+   }
 
+   char gff_attr[200];
+   char locus[13] = "gene.";
+   char tscp[24] = "transcript.";
+   char gene_str[7];
+   char tscp_str[4]; // at most 999 transcripts for a gene.
+   Sitoa(gene_id, gene_str, 10);
+   Sitoa(tscp_id,tscp_str, 10);
+
+   strcat(locus, gene_str);
+
+   strcat(tscp, gene_str);
+   strcat(tscp, ".");
+   strcat(tscp, tscp_str);
+
+   strcpy(gff_attr, "gene_id \"");
+   strcat(gff_attr, locus);
+   strcat(gff_attr, "\"; transcript_id \"");
+   strcat(gff_attr, tscp);
+   strcat(gff_attr, "\";");
+
+   fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
+         ref, "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);
+
+   int exon_num = 0;
+   for(auto gfeat : _genomic_feats){
+      if(gfeat._match_op._code == Match_t::S_MATCH){
+         ++exon_num;
+         char exon_gff_attr[200];
+         char exon_id[5];
+         Sitoa(exon_num, exon_id, 10);
+         strcpy(exon_gff_attr, gff_attr);
+         strcat(exon_gff_attr, " exon_id \"");
+         strcat(exon_gff_attr, exon_id);
+         strcat(exon_gff_attr, "\";");
+         fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
+            ref, "Strawberry", "exon", gfeat.left(), gfeat.right(), 1000, strand, '.', exon_gff_attr);
+      }
+   }
+
+}
