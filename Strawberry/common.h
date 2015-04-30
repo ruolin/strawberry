@@ -18,6 +18,7 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
+const static int kMaxInnerDist = 5000;
 const static int kMaxIntronLength = 60000;
 const static double kSmallOverHangProp = 6/76.0;
 const static double kMinIsoformFrac = 0.05;

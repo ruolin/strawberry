@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <iterator>
 #include <random>
+
 #include <boost/math/distributions/binomial.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <math.h>
@@ -30,6 +31,12 @@ bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_rad
 }
 
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
+//   if (cluster.left() == 1779207){
+//         cout<<hit.left()<<"ca"<<endl;
+//      if(cluster.right() == 23656492){
+//         exit(1);
+//      }
+//   }
    if(hit.ref_id() != cluster.ref_id()){
       //cout<<"shouldn't\t"<<hit.ref_id()<<":"<<cluster.ref_id()<<endl;
       return hit.ref_id() > cluster.ref_id();
@@ -171,6 +178,8 @@ bool HitCluster::addHit(const PairedHit &hit){
 
 bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
 {
+   uint orig_left = _leftmost;
+   uint orig_right = _rightmost;
    uint hit_left = hit->left();
    uint hit_right = hit->right();
    Strand_t hit_strand = hit->strand();
@@ -181,17 +190,24 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       _leftmost = min(_leftmost, hit_left);
       _rightmost = max(_rightmost, hit_right);
    }
-   if(extend_by_partner){
+   if(extend_by_partner && hit_partner_pos != 0){
+      if((int)hit_partner_pos - (int)hit_left > kMaxInnerDist){
+         LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ", kMaxInnerDist);
+         return false;
+      }
       _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
    }
 
    // Double check. This is only useful when called in ClusterFactory::mergeCluster()
    if(hit_lt_cluster(*hit, *this, ClusterFactory::_kMaxOlapDist)){
+      _leftmost = orig_left;
+      _rightmost = orig_right;
       return false;
    }
 
    if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
-
+      _leftmost = orig_left;
+      _rightmost = orig_right;
       LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
       return false;
    }
@@ -209,48 +225,89 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       addHit(ph);
    }
    else{
-      unordered_map<ReadID, PairedHit>::iterator iter_open = _open_mates.find(hit_id);
+      unordered_map<ReadID, list<PairedHit>>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
+
+
          if(hit->partner_pos() > hit->right()){
+
             PairedHit open_hit(hit, nullptr);
-            unordered_map<ReadID, PairedHit>::iterator ins_pos;
+            unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
+            list<PairedHit> chain;
+            chain.push_back(move(open_hit));
             bool status;
-            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, chain));
             assert(status);
          }
          else if(hit->partner_pos() < hit->left()){
             PairedHit open_hit(nullptr, hit);
-            unordered_map<ReadID, PairedHit>::iterator ins_pos;
+            unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
+            list<PairedHit> chain;
+            chain.push_back(move(open_hit));
             bool status;
-            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, move(open_hit)));
+            tie(ins_pos, status) = _open_mates.insert(make_pair(hit_id, chain));
             assert(status);
          }
          else{
+            _leftmost = orig_left;
+            _rightmost = orig_right;
+            LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
+            return false;
+         }
+      } else{
+
+         //if(iter_open->second.ref_id() != hit_ref_id)
+            //return false;
+         assert(!iter_open->second.empty());
+
+         for(auto it = iter_open->second.begin(); it != iter_open->second.end(); ++it){
+            bool strand_agree = it->strand() == hit_strand ||hit_strand == Strand_t::StrandUnknown;
+            uint expected_pos = 0;
+            if(it->_right_read){
+               expected_pos = it->_right_read->partner_pos();
+            }
+            else{
+               expected_pos = it->_left_read->partner_pos();
+            }
+            if(it->left_pos() == hit_partner_pos &&
+                  it->ref_id() == hit_ref_id &&
+                  strand_agree &&
+                  expected_pos == hit->left())
+
+            {
+               if(it->_left_read == nullptr && it->_right_read){
+                  it->set_left_read(move(hit));
+               }
+               else if(it->_right_read == nullptr && it->_left_read){
+                 it->set_right_read(move(hit));
+               }
+               else{
+                  assert(false);
+               }
+               addHit(*it);
+               iter_open->second.erase(it);
+               if(iter_open->second.empty()){
+                  _open_mates.erase(iter_open);
+               }
+               return true;
+            }
+
+         }
+         if(hit->partner_pos() > hit->right()){
+            PairedHit open_hit(hit, nullptr);
+            iter_open->second.push_back(open_hit);
+         }
+         else if(hit->partner_pos() < hit->left()){
+            PairedHit open_hit(nullptr, hit);
+            iter_open->second.push_back(open_hit);
+         }
+         else{
+            _leftmost = orig_left;
+            _rightmost = orig_right;
             LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
             return false;
          }
 
-      } else{
-
-         if(iter_open->second.ref_id() != hit_ref_id)
-            return false;
-
-         bool strand_agree = iter_open->second.strand() == hit_strand ||
-         iter_open->second.strand() == Strand_t::StrandUnknown ||
-         hit_strand == Strand_t::StrandUnknown;
-
-         assert(iter_open->second.left_pos() == hit_partner_pos && strand_agree);
-         if(iter_open->second._left_read == nullptr && iter_open->second._right_read){
-            iter_open->second.set_left_read(move(hit));
-         }
-         else if(iter_open->second._right_read == nullptr && iter_open->second._left_read){
-            iter_open->second.set_right_read(move(hit));
-         }
-         else{
-            assert(false);
-         }
-         addHit(iter_open->second);
-         _open_mates.erase(iter_open);
       }
    }
    return true;
@@ -668,6 +725,7 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
          cur.addHit(*it);
    }
    for(auto &i: imcomp_hits_its){
+      cout<<last.left()<<":"<<last._hits.back().left_pos()<<endl;
       last._hits.erase(i);
    }
 
@@ -675,12 +733,14 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
     * reassign open hits;
     */
    for(auto it = last._open_mates.begin(); it != last._open_mates.end(); ++it){
-      if(it->second._left_read){
-         cur.addOpenHit(it->second._left_read,false,false);
-      }
-      else{
-         assert(it->second._right_read);
-         cur.addOpenHit(it->second._right_read,false,false);
+      for(auto hit = it->second.begin(); hit != it->second.end(); ++hit){
+         if(hit->_left_read){
+            cur.addOpenHit(hit->_left_read,false,false);
+         }
+         else{
+            assert(hit->_right_read);
+            cur.addOpenHit(hit->_right_read,false,false);
+         }
       }
 
    }
@@ -920,13 +980,14 @@ void ClusterFactory::filter_intron(uint cluster_left,
       }
       if(binary_search(bad_intron_pos.begin(), bad_intron_pos.end(),i))
          continue;
-      if(small_read == 0.0)
+      if(small_read < 1.0)
          continue;
       double success = 2 * kSmallOverHangProp;
       double prob_not_lt_observed = 1.0;
       if(total_read < 100){
          binomial small_anchor_dist((int)total_read, success);
           prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-1);
+
       }
       else{
          double normal_mean = total_read * success;

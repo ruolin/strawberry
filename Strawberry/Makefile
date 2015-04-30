@@ -14,7 +14,7 @@ fasta.o: fasta.h common.h fasta.cpp
 	${CXX} ${CXXFLAGS} -c fasta.cpp
 contig.o: contig.h contig.cpp common.h
 	${CXX} ${CXXFLAGS} -c contig.cpp
-read.o: read.h contig.h read.cpp 
+read.o: read.h contig.h read.cpp common.h
 	${CXX} ${CXXFLAGS} -c read.cpp
 gff.o : gff.h gff.cpp contig.h
 	${CXX} ${CXXFLAGS} -c gff.cpp

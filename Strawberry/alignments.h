@@ -7,6 +7,7 @@
 
 #ifndef STRAWB_ALIGNMENTS_H_
 #define STRAWB_ALIGNMENTS_H_
+#include <list>
 #include "read.h"
 #include "contig.h"
 #include "gff.h"
@@ -24,7 +25,7 @@ class HitCluster{
    bool _final = false; // HitCluster is finished
    double _raw_mass = 0.0;
    Strand_t _strand;
-   std::unordered_map<ReadID, PairedHit> _open_mates;
+   std::unordered_map<ReadID, list<PairedHit>> _open_mates;
    std::vector<PairedHit> _hits;
    std::vector<PairedHit> _uniq_hits;
    std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory

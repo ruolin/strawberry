@@ -390,10 +390,11 @@ void FlowNetwork::createNetwork(
          }
          const Graph::Node s = _g.source(p.front());
          const Graph::Node t = _g.target(p.back());
-         assert( findArc(_g, s,t) == INVALID);
-         const Graph::Arc a = _g.addArc(s,t);
-         cost_map[a] = cost;
-         min_flow_map[a] = 1;
+         if( findArc(_g, s,t) == INVALID){
+            const Graph::Arc a = _g.addArc(s,t);
+            cost_map[a] = cost;
+            min_flow_map[a] = 1;
+         }
       }
       else{
          // or a arc

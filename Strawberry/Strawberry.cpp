@@ -20,7 +20,7 @@ int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/RD25.high.diffMean_r1.concordant_uniq.sort.bam";
+   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
 
    //FaInterface fa_api(path);

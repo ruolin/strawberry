@@ -383,7 +383,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          read_len += length;
          cigar.push_back(CigarOp(_type, length));
          if(length > (int) kMaxIntronLength){
-            fprintf(stderr, "At read %s the length of inferred intron is larger than %d\n", bam1_qname(hit_buf), kMaxIntronLength);
+            LOG_ERR("At read ", bam1_qname(hit_buf), " the length of inferred intron is larger than ", kMaxIntronLength);
             //LOG("At read ", bam1_qname(hit_buf), " length ", length, " is larger than max intron length ", kMaxIntronLength);
             return false;
          }
