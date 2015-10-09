@@ -9,21 +9,21 @@ MAIN_TARGET = Strawberry
 
 
 common.o: common.h
-	${CXX} ${CXXFLAGS} -c common.cpp
-fasta.o: fasta.h common.h fasta.cpp
-	${CXX} ${CXXFLAGS} -c fasta.cpp
+	${CXX} ${CXXFLAGS} -c common.cpp 
+fasta.o: fasta.h common.h fasta.cpp 
+	${CXX} ${CXXFLAGS} -c fasta.cpp 
 contig.o: contig.h contig.cpp common.h
-	${CXX} ${CXXFLAGS} -c contig.cpp
+	${CXX} ${CXXFLAGS} -c contig.cpp 
 read.o: read.h contig.h read.cpp common.h
-	${CXX} ${CXXFLAGS} -c read.cpp
+	${CXX} ${CXXFLAGS} -c read.cpp 
 gff.o : gff.h gff.cpp contig.h
-	${CXX} ${CXXFLAGS} -c gff.cpp
+	${CXX} ${CXXFLAGS} -c gff.cpp 
 alignments.o: alignments.h alignments.cpp 
-	${CXX} ${CXXFLAGS} -c alignments.cpp $(LEMON_INCLUDE)
+	${CXX} ${CXXFLAGS} -c alignments.cpp $(LEMON_INCLUDE) 
 assembly.o: assembly.h assembly.cpp common.h
-	${CXX} ${CXXFLAGS} -c assembly.cpp $(LEMON_INCLUDE)
+	${CXX} ${CXXFLAGS} -c assembly.cpp $(LEMON_INCLUDE) 
 logger.o: logger.cpp logger.hpp
-	${CXX} ${CXXFLAGS} -c logger.cpp
+	${CXX} ${CXXFLAGS} -c logger.cpp  
 
 Strawberry.o : Strawberry.cpp gff.h read.h fasta.h alignments.h logger.hpp common.h assembly.o
 	${CXX} ${CXXFLAGS} -c Strawberry.cpp 
