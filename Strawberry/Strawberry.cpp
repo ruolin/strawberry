@@ -12,6 +12,7 @@
 #include "gff.h"
 #include "alignments.h"
 #include "logger.hpp"
+#include "qp.h"
 #include <chrono>
 using namespace std;
 
@@ -40,6 +41,7 @@ int main(){
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
    FILE *pFile;
    pFile = fopen("assembled_transcripts.gtf", "w");
+   //QpSolver qps;
    read_clusters.ParseClusters(pFile);
    fclose(pFile);
 

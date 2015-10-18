@@ -140,6 +140,7 @@ Strand_t HitCluster::guessStrand() const{
 }
 
 bool HitCluster::addHit(const PairedHit &hit){
+
    if(_final){
       return false;
    }
@@ -219,7 +220,6 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       assert(_ref_id == hit_ref_id);
    }
 
-
    if(hit->is_singleton()){
       PairedHit ph(hit, nullptr);
       addHit(ph);
@@ -230,7 +230,6 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
 
 
          if(hit->partner_pos() > hit->right()){
-
             PairedHit open_hit(hit, nullptr);
             unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
             list<PairedHit> chain;
@@ -261,13 +260,23 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
          assert(!iter_open->second.empty());
 
          for(auto it = iter_open->second.begin(); it != iter_open->second.end(); ++it){
-            bool strand_agree = it->strand() == hit_strand ||hit_strand == Strand_t::StrandUnknown;
+            bool strand_agree = it->strand() == hit_strand ||
+                  hit_strand == Strand_t::StrandUnknown ||
+                  it->strand() == Strand_t ::StrandUnknown;
+
             uint expected_pos = 0;
             if(it->_right_read){
                expected_pos = it->_right_read->partner_pos();
             }
             else{
                expected_pos = it->_left_read->partner_pos();
+//#ifdef DEBUG
+//      if(hit->left() == 46125){ //45791){
+//         cout<<"it_strand"<<it->strand()<<endl;
+//         cout<<"hit strand"<<hit_strand<<endl;
+//
+//      }
+//#endif
             }
             if(it->left_pos() == hit_partner_pos &&
                   it->ref_id() == hit_ref_id &&
@@ -602,6 +611,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       ReadHitPtr new_hit(new ReadHit());
       double mass = next_valid_alignment(*new_hit);
       //cout<<new_hit->left()<<endl;
+
       if(!_hit_factory->recordsRemain()){
          return clusterOut.size();
       }
@@ -615,9 +625,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       if(clusterOut.size() == 0){ // add first hit
          clusterOut.addOpenHit(new_hit, true, true);
          clusterOut.addRawMass(mass);
-//#ifdef DEBUG
-//         cout<<clusterOut.right()<<"\t denovo cluster right"<<endl;
-//#endif
+
       } else { //add the rest
          if(hit_lt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){
             // should never reach here
@@ -676,13 +684,16 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
             }
          }
 
-         if(hit_gt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){ // read has gone to far.
+         if(hit_gt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){ // read has gone too far.
             rewindHit(*new_hit);
             break;
          }
 
          clusterOut.addOpenHit(new_hit, false, false);
          clusterOut.addRawMass(mass);
+
+         // if too many hits, i.e., read depths too high. Then randomly sample a fraction of them.
+         // This is not finished yet.
          if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
             random_device rd;
             mt19937 gen(rd());
@@ -725,7 +736,9 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
          cur.addHit(*it);
    }
    for(auto &i: imcomp_hits_its){
-      cout<<last.left()<<":"<<last._hits.back().left_pos()<<endl;
+      //IF DEBUG
+      //cout<<last.left()<<":"<<last._hits.back().left_pos()<<endl;
+      //ENDIF
       last._hits.erase(i);
    }
 
@@ -776,15 +789,8 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
             hits.push_back(*i);
          }
          compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
-//          if(cluster.left() == 5928){
-//             for(auto i: hits){
-//                for(auto j:i._genomic_feats){
-//                   cout<<"feature: "<<j._match_op._code<<" from "<<j._genomic_offset<< \
-//                         " to "<< j._genomic_offset+ j._match_op._len+1 <<endl;
-//                }
-//             }
-//          }
       }
+
       filter_intron(cluster.left(), exon_doc, intron_counter, bad_introns);
       //for(int i=0; i<intron_counter.size(); ++i)
       //cout<<" bars "<<intron_counter[i].left<<"\t"<<intron_counter[i].right<<endl;
@@ -863,7 +869,7 @@ int ClusterFactory::ParseClusters(FILE *pfile){
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, pfile);
 #ifdef DEBUG
-//     if(last_cluster->hasRefmRNAs()){
+     //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
 //           for(auto &h: last_cluster->_hits){
 //              cout<<"spliced read on strand"<<h.strand()<<"\t"<< h.left_pos()<<"-"<<h.right_pos()<<endl;
@@ -871,7 +877,7 @@ int ClusterFactory::ParseClusters(FILE *pfile){
             cout<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
                   <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
             cout<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
-//         }
+         //}
 #endif
      last_cluster = move(cur_cluster);
    }

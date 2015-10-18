@@ -456,6 +456,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
                sam_flag,
                mass
                );
+
    return true;
 }
 
