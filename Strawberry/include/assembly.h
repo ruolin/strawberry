@@ -24,7 +24,10 @@
 class IntronTable;
 class GenomicFeature;
 class Contig;
+class ExonBin;
+class Isoform;
 typedef lemon::ListDigraph Graph;
+
 class FlowNetwork{
    float _max_weight = 0.0;
    static bool hasFlow(const Graph &g, const Graph::ArcMap<int> & flow, const Graph::Node node){
@@ -37,7 +40,8 @@ class FlowNetwork{
 
    static void add_sink_source(Graph &g, Graph::Node &source, Graph::Node &sink);
 
-   static bool comp_lt(const std::pair<uint, bool> & lhs, const std::pair<uint,bool> &rhs);
+   static bool comp_lt_first(const std::pair<uint, uint> & lhs, const std::pair<uint, uint> &rhs);
+   static bool comp_lt_second(const std::pair<uint, uint> & lhs, const std::pair<uint, uint> &rhs);
 
    static bool search_left(const GenomicFeature &lhs, const uint rhs);
 
@@ -60,20 +64,19 @@ public:
    Graph::Node _sink;
    void initGraph(const int &left,
            const std::vector<float> &exon_doc,
-           const std::vector<IntronTable> &intron_counter,
+           const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
            const std::vector<size_t> &bad_introns,
            std::vector<GenomicFeature> &exons,
            Graph::NodeMap<const GenomicFeature*> &node2feat);
 
    void splicingGraph(const int &left, const std::vector<float> &exon_doc,
-         const std::vector<IntronTable> &intron_counter, const std::vector<size_t> &bad_introns,
+         const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
          std::vector<GenomicFeature> &exons);
 
-   void createNetwork(
+   bool createNetwork(
          const std::vector<Contig> &hits,
          const std::vector<GenomicFeature> &exons,
-         const std::vector<IntronTable> &intron_counter,
-         const std::vector<size_t> &bad_introns,
+         const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
          const std::vector<std::vector<size_t>> &constraints,
          Graph::NodeMap<const GenomicFeature*> &node_map,
          Graph::ArcMap<int> &cost_map,
@@ -81,7 +84,7 @@ public:
          std::vector<std::vector<Graph::Arc>> &path_cstrs);
 
    void addWeight(const std::vector<Contig> &hits,
-         const std::vector<IntronTable> &intron_counter,
+         const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
          const Graph::NodeMap<const GenomicFeature*> &node_map,
          Graph::ArcMap<int> &arc_map);
 
@@ -90,7 +93,13 @@ public:
          const std::vector<GenomicFeature> &exons,
          const std::vector<Contig> &hits);
 
-   void solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
+   void assignExonBin(
+         const std::vector<GenomicFeature> &exons,
+         const std::vector<Contig> &hits,
+         const std::vector<Isoform> &transcripts,
+         std::map<std::set<uint>, ExonBin> & exon_bin_map);
+
+   bool solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
          const std::vector<GenomicFeature> &exons,
          const std::vector<std::vector<Graph::Arc>> &path_cstrs,
          Graph::ArcMap<int> &cost_map,
@@ -98,5 +107,7 @@ public:
          std::vector<std::vector<GenomicFeature>> &transcripts);
 
 };
+
+
 
 #endif /* ASSEMBLY_H_ */

@@ -9,8 +9,8 @@
 #include<assert.h>
 #include <stdexcept>
 #include <string.h>
+#include <boost/math/distributions/normal.hpp>
 #include "read.h"
-
 
 ReadHit::ReadHit(
    ReadID readID,
@@ -139,6 +139,20 @@ ReadID ReadTable::get_id(const string& name)
 //   if( it != _by_id.end()) return &(it->second);
 //   else GError("ID %d is not in the Reference Sequence Table\n", ID);
 //}
+
+InsertSize::InsertSize():_mean(kInsertSizeMean), _sd(kInsertSizeSD){}
+InsertSize::InsertSize(double mean, double sd): _mean(mean), _sd(sd){}
+
+double InsertSize::truncated_normal_pdf(uint insert_size) const
+{
+   using boost::math::normal;
+   normal standard_normal;
+   double numerator = 1/_sd * pdf(standard_normal, (insert_size - _mean)/_sd);
+   double denominator = 1 - cdf(standard_normal, (0 - _mean)/_sd);
+   assert(denominator != 0);
+   return numerator/denominator;
+}
+
 
 HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
    _reads_table(reads_table),_ref_table(ref_table){}

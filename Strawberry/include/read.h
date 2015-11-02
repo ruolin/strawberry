@@ -104,6 +104,7 @@ public:
    // This function should NEVER return zero
    ReadID get_id(const string& name);
    uint _read_len_abs = 0;
+   vector<int> _frag_dist;
 private:
    // This is FNV-1, see http://en.wikipedia.org/wiki/Fowler_Noll_Vo_hash
    inline uint64_t hashString(const char* __s)
@@ -118,6 +119,14 @@ private:
    }
 };
 
+class InsertSize{
+   double _mean;
+   double _sd;
+public:
+   InsertSize();
+   InsertSize(double mean, double sd);
+   double truncated_normal_pdf(uint insert_size) const;
+};
 
 
 class RefSeqTable
@@ -157,7 +166,7 @@ public:
    ReadTable& _reads_table;
    RefSeqTable& _ref_table;
    HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
-   HitFactory(HitFactory &rhs) = delete; //non-copible class.
+   HitFactory(const HitFactory &rhs) = delete; //non-copible class.
    HitFactory& operator=(const HitFactory &rhs) = delete; // non-copible class
    HitFactory(HitFactory &&rhs) = default;
    HitFactory& operator=(HitFactory &&rhs) = default;
@@ -172,6 +181,7 @@ public:
    virtual void undo_hit() = 0;
    virtual bool parse_header_line(const string& hline);
    virtual bool inspect_header() = 0;
+   virtual void reset() = 0;
    virtual const AssayProperties& assay_properties();
 };
 

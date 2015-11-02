@@ -8,10 +8,12 @@
 #ifndef STRAWB_ALIGNMENTS_H_
 #define STRAWB_ALIGNMENTS_H_
 #include <list>
+#include <map>
 #include "read.h"
 #include "contig.h"
 #include "gff.h"
 class ClusterFactory;
+using IntronMap = std::map<std::pair<uint,uint>,IntronTable>;
 
 class HitCluster{
    friend ClusterFactory;
@@ -75,7 +77,6 @@ public:
 };
 
 class ClusterFactory{
-   unique_ptr<HitFactory> _hit_factory;
    int _num_cluster = 0;
    uint _prev_pos = 0;
    RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
@@ -87,38 +88,44 @@ class ClusterFactory{
                      const uint right,
                      const vector<Contig> & hits,
                      vector<float> &exon_doc,
-                     vector<IntronTable> &intron_doc,
+                     IntronMap &intron_doc,
                      uint smallOverhang);
 public:
+   unique_ptr<HitFactory> _hit_factory;
+   unique_ptr<InsertSize> _insert_size_dist =nullptr;
    static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    ClusterFactory(unique_ptr<HitFactory> hit_fac):
-      _hit_factory(move(hit_fac)),
       _refmRNA_offset(0),
-      _has_load_all_refs(false)
+      _has_load_all_refs(false),
+      _hit_factory(move(hit_fac))
    {}
 
    bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
    bool hasLoadRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
+   int addRef2Cluster(HitCluster &clusterOut);
+   void reset_refmRNAs();
+
    double next_valid_alignment(ReadHit& readin);
    double rewindHit(const ReadHit& rh);
-   int addRef2Cluster(HitCluster &clusterOut);
    int nextCluster_denovo(HitCluster &clusterOut,
                            uint next_ref_start_pos = UINT_MAX,
                            RefID next_ref_start_ref=INT_MAX);
 
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
+
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
-   void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
-                              vector<IntronTable>& intron_counter, uint &small_overhang);
-   void filter_intron(uint cluster_left, vector<float> &exon_doc,
-         vector<IntronTable>& intron_counter,vector<size_t> &bad_introns);
-   int ParseClusters(FILE *f);
-   void finalizeAndAssemble(HitCluster & cluster, FILE *f);
-   static void mergeFeatures(const vector<GenomicFeature> & feats, vector<GenomicFeature> & result);
+
+   //void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
+                              //map<pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
+
+   void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
+   void parseClusters(FILE *f);
+   void inspectCluster();
+   void finalizeAndAssemble(HitCluster & cluster, FILE *f, bool calculatedFD);
 };
 
 

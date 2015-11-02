@@ -9,15 +9,14 @@ include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 if(COMPILER_SUPPORTS_CXX11)
-   add_compile_options(-Wall -std=c++11)
+   add_compile_options(-Wall -g -O1 -DDEBUG -std=c++11)
 elseif(COMPILER_SUPPORTS_CXX0X)
-   add_complie_options(-Wall -DDEBUG -std=c++0x)
+   add_complie_options(-Wall -g -DDEBUG -std=c++0x)
 else()
         message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
 
 set( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true )
- 
 if ( COMMAND cmake_policy )
 
   cmake_policy( SET CMP0003 NEW )  
