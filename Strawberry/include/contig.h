@@ -56,7 +56,7 @@ public:
    static int overlap_len(const GenomicFeature &lhs, const GenomicFeature &rhs);
    static bool overlap_in_genome(const GenomicFeature& feat, uint s, uint e);
 
-   bool contains(const GenomicFeature& other) const;
+   bool contains(const GenomicFeature& other, int small_extent = 0) const;
 
    bool properly_contains(const GenomicFeature& other) const;
 
@@ -103,7 +103,8 @@ public:
    static bool overlaps_only_on_exons(const Contig &ct, const GenomicFeature & gf);
    static bool overlaps_directional(const Contig &lhs, const Contig &rhs);
    static bool is_contained_in(const Contig &small, const Contig &large);
-   static int infer_frag_len(const Contig &isoform, const Contig &hit);
+   static bool is_compatible(const Contig &read, const Contig &isoform);
+   static int infer_insert_size(const Contig &isoform, const Contig &hit);
    bool operator<(const Contig &rhs) const;
    RefID ref_id() const;
    Strand_t strand() const;
@@ -135,7 +136,7 @@ private:
    RefID _ref_id;
 public:
    std::set<uint> _coords;
-   std::vector<const GenomicFeature*> _exon_in_bin;
+   std::vector<const GenomicFeature*> _exons_in_bin;
    std::vector<string> _parent_isoforms;
    std::vector<const Contig*> _hits;
    ExonBin(RefID ref_id);

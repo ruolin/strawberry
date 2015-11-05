@@ -768,7 +768,6 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
       vector<GenomicFeature> exons;
       uint small_overhang;
       vector<Contig> hits;
-      map<set<uint>, ExonBin>  exon_bin_map;
       uint read_len = _hit_factory->_reads_table._read_len_abs;
       cluster._strand = cluster.guessStrand();
 
@@ -817,7 +816,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
             Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
             if( _hit_factory->_reads_table._frag_dist.size() < kMaxReadNum4FD){
                for(size_t h = 0; h< hits.size(); ++h){
-                  _hit_factory->_reads_table._frag_dist.push_back(Contig::infer_frag_len(assembled_transcript, hits[h]));
+                  _hit_factory->_reads_table._frag_dist.push_back(Contig::infer_insert_size(assembled_transcript, hits[h]));
                }
             }
             else{ // have enough reads for calculating fragment dists.
@@ -828,6 +827,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
 
       else{
          vector<Isoform> isoforms;
+         map<set<uint>, ExonBin>  exon_bin_map;
          int tscp_id = 0;
          for(auto feats: assembled_feats){
             ++tscp_id;
@@ -953,17 +953,17 @@ void ClusterFactory::parseClusters(FILE *pfile)
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, pfile, false);
-//#ifdef DEBUG
-//     //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
-////           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
-////           for(auto &h: last_cluster->_hits){
-////              cout<<"spliced read on strand"<<h.strand()<<"\t"<< h.left_pos()<<"-"<<h.right_pos()<<endl;
-////           }
-//            cout<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
-//                  <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
-//            cout<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
-//         //}
-//#endif
+#ifdef DEBUG
+     //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
+//           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
+//           for(auto &h: last_cluster->_hits){
+//              cout<<"spliced read on strand"<<h.strand()<<"\t"<< h.left_pos()<<"-"<<h.right_pos()<<endl;
+//           }
+            cout<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
+                  <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
+            cout<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
+         //}
+#endif
      last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;

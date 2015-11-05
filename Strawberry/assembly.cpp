@@ -575,52 +575,58 @@ void FlowNetwork::addWeight(const vector<Contig> &hits,
 }
 
 void FlowNetwork::assignExonBin(
+/*
+ * assign reads and transcripts to exon bin.
+ */
       const vector<GenomicFeature> & exons,
       const vector<Contig> &hits,
       const vector<Isoform> &transcripts,
       map<set<uint>, ExonBin> & exon_bin_map)
 {
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
-      ExonBin eb(mp->ref_id());
-
-      // first loop finds exon bin
-      for(size_t i = 0; i< exons.size(); ++i){
-         if(Contig::overlaps_only_on_exons(*mp, exons[i])){
-            bool status = eb.insert_exon(&exons[i]);
-            if(!status){
-               LOG_ERR("Error in FlowNetwork::assignExonBin. A read overlaps a exon twice!!");
-            }
+      for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
+         if(Contig::is_compatible(*mp, iso->_contig)){
+//            cout<<" read starts at "<<mp->ref_id()<<":"<<mp->left()<<endl;
+//            cout<<" isoform is "<<iso->_isoform_id<<endl;
+//            if(mp->ref_id() == 4 && mp->left() > 26468400 ) exit(0);
          }
-      } // end inner for loop
-      if(eb._exon_in_bin.size() == 0){
-         continue;
-//#ifdef DEBUG
-//         for(auto &e : exons){
-//            cout<<"exon: "<<e.left()<<"-"<<e.right()<<endl;
+      }
+
+   }
+      //      ExonBin eb(mp->ref_id());
+//
+//      // first loop finds exon bin
+//      for(size_t i = 0; i< exons.size(); ++i){
+//         if(Contig::overlaps_only_on_exons(*mp, exons[i])){
+//            bool status = eb.insert_exon(&exons[i]);
+//            if(!status){
+//               LOG_ERR("Error in FlowNetwork::assignExonBin. A read overlaps a exon twice!!");
+//            }
 //         }
-//         cout<<"hit: chr: "<<mp->ref_id()<<"\t"<<mp->left()<<"-"<<mp->right()<<endl;
-//#endif
-      }
-      eb.add_hit(&(*mp));
-
-      map<set<uint>, ExonBin>::iterator it_ret = exon_bin_map.find(eb._coords);
-      if(it_ret == exon_bin_map.end()){
-         eb.add_isoform(transcripts);
-         bool status;
-         map<set<uint>, ExonBin>::iterator it;
-         tie(it, status) = exon_bin_map.insert(pair<set<uint>, ExonBin> (eb._coords, move(eb)));
-         assert(status);
-      }
-      else{
-         it_ret->second.read_num_increase_by_1();
-         it_ret->second.add_hit(eb);
-      }
-   }
-
-
-   for(auto kv = exon_bin_map.cbegin(); kv != exon_bin_map.cend(); ++kv){
-
-   }
+//      } // end inner for loop
+//      if(eb._exons_in_bin.size() == 0){
+//         continue;
+////#ifdef DEBUG
+////         for(auto &e : exons){
+////            cout<<"exon: "<<e.left()<<"-"<<e.right()<<endl;
+////         }
+////         cout<<"hit: chr: "<<mp->ref_id()<<"\t"<<mp->left()<<"-"<<mp->right()<<endl;
+////#endif
+//      }
+//      eb.add_hit(&(*mp));
+//
+//      map<set<uint>, ExonBin>::iterator it_ret = exon_bin_map.find(eb._coords);
+//      if(it_ret == exon_bin_map.end()){
+//         eb.add_isoform(transcripts);
+//         bool status;
+//         map<set<uint>, ExonBin>::iterator it;
+//         tie(it, status) = exon_bin_map.insert(pair<set<uint>, ExonBin> (eb._coords, move(eb)));
+//         assert(status);
+//      }
+//      else{
+//         it_ret->second.read_num_increase_by_1();
+//         it_ret->second.add_hit(eb);
+//      }
 }
 
 
