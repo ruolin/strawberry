@@ -32,9 +32,9 @@ const static double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeClu
                                            //select locus have enough reads covered.
 const static int kMaxCoverGap = 50;
 const static int kMaxReadNum4FD = 10000;
-const static double kInsertSizeMean = 100;
-const static double kInsertSizeSD = 100;
-
+const static double kInsertSizeMean = 200;
+const static double kInsertSizeSD = 80;
+const static bool infer_the_other_end = true;
 //const static int kMinExonLen = 5;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
@@ -117,6 +117,7 @@ inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint 
    return false;
 
 }
+
 
 //--------------------------------------------------------
 // ************** simple line reading class for text files

@@ -73,6 +73,8 @@ public:
    double raw_mass() const{
       return _raw_mass;
    }
+   double collapse_mass() const;
+
    bool see_both_strands();
 };
 
@@ -92,7 +94,7 @@ class ClusterFactory{
                      uint smallOverhang);
 public:
    unique_ptr<HitFactory> _hit_factory;
-   unique_ptr<InsertSize> _insert_size_dist =nullptr;
+   shared_ptr<InsertSize> _insert_size_dist =nullptr;
    static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    ClusterFactory(unique_ptr<HitFactory> hit_fac):
@@ -107,7 +109,6 @@ public:
    }
    int addRef2Cluster(HitCluster &clusterOut);
    void reset_refmRNAs();
-
    double next_valid_alignment(ReadHit& readin);
    double rewindHit(const ReadHit& rh);
    int nextCluster_denovo(HitCluster &clusterOut,

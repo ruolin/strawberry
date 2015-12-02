@@ -568,10 +568,17 @@ bool PairedHit::is_multi() const
 
 bool PairedHit::contains_splice() const
 {
-   if(_right_read)
-      return (_left_read->contains_splice() || _right_read->contains_splice());
+   bool l_res, r_res;
+   if(_left_read)
+      l_res = _left_read->contains_splice();
    else
-      return _left_read->contains_splice();
+      l_res = false;
+   if(_right_read)
+      r_res = _right_read->contains_splice();
+   else
+      r_res = false;
+
+   return l_res || r_res;
 }
 
 ReadID PairedHit::read_id() const

@@ -161,6 +161,11 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    }
    if( l != 0 && l < left+exon_doc.size() )
       exon_boundaries.push_back(pair<uint,uint>(l, left+exon_doc.size()-1));
+//#ifdef DEBUG
+//   for(auto const & e: exon_boundaries){
+//      cout<<"preliminary exon segments: "<<e.first<<"-"<<e.second<<endl;
+//   }
+//#endif
 
    /*
     * When some exonic coverage gaps exist
@@ -174,12 +179,12 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       uint tail = iTer->first;
       bool is_coverage_deficit = true;
       for(auto i= intron_counter.cbegin(); i != intron_counter.cend(); ++i){
-         if(i->first.first-1 <= head && i->first.second+1 >= tail){
+         if(i->first.first <= tail && head <= i->first.second){ // if a intron overlap this region
             is_coverage_deficit = false;
             break;
          }
       }
-      if(is_coverage_deficit){
+      if(is_coverage_deficit && tail - head < kMaxCoverGap){
          iTer--;
          uint newStart = iTer->first;
          exon_boundaries.erase(iTer++);
@@ -574,60 +579,6 @@ void FlowNetwork::addWeight(const vector<Contig> &hits,
    }
 }
 
-void FlowNetwork::assignExonBin(
-/*
- * assign reads and transcripts to exon bin.
- */
-      const vector<GenomicFeature> & exons,
-      const vector<Contig> &hits,
-      const vector<Isoform> &transcripts,
-      map<set<uint>, ExonBin> & exon_bin_map)
-{
-   for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
-      for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
-         if(Contig::is_compatible(*mp, iso->_contig)){
-//            cout<<" read starts at "<<mp->ref_id()<<":"<<mp->left()<<endl;
-//            cout<<" isoform is "<<iso->_isoform_id<<endl;
-//            if(mp->ref_id() == 4 && mp->left() > 26468400 ) exit(0);
-         }
-      }
-
-   }
-      //      ExonBin eb(mp->ref_id());
-//
-//      // first loop finds exon bin
-//      for(size_t i = 0; i< exons.size(); ++i){
-//         if(Contig::overlaps_only_on_exons(*mp, exons[i])){
-//            bool status = eb.insert_exon(&exons[i]);
-//            if(!status){
-//               LOG_ERR("Error in FlowNetwork::assignExonBin. A read overlaps a exon twice!!");
-//            }
-//         }
-//      } // end inner for loop
-//      if(eb._exons_in_bin.size() == 0){
-//         continue;
-////#ifdef DEBUG
-////         for(auto &e : exons){
-////            cout<<"exon: "<<e.left()<<"-"<<e.right()<<endl;
-////         }
-////         cout<<"hit: chr: "<<mp->ref_id()<<"\t"<<mp->left()<<"-"<<mp->right()<<endl;
-////#endif
-//      }
-//      eb.add_hit(&(*mp));
-//
-//      map<set<uint>, ExonBin>::iterator it_ret = exon_bin_map.find(eb._coords);
-//      if(it_ret == exon_bin_map.end()){
-//         eb.add_isoform(transcripts);
-//         bool status;
-//         map<set<uint>, ExonBin>::iterator it;
-//         tie(it, status) = exon_bin_map.insert(pair<set<uint>, ExonBin> (eb._coords, move(eb)));
-//         assert(status);
-//      }
-//      else{
-//         it_ret->second.read_num_increase_by_1();
-//         it_ret->second.add_hit(eb);
-//      }
-}
 
 
 vector<vector<size_t>> FlowNetwork::findConstraints(

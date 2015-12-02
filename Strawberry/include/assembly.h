@@ -99,13 +99,6 @@ public:
          Graph::ArcMap<int> &cost_map,
          Graph::ArcMap<int> &min_map,
          std::vector<std::vector<GenomicFeature>> &transcripts);
-
-   void assignExonBin(
-         const std::vector<GenomicFeature> &exons,
-         const std::vector<Contig> &hits,
-         const std::vector<Isoform> &transcripts,
-         std::map<std::set<uint>, ExonBin> & exon_bin_map);
-
 };
 
 

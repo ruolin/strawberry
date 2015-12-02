@@ -13,13 +13,13 @@
 #include<cassert>
 #include<vector>
 #include<set>
+#include<map>
 #include<iostream>
 #include "common.h"
 
 class PairedHit;
 class ReadHit;
 class RefSeqTable;
-class ExonBin;
 struct CigarOp;
 
 enum Match_t
@@ -27,6 +27,13 @@ enum Match_t
    S_MATCH = 0,
    S_INTRON = 1,
    S_GAP = 2
+};
+
+enum SingleOrit_t
+{
+   Forward = 0,
+   Reverse = 1,
+   NotSingle = 2
 };
 
 struct MatchOp{
@@ -54,21 +61,19 @@ public:
 
    static bool overlaps(const GenomicFeature& lhs, const GenomicFeature& rhs);
    static int overlap_len(const GenomicFeature &lhs, const GenomicFeature &rhs);
-   static bool overlap_in_genome(const GenomicFeature& feat, uint s, uint e);
-
+   static int overlap_len_in_genome(const GenomicFeature& feat, const uint left, const uint right);
+   static bool overlap_in_genome(const GenomicFeature & feat, const uint left, const uint right);
    bool contains(const GenomicFeature& other, int small_extent = 0) const;
 
    bool properly_contains(const GenomicFeature& other) const;
 
    static int match_length(const GenomicFeature &op, int left, int right);
 
-   bool operator==(const GenomicFeature & rhs) const;
+   friend bool operator==(const GenomicFeature &lhs, const GenomicFeature & rhs);
 
    bool operator<(const GenomicFeature & rhs) const;
 
-   bool operator!=(const GenomicFeature &rhs) const{
-      return !(*this == rhs);
-   }
+   friend bool operator!=(const GenomicFeature &lhs, const GenomicFeature &rhs);
 
    void printOut(){
       printf("<%d,%d>\n", left(), right());
@@ -76,6 +81,7 @@ public:
    static void mergeFeatures(const vector<GenomicFeature> & feats, vector<GenomicFeature> & result);
 
 };
+
 
 bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature> & feats);
 
@@ -89,70 +95,38 @@ class Contig{
    Strand_t _strand;
    std::string _annotated_trans_id;
    double _mass = 0.0;
+   SingleOrit_t _single_read_orit = SingleOrit_t::NotSingle;
 public:
    std::vector<GenomicFeature> _genomic_feats;
    bool _is_ref;
    //Contig() = default;
    Contig(const PairedHit& ph);
    Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, double mass,bool is_ref);
-   Contig(const ExonBin& eb);
+   //Contig(const ExonBin& eb);
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
    uint left() const;
    uint right() const;
-   static bool overlaps_only_on_exons(const Contig &ct, const GenomicFeature & gf);
+   uint gap_left() const; // left coordinate of gap if exists; otherwise return 0
+   uint gap_right() const; // left coordiante of gap if exists; otherwise return 0
+   int exonic_length() const;
+   static int exonic_overlaps_len(const Contig &iso,
+         const uint left,
+         const uint right);
    static bool overlaps_directional(const Contig &lhs, const Contig &rhs);
    static bool is_contained_in(const Contig &small, const Contig &large);
    static bool is_compatible(const Contig &read, const Contig &isoform);
-   static int infer_insert_size(const Contig &isoform, const Contig &hit);
+   static int infer_inner_dist(const Contig &isoform, const Contig &hit);
+
    bool operator<(const Contig &rhs) const;
    RefID ref_id() const;
    Strand_t strand() const;
    size_t featSize() const;
+   bool is_single_read() const;
    float mass() const;
    void mass(float m);
-   void print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, int tscp_id);
-};
-
-class Isoform{
-
-public:
-   Contig _contig;
-   string _gene_id;
-   string _isoform_id;
-   double _bais_factor;
-   //Isoform() = default;
-   Isoform(Contig contig, string gene, string isoform);
-};
-
-class ExonBin{
-   /*
-    * ExonBin is a set a continuous exons defined by an overlapping fragment.
-    */
-private:
-   //uint _left_most;
-   //uint _right_most;
-   int _read_num;
-   RefID _ref_id;
-public:
-   std::set<uint> _coords;
-   std::vector<const GenomicFeature*> _exons_in_bin;
-   std::vector<string> _parent_isoforms;
-   std::vector<const Contig*> _hits;
-   ExonBin(RefID ref_id);
-   ExonBin(const ExonBin &rhs) = delete;
-   ExonBin& operator=(const ExonBin &rhs) = delete;
-   ExonBin(ExonBin &&rhs) = default;
-   ExonBin& operator=(ExonBin &&rhs) = default;
-   uint left_most() const;
-   uint right_most() const;
-   bool insert_exon(const GenomicFeature *exon);
-   void read_num_increase_by_1();
-   int read_num() const;
-   void add_hit(const Contig* hit);
-   void add_hit(const ExonBin& exb);
-   void add_isoform(const vector<Isoform> &isoforms);
-   RefID ref_id() const;
+   void print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const double abd, int gene_id, int tscp_id);
+   SingleOrit_t single_read_orit() const;
 };
 
 #endif /* CONTIG_H_ */

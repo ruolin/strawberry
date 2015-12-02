@@ -17,6 +17,9 @@ using namespace std;
 
 
 bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
+   /*
+    * Convert read hit to vector of GenomicFeature. Return false if a read is problematic.
+    */
    vector<CigarOp> cig = rh.cigar();
    uint offset = rh.left();
    assert(!cig.empty());
@@ -115,22 +118,21 @@ int GenomicFeature::overlap_len(const GenomicFeature &lhs, const GenomicFeature 
    if(GenomicFeature::overlaps(lhs, rhs)){
       return min(lhs.right(), rhs.right()) - max(lhs.left(), rhs.left());
    }
-   else{
-      return 0;
-   }
+   else return 0;
 }
 
-bool GenomicFeature::overlap_in_genome(const GenomicFeature& feat, uint s, uint e){
+bool GenomicFeature::overlap_in_genome(const GenomicFeature & feat, const uint left, const uint right)
+{
+   return ( feat.left() <= right && left <= feat.right() );
+}
+
+int GenomicFeature::overlap_len_in_genome(const GenomicFeature& feat, const uint left, const uint right)
+{
    //Assume in the same chromosome or contig
-   if(feat.left() >= s && feat.left() < e)
-      return true;
-   if(feat.right() > s && feat.right() < e)
-      return true;
-   if(s >= feat.left() && s < feat.right())
-      return true;
-   if (e > feat.left() && e < feat.right())
-      return true;
-   return false;
+   if( feat.left() <= right && left <= feat.right() ) {
+      return min(feat.right(), right) - max(feat.left(), left)+1;
+   }
+   else return 0;
 }
 
 bool GenomicFeature::contains(const GenomicFeature& other, int small_extent) const
@@ -169,11 +171,16 @@ int match_length(const GenomicFeature &op, int left, int right)
    return len;
 }
 
-bool GenomicFeature::operator==(const GenomicFeature & rhs) const
+bool operator==(const GenomicFeature &lhs, const GenomicFeature & rhs)
 {
-   return ( _match_op._code == rhs._match_op._code &&
-         _genomic_offset == rhs._genomic_offset &&
-         _match_op._len == rhs._match_op._len);
+   return ( lhs._match_op._code == rhs._match_op._code &&
+         lhs._genomic_offset == rhs._genomic_offset &&
+         lhs._match_op._len == rhs._match_op._len);
+}
+
+bool operator!=(const GenomicFeature &lhs, const GenomicFeature &rhs)
+{
+   return  !(lhs == rhs);
 }
 
 bool GenomicFeature::operator<(const GenomicFeature & rhs) const
@@ -222,31 +229,33 @@ Contig::Contig(const PairedHit& ph):
       _ref_id(ph.ref_id()),
       _strand(ph.strand())
 {
-   vector<GenomicFeature> g_feats;
-   if(ph._left_read){
-      if(readhit_2_genomicFeats(ph.left_read_obj(), g_feats)){
-         if(ph._right_read){
-            int gap_len = (int)ph._right_read->left() - (int)ph._left_read->right() -1 ;
-//            if(gap_len == 0){
-//               cout<<ph.left_read_obj().left()<<"-"<<ph.right_read_obj().left()<<endl;
-//               exit(0);
-//            }
-            if( gap_len < 0){
-               gap_len = 0;
-               LOG_ERR("Read at reference id: ", ph.ref_id()+1, " and position ", ph.left_pos(), " has suspicious GAP");
-            }
-            g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
-            readhit_2_genomicFeats(ph.right_read_obj(), g_feats);
-         }
+   if (!ph.is_paired()) {
+      if(ph._left_read){
+         _single_read_orit = SingleOrit_t::Forward;
       }
-
+      else{
+         _single_read_orit = SingleOrit_t::Reverse;
+      }
+   }
+   vector<GenomicFeature> g_feats;
+   if(ph._left_read && ph._right_read){
+      readhit_2_genomicFeats(ph.left_read_obj(), g_feats);
+      int gap_len = (int)ph._right_read->left() - (int)ph._left_read->right() -1 ;
+      if( gap_len < 0){
+         gap_len = 0;
+         LOG_ERR("Read at reference id: ", ph.ref_id()+1, " and position ", ph.left_pos(), " has suspicious GAP");
+      }
+      g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
+      readhit_2_genomicFeats(ph.right_read_obj(), g_feats);
    }
 
    else{
       if(ph._right_read){
          readhit_2_genomicFeats(ph.right_read_obj(), g_feats);
       }
-      assert(false);
+      if(ph._left_read){
+         readhit_2_genomicFeats(ph.left_read_obj(), g_feats);
+      }
    }
 
    if(!is_sorted(g_feats.begin(), g_feats.end()))
@@ -263,28 +272,28 @@ Contig::Contig(const PairedHit& ph):
    _mass = ph.collapse_mass();
 }
 
-Contig::Contig(const ExonBin& eb)
-{
-   vector<GenomicFeature> g_feats;
-   g_feats.push_back(*eb._exons_in_bin.front());
-   for(size_t i = 1; i< eb._exons_in_bin.size(); ++i){
-      if(eb._exons_in_bin[i]->left()-eb._exons_in_bin[i-1]->right() == 1) {
-         continue;
-      }
-      GenomicFeature intron(Match_t::S_INTRON,
-            eb._exons_in_bin[i-1]->right()+1,
-            eb._exons_in_bin[i]->left()-eb._exons_in_bin[i-1]->right()-1);
-      g_feats.push_back(intron);
-      g_feats.push_back(*eb._exons_in_bin[i]);
-   }
-   vector<GenomicFeature> merged_feats;
-   GenomicFeature::mergeFeatures(g_feats, merged_feats);
-   _genomic_feats = move(merged_feats);
-   _strand = Strand_t::StrandUnknown;
-   _ref_id = eb.ref_id();
-   _mass = 0.0;
-   _is_ref = false;
-}
+//Contig::Contig(const ExonBin& eb)
+//{
+//   vector<GenomicFeature> g_feats;
+//   g_feats.push_back(*eb._exons_in_bin.front());
+//   for(size_t i = 1; i< eb._exons_in_bin.size(); ++i){
+//      if(eb._exons_in_bin[i]->left()-eb._exons_in_bin[i-1]->right() == 1) {
+//         continue;
+//      }
+//      GenomicFeature intron(Match_t::S_INTRON,
+//            eb._exons_in_bin[i-1]->right()+1,
+//            eb._exons_in_bin[i]->left()-eb._exons_in_bin[i-1]->right()-1);
+//      g_feats.push_back(intron);
+//      g_feats.push_back(*eb._exons_in_bin[i]);
+//   }
+//   vector<GenomicFeature> merged_feats;
+//   GenomicFeature::mergeFeatures(g_feats, merged_feats);
+//   _genomic_feats = move(merged_feats);
+//   _strand = Strand_t::StrandUnknown;
+//   _ref_id = eb.ref_id();
+//   _mass = 0.0;
+//   _is_ref = false;
+//}
 
 
 uint Contig::left() const
@@ -310,6 +319,11 @@ void Contig::mass(float m)
    _mass = m;
 }
 
+SingleOrit_t Contig::single_read_orit() const
+{
+   return _single_read_orit;
+}
+
 bool Contig::operator<(const Contig &rhs) const
 {
    if(_ref_id != rhs._ref_id){
@@ -329,6 +343,30 @@ bool Contig::operator<(const Contig &rhs) const
          return _genomic_feats[i] < rhs._genomic_feats[i];
    }
    return false;
+}
+
+bool Contig::is_single_read() const
+{
+   for(auto const & gf: _genomic_feats){
+      if(gf._match_op._code == S_GAP) return false;
+   }
+   return true;
+}
+
+uint Contig::gap_left() const
+{
+   if(is_single_read()) return 0;
+   for(auto const & gf: _genomic_feats){
+      if(gf._match_op._code == S_GAP) return gf.left();
+   }
+}
+
+uint Contig::gap_right() const
+{
+   if(is_single_read()) return 0;
+   for(auto const & gf: _genomic_feats){
+      if(gf._match_op._code == S_GAP) return gf.right();
+   }
 }
 
 RefID Contig::ref_id() const
@@ -362,20 +400,33 @@ bool Contig::overlaps_directional(const Contig &lhs, const Contig &rhs){
    return overlaps_locally(lhs.left(), lhs.right(), rhs.left(), rhs.right());
 }
 
-bool Contig::overlaps_only_on_exons(const Contig &ct, const GenomicFeature & exon)
+int Contig::exonic_overlaps_len(const Contig &iso,
+                                   const uint left,
+                                   const uint right)
 /*
- * Searching for exon fragments witch overlap a read fragment
+ * Searching for exon fragments in a transcripts which overlap a read
+ * This function should be only called if the read and the transcript are compatible
  */
 {
-   bool result = false;
-   for(auto gfeat : ct._genomic_feats){
-      if(gfeat._match_op._code != Match_t::S_INTRON){
-         if(GenomicFeature::overlaps(gfeat, exon))
-            result = true;
+   int collected_len = 0;
+   for(auto const& gfeat : iso._genomic_feats){
+      if(gfeat._match_op._code == Match_t::S_MATCH)
+         collected_len +=  GenomicFeature::overlap_len_in_genome(gfeat, left, right);
+   }
+   return collected_len;
+}
+
+int Contig::exonic_length() const
+{
+   int len = 0;
+   for(auto const gf: _genomic_feats){
+      if(gf._match_op._code == Match_t::S_MATCH){
+         len += gf._match_op._len;
       }
    }
-   return result;
+   return len;
 }
+
 
 bool Contig::is_contained_in(const Contig & small, const Contig & large)
 /*
@@ -421,7 +472,7 @@ bool Contig::is_contained_in(const Contig & small, const Contig & large)
    return true;
 }
 
-int Contig::infer_insert_size(const Contig & isoform, const Contig & hit){
+int Contig::infer_inner_dist(const Contig & isoform, const Contig & hit){
    int gap_len = 0;
    for(const GenomicFeature &hit_gf: hit._genomic_feats){
       if(hit_gf._match_op._code == Match_t::S_GAP){
@@ -449,25 +500,26 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
    }
 
    const GenomicFeature & first_feat = read._genomic_feats[0];
-   auto first = lower_bound(exons.begin(), exons.end(), first_feat,
+   auto first_exon = lower_bound(exons.begin(), exons.end(), first_feat,
          [](const GenomicFeature* gf, const GenomicFeature & first)
          {return gf->right() < first.left();});
-   if(first == exons.end()){
+   if(first_exon == exons.end()){
       return false;
    }
    else{
-      if(!(*first)->contains(first_feat,2)) return false;
+      if(!(*first_exon)->contains(first_feat,2)) return false;
       else{
-         auto it = first;
+         auto it = first_exon;
          for(size_t i = 1; i != read._genomic_feats.size(); ++i){
             if(read._genomic_feats[i]._match_op._code == S_GAP){
                continue;
             }
             else if(read._genomic_feats[i]._match_op._code == S_INTRON){
                size_t next_intron_offset = 2* distance(exons.begin(), it) + 1;
-               if(read._genomic_feats[i] != isoform._genomic_feats[next_intron_offset]){
+               if(next_intron_offset >= isoform._genomic_feats.size())
                   return false;
-               }
+               if(read._genomic_feats[i] != isoform._genomic_feats[next_intron_offset])
+                  return false;
             }
             else{
                assert(read._genomic_feats[i]._match_op._code == S_MATCH);
@@ -488,7 +540,7 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
 
 
 
-void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, int tscp_id){
+void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const double abundance, int gene_id, int tscp_id){
    const char* ref = ref_lookup.ref_name(_ref_id).c_str();
    char strand = 0;
    switch(_strand){
@@ -508,11 +560,13 @@ void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, 
    char tscp[24] = "transcript.";
    char gene_str[7];
    char tscp_str[4]; // at most 999 transcripts for a gene.
+   char frac[6];
    Sitoa(gene_id, gene_str, 10);
    Sitoa(tscp_id,tscp_str, 10);
-
+   auto str =std::to_string(abundance);
+   strncpy(frac, str.c_str(), sizeof(frac));
+   frac[sizeof(frac) - 1] = 0;
    strcat(locus, gene_str);
-
    strcat(tscp, gene_str);
    strcat(tscp, ".");
    strcat(tscp, tscp_str);
@@ -521,6 +575,9 @@ void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, 
    strcat(gff_attr, locus);
    strcat(gff_attr, "\"; transcript_id \"");
    strcat(gff_attr, tscp);
+   strcat(gff_attr, "\";");
+   strcat(gff_attr, "frac \"");
+   strcat(gff_attr, frac);
    strcat(gff_attr, "\";");
 
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
@@ -542,85 +599,4 @@ void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, int gene_id, 
       }
    }
 
-}
-
-ExonBin::ExonBin(RefID ref_id)
-{
-   _ref_id = ref_id;
-   _read_num  = 1;
-}
-
-RefID ExonBin::ref_id() const
-{
-   return _ref_id;
-}
-
-bool ExonBin::insert_exon(const GenomicFeature *exon)
-{
-   bool status;
-   set<uint>::iterator it_ret = _coords.find(exon->left());
-   if(it_ret == _coords.end()){
-      _coords.insert(exon->left());
-      _coords.insert(exon->right());
-      _exons_in_bin.push_back(exon);
-      status = true;
-   }
-   else{
-      assert(_coords.find(exon->right()) != _coords.end());
-      status = false;
-   }
-   return status;
-}
-
-void ExonBin::add_isoform(const vector<Isoform> &isoforms){
-
-   for(size_t i = 0; i< isoforms.size(); ++i){
-      bool compatible = true;
-      //cout<<this->_exons_in_bin.size()<<endl;
-      Contig exons(*this);
-
-      if(Contig::is_contained_in(exons, isoforms[i]._contig)){
-         _parent_isoforms.push_back(isoforms[i]._isoform_id);
-      }
-   }
-}
-
-uint ExonBin::left_most() const
-{
-   return *_coords.begin();
-}
-
-
-uint ExonBin::right_most() const
-{
-   return *_coords.rbegin();
-}
-
-
-void ExonBin::read_num_increase_by_1()
-{
-   ++_read_num;
-}
-
-int ExonBin::read_num() const
-{
-   return _read_num;
-}
-
-void ExonBin::add_hit(const Contig* hit)
-{
-   _hits.push_back(hit);
-}
-
-void ExonBin::add_hit(const ExonBin& exb)
-{
-   assert(exb._hits.size() == 1);
-   _hits.push_back(exb._hits.front());
-}
-
-
-Isoform::Isoform(Contig contig, string gene, string iso_id):
-      _contig(contig), _gene_id(gene), _isoform_id(iso_id)
-{
-   _bais_factor = 0.0;
 }

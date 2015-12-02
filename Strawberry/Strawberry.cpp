@@ -18,8 +18,10 @@ using namespace std;
 void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd){
    double sum = accumulate(vec.begin(), vec.end(), 0.0);
    mean = sum / vec.size();
+   cout<<mean<<endl;
    double sq_sum = inner_product(vec.begin(), vec.end(), vec.begin(), 0.0);
    sd = std::sqrt(sq_sum / vec.size() - mean * mean);
+
 }
 
 int main(){
@@ -48,16 +50,14 @@ int main(){
    pFile = fopen("assembled_transcripts.gtf", "w");
    //QpSolver qps;
 
-   //first in
-   read_clusters.inspectCluster();
+   //read_clusters.inspectCluster();
    double mean, sd;
-   const vector<int> & fd = read_clusters._hit_factory->_reads_table._frag_dist;
-   mean_and_sd_insert_size(fd, mean, sd);
-   unique_ptr<InsertSize> insert_size(new InsertSize(mean, sd));
+   //const vector<int> & fd = read_clusters._hit_factory->_reads_table._frag_dist;
+   //mean_and_sd_insert_size(fd, mean, sd);
+   unique_ptr<InsertSize> insert_size(new InsertSize(350, 25));
    read_clusters._insert_size_dist = move(insert_size);
-
+   cout<<"pdf "<<read_clusters._insert_size_dist->truncated_normal_pdf(450)<<endl;
    read_clusters.parseClusters(pFile);
-   cout<<"pdf "<<read_clusters._insert_size_dist->truncated_normal_pdf(100)<<endl;
 
 
    fclose(pFile);

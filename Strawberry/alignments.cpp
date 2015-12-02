@@ -5,23 +5,24 @@
  *      Author: ruolin
  */
 
-#include "alignments.h"
-#include "fasta.h"
-#include "assembly.h"
 #include <algorithm>
 #include <iterator>
 #include <random>
-
 #include <boost/math/distributions/binomial.hpp>
 #include <boost/math/distributions/normal.hpp>
 #include <math.h>
 #ifdef DEBUG
    #include <iostream>
 #endif
+
+#include "alignments.h"
+#include "fasta.h"
+#include "assembly.h"
+#include "qp.h"
 using namespace std;
 
 /*
- * Global utility function:
+ * Global utility function begin:
  */
 bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
    if(hit.ref_id() != cluster.ref_id())
@@ -58,6 +59,10 @@ bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster
    }
    return true;
 }
+
+/*
+ * Global utility functions end:
+ */
 
 
 RefID HitCluster::ref_id() const
@@ -198,7 +203,6 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       }
       _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
    }
-
    // Double check. This is only useful when called in ClusterFactory::mergeCluster()
    if(hit_lt_cluster(*hit, *this, ClusterFactory::_kMaxOlapDist)){
       _leftmost = orig_left;
@@ -221,15 +225,26 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
    }
 
    if(hit->is_singleton()){
-      PairedHit ph(hit, nullptr);
-      addHit(ph);
+      if(hit->reverseCompl()){
+         PairedHit ph(nullptr, hit);
+         addHit(ph);
+      }
+      else{
+         PairedHit ph(hit, nullptr);
+         addHit(ph);
+      }
    }
+
    else{
       unordered_map<ReadID, list<PairedHit>>::iterator iter_open = _open_mates.find(hit_id);
       if( iter_open == _open_mates.end()){
 
 
          if(hit->partner_pos() > hit->right()){
+            if(hit->reverseCompl())
+            {
+               LOG_ERR("Possible wrong read orientation at chr: ", hit->ref_id(), " for read start at ", hit->left(), " and his partner at ",hit->partner_pos() );
+            }
             PairedHit open_hit(hit, nullptr);
             unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
             list<PairedHit> chain;
@@ -239,6 +254,11 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
             assert(status);
          }
          else if(hit->partner_pos() < hit->left()){
+            if(!hit->reverseCompl())
+            {
+               LOG_ERR("Possible wrong read orientation at chr: ", hit->ref_id(), " for read start at ", hit->left(), " and his partner at ",hit->partner_pos() );
+            }
+
             PairedHit open_hit(nullptr, hit);
             unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
             list<PairedHit> chain;
@@ -327,7 +347,8 @@ void HitCluster::clearOpenMates()
    _open_mates.clear();
 }
 
-int HitCluster::collapseHits(){
+int HitCluster::collapseHits()
+{
    assert(_uniq_hits.empty());
    if(_hits.empty())
       return 0;
@@ -351,11 +372,19 @@ int HitCluster::collapseHits(){
    return _uniq_hits.size();
 }
 
+double HitCluster::collapse_mass() const
+{
+   double m = 0.0;
+   for(auto const& hit: _uniq_hits){
+      m += hit.collapse_mass();
+   }
+   return m;
+}
+
 void HitCluster::setBoundaries(){
 /*
  * Call this after collapseHits
  */
-   assert(!_uniq_hits.empty());
    if(enforce_ref_models && hasRefmRNAs()){
       _leftmost = INT_MAX;
       _rightmost = 0;
@@ -363,10 +392,6 @@ void HitCluster::setBoundaries(){
          _leftmost = min(_leftmost, r->left());
          _rightmost = max(_rightmost, r->right());
       }
-   }
-   else{
-      _leftmost = _uniq_hits.front().left_pos();
-      _rightmost = _uniq_hits.back().right_pos();
    }
 }
 
@@ -762,7 +787,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
    double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
    cutoff /= (double)cluster.len();
    if(cutoff > kMinDepth4Locus){
-      cluster.setBoundaries();
+      cluster.setBoundaries(); // set boundaries if reference exist.
       vector<float> exon_doc;
       IntronMap intron_counter;
       vector<GenomicFeature> exons;
@@ -773,6 +798,11 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
 
 
       for(auto r = cluster._uniq_hits.cbegin(); r< cluster._uniq_hits.cend(); ++r){
+//#ifdef DEBUG
+//         if(r->_left_read && r->_right_read)
+//            cout<<"read: "<<r->left_read_obj().left()<<"-"<<r->left_read_obj().right()<<"===="<<
+//               r->right_read_obj().left()<<"-"<<r->right_read_obj().right()<<endl;
+//#endif
          Contig hit(*r);
          hits.push_back(hit);
       }
@@ -816,7 +846,8 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
             Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
             if( _hit_factory->_reads_table._frag_dist.size() < kMaxReadNum4FD){
                for(size_t h = 0; h< hits.size(); ++h){
-                  _hit_factory->_reads_table._frag_dist.push_back(Contig::infer_insert_size(assembled_transcript, hits[h]));
+                  double frag_len = Contig::infer_inner_dist(assembled_transcript, hits[h]);
+                  _hit_factory->_reads_table._frag_dist.push_back(frag_len);
                }
             }
             else{ // have enough reads for calculating fragment dists.
@@ -828,34 +859,28 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
       else{
          vector<Isoform> isoforms;
          map<set<uint>, ExonBin>  exon_bin_map;
+         map<int, set<set<uint>>> iso_2_bins_map;
+         map<int, int> iso_2_len_map;
          int tscp_id = 0;
          for(auto feats: assembled_feats){
             ++tscp_id;
             vector<GenomicFeature> merged_feats;
             GenomicFeature::mergeFeatures(feats, merged_feats);
             Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
-            Isoform iso(assembled_transcript, to_string(cluster._id), to_string(tscp_id));
+            Isoform iso(assembled_transcript, cluster._id, tscp_id);
+            iso_2_len_map[tscp_id] = assembled_transcript.exonic_length();
             isoforms.push_back(iso);
-            assembled_transcript.print2gtf(pfile, _hit_factory->_ref_table, cluster._id,tscp_id);
          }
-
-         flow_network.assignExonBin(exons, hits, isoforms, exon_bin_map);
+         Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs);
+         est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
+         est.calcuate_bin_bias(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
+         est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
+         est.estimate_abundances(exon_bin_map, cluster.collapse_mass(), isoforms, true, true);
+         for(auto & iso: isoforms){
+            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._abundance, iso._gene_id, iso._isoform_id);
+         }
+         if(cluster.left() > 203000) exit(0);
       }
-//#ifdef DEBUG
-//   for(auto &kv: exon_bin_map){
-//      if(*kv.first.begin() > 60000) exit(0);
-//      for(auto &v: kv.second._exon_in_bin)
-//         cout<<"left: "<<v->left()<<" right: "<<v->right()<<" ";
-//      cout<<endl<<"cov: "<<kv.second.read_num()<<" ";
-////      for(auto &h: kv.second._hits)
-////         cout<<"hit: "<<h->left()<<" ";
-//      for(auto &t: kv.second._parent_isoforms)
-//         cout<<"iso: "<<t<<" ";
-//      cout<<endl;
-//   }
-//   cout<<"---------------------"<<endl;
-//#endif
-
    }// if cutoff > kMinDepth4Locus
 }
 
@@ -974,6 +999,7 @@ void ClusterFactory::parseClusters(FILE *pfile)
 void ClusterFactory::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
       vector<float> &exon_doc,  IntronMap &intron_counter, uint smallOverHang)
 {
+
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
       const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;

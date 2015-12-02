@@ -120,9 +120,9 @@ private:
 };
 
 class InsertSize{
+public:
    double _mean;
    double _sd;
-public:
    InsertSize();
    InsertSize(double mean, double sd);
    double truncated_normal_pdf(uint insert_size) const;
