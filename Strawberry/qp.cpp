@@ -14,6 +14,7 @@
 #include <boost/random.hpp>
 #include <boost/random/normal_distribution.hpp>
 #include <boost/numeric/ublas/matrix.hpp>
+#include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
 #include <stdexcept>
 #include "qp.h"
@@ -24,6 +25,10 @@
 
 typedef boost::numeric::ublas::matrix<double> matrix;
 typedef boost::numeric::ublas::vector<double> ublas_vector;
+typedef boost::numeric::ublas::zero_vector<double> zero_vector;
+typedef boost::numeric::ublas::matrix_row<matrix> matrix_row;
+typedef boost::numeric::ublas::matrix_column<matrix> matrix_col;
+typedef boost::numeric::ublas::scalar_vector<double> one_vector;
 
 uint generate_pair_end(const Contig& ct, const uint& start, int span,  SingleOrit_t orit){
 /*
@@ -399,25 +404,22 @@ void Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_ma
    size_t nrow = exon_bin_map.size();
    size_t ncol = isoforms.size();
 
-   ublas_vector n (nrow);
-   matrix alpha(nrow, ncol);
-   matrix hidden_N (nrow, ncol);
+   vector<int> n (nrow);
+   vector<vector<double>> alpha (nrow, vector<double>(ncol));
    unsigned i = 0;
    for(auto const& bin: exon_bin_map){
-      n(i) = bin.second.read_count();
+      n[i] = bin.second.read_count();
       for(unsigned j = 0; j< ncol; ++j){
          auto ret = bin.second._iso_bias_map.find(j+1);
          if (ret == bin.second._iso_bias_map.end())
-            alpha(i,j) = 0;
+            alpha[i][j] = 0;
          else
-            alpha(i,j) = ret->second;
+            alpha[i][j] = ret->second;
       } // //inner loop
       ++i;
    } // outer loop
-#ifdef DEBUG
-      cout<<n<<endl;
-      cout<<alpha<<endl;
-#endif
+   EmSolver em(ncol, n, alpha);
+   em.run();
 
       /*
        * Now using EM algorithm
@@ -486,3 +488,101 @@ void Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_ma
 //   else{
 //   }
 }
+
+EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vector<double>> &model):
+      _num_isoforms(num_iso),
+      _theta(num_iso, 1.0/num_iso),
+      _u(count),
+      _F(model)
+{
+//#ifdef DEBUG
+//   int nrow = _u.size();
+//   int ncol = _num_isoforms;
+//   ublas_vector obs_d (nrow);
+//   matrix F(nrow, ncol);
+//    for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+//         for(size_t j= 0; j < ncol; ++j){
+//            F(i,j) = _F[i][j];
+//         }
+//    }
+//    for(size_t i = 0; i < nrow; ++i)
+//      obs_d(i) = _u[i];
+//    cout<<obs_d<<endl;
+//    cout<<F<<endl;
+//#endif
+}
+
+
+bool EmSolver::run(){
+   size_t nrow = _u.size();
+   size_t ncol = _num_isoforms;
+
+   ublas_vector obs_d (nrow);
+   ublas_vector next_theta(ncol,0.0);
+
+
+   for(size_t i = 0; i < nrow; ++i)
+      obs_d(i) = _u[i];
+
+   for(int it_num = 0; it_num < _max_iter_num; ++it_num){
+      /*
+       * E-step
+       * */
+      matrix F(nrow, ncol, 0.0);
+      ublas_vector F_row_sum(nrow, 0.0);
+      matrix U (nrow, ncol, 0.0);
+      for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+         for(size_t j= 0; j < ncol; ++j){
+            F(i,j) = _F[i][j] * _theta[j];
+            F_row_sum(i) += F(i,j);
+         }
+      }
+      for(size_t i =0; i < nrow; ++i){ // updating the unobserved data matrix
+         for(size_t j= 0; j < ncol; ++j){
+            double num = obs_d(i) * F(i,j);
+            if(F_row_sum(i) < TOLERANCE) return false;
+            double denom = F_row_sum(i);
+            U(i,j) = num/denom;
+         }
+      }
+      /*
+       * M-step
+       */
+      double m = 0.0;
+      for(size_t j = 0; j< U.size2(); ++j){
+         matrix_col mc(U,j);
+         one_vector one(nrow, 1);
+         next_theta[j] = boost::numeric::ublas::inner_prod(one, mc);
+         m += next_theta[j];
+      }
+
+      /* Normalizing next_theta */
+      for(size_t j = 0; j< ncol; ++j){
+         next_theta[j] /= m;
+      }
+
+      int num_changed = 0;
+      for(size_t j=0; j<ncol; ++j){
+         if(next_theta[j] > _theta_limit && (fabs(next_theta[j]-_theta[j])/next_theta[j]) > _theta_change_limit)
+            num_changed++;
+         _theta[j] = next_theta[j];
+         next_theta[j] = 0.0;
+      }
+
+      if(num_changed == 0) {
+         for(size_t j = 0; j< ncol; ++j){
+         cout<<"tehta: "<<_theta[j]<<endl;
+         }
+         break;
+      }
+   }
+
+
+}
+
+
+
+
+
+
+

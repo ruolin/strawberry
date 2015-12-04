@@ -101,9 +101,23 @@ public:
 uint generate_pair_end(const Contig& ct, const uint& start, int span,  SingleOrit_t orit);
 
 
-
-
-
+class EmSolver{
+   const double TOLERANCE = std::numeric_limits<double>::denorm_min();
+   int _num_isoforms;
+   vector<double> _theta;
+   vector<double> _theta_after_zero;
+   const vector<int> &_u; // observed data vector
+   const vector<vector<double>> &_F; // hidden model matrix
+   vector<vector<double>> _U; // hidden unobserved data matrix.
+   int _max_iter_num = 10000;
+   double _theta_limit = 1e-7;
+   double _theta_change_limit = 1e-4;
+public:
+   EmSolver( const int num_iso,
+         const vector<int> &count,
+         const vector<vector<double>> &model);
+   bool run();
+};
 
 
 #endif /* QP_H_ */
