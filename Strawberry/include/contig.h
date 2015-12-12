@@ -116,7 +116,7 @@ public:
    static bool overlaps_directional(const Contig &lhs, const Contig &rhs);
    static bool is_contained_in(const Contig &small, const Contig &large);
    static bool is_compatible(const Contig &read, const Contig &isoform);
-   static int infer_inner_dist(const Contig &isoform, const Contig &hit);
+   //static int infer_inner_dist(const Contig &isoform, const Contig &hit);
 
    bool operator<(const Contig &rhs) const;
    RefID ref_id() const;

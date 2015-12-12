@@ -18,7 +18,7 @@
 #include "alignments.h"
 #include "fasta.h"
 #include "assembly.h"
-#include "qp.h"
+#include "estimate.h"
 using namespace std;
 
 /*
@@ -846,8 +846,16 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
             Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
             if( _hit_factory->_reads_table._frag_dist.size() < kMaxReadNum4FD){
                for(size_t h = 0; h< hits.size(); ++h){
-                  double frag_len = Contig::infer_inner_dist(assembled_transcript, hits[h]);
-                  _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+
+                  if(hits[h].is_single_read()) continue;
+                  if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
+
+                  double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
+//#ifdef DEBUG
+//                  cout<<"frag_len: "<<frag_len<<endl;
+//                  cout<<"frag location>> "<<hits[h].ref_id()<<":"<<hits[h].left()<<"-"<<hits[h].right()<<endl;
+//#endif
+                        _hit_factory->_reads_table._frag_dist.push_back(frag_len);
                }
             }
             else{ // have enough reads for calculating fragment dists.
@@ -873,7 +881,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
          }
          Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs);
          est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
-         est.calcuate_bin_bias(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
+         est.calcuate_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
          est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
          est.estimate_abundances(exon_bin_map, cluster.collapse_mass(), isoforms, true, true);
          for(auto & iso: isoforms){
@@ -909,8 +917,6 @@ void ClusterFactory::inspectCluster()
             break;
          }
       }
-      ++_num_cluster;
-
       if(cur_cluster->overlaps(*last_cluster) ){
          mergeClusters(*last_cluster, *cur_cluster);
       }
@@ -923,14 +929,20 @@ void ClusterFactory::inspectCluster()
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, NULL, true);
+      _total_mapped_reads += last_cluster->collapse_mass();
       last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, NULL, true);
+   _total_mapped_reads += (int)last_cluster->collapse_mass();
    _hit_factory->reset();
    reset_refmRNAs();
 }
 
+int ClusterFactory::total_mapped_reads() const
+{
+   return _total_mapped_reads;
+}
 
 void ClusterFactory::parseClusters(FILE *pfile)
 {
@@ -1096,9 +1108,9 @@ void ClusterFactory::filter_intron(uint cluster_left,
 //      cout<<small_read<<": ";
 //      cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
-      if(total_read - small_read < kMinJuncSupport && !enforce_ref_models){
+      if(total_read < kMinJuncSupport && !enforce_ref_models){
          LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
-               " has only ", total_read - small_read, " total read.");
+               " has only ", total_read, " total read.");
          i = intron_counter.erase(i);
          continue;
       }

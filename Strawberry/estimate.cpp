@@ -6,8 +6,9 @@
  */
 
 
-// example: construct a quadratic program from data
-// the QP below is the first quadratic program example in the user manual
+
+#include "include/estimate.h"
+
 #include <iostream>
 #include <cassert>
 #include <iterator>
@@ -16,8 +17,8 @@
 #include <boost/numeric/ublas/matrix.hpp>
 #include <boost/numeric/ublas/matrix_proxy.hpp>
 #include <boost/numeric/ublas/io.hpp>
+#include <Eigen/Dense>
 #include <stdexcept>
-#include "qp.h"
 #include "contig.h"
 // choose exact integral type
 
@@ -350,10 +351,11 @@ void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_
       cout<<"Raw read number for "<<it->first<<": "<<count<<endl;
 #endif
    }
+
 }
 
 
-void Estimation::calcuate_bin_bias( const map<int, set<set<uint>>> &iso_2_bins_map,
+void Estimation::calcuate_bin_weight( const map<int, set<set<uint>>> &iso_2_bins_map,
                                   const map<int,int> &iso_2_len_map,
                                   const int m,
                                   map<set<uint>, ExonBin> & exon_bin_map)
@@ -361,23 +363,23 @@ void Estimation::calcuate_bin_bias( const map<int, set<set<uint>>> &iso_2_bins_m
    //map<int, double> iso_2_bias_factor_map;
    for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
       for(auto const &bin_coord : it->second){
-         double bias_bin = 0.0;
+         double weight = 0.0;
          //iso_num = exon_bin_map.at(bin_coord)
          for(auto const &len_mass_pair: exon_bin_map.at(bin_coord)._iso_2_frag_lens.at(it->first)){
             int num_start_pos = iso_2_len_map.at(it->first)-len_mass_pair.first+1;
-            bias_bin += len_mass_pair.second * _insert_size_dist->truncated_normal_pdf(len_mass_pair.first) / num_start_pos;
+            weight += len_mass_pair.second * _insert_size_dist->emp_dist_pdf(len_mass_pair.first) / num_start_pos;
          }
-         exon_bin_map.at(bin_coord)._iso_bias_map[it->first] = m*bias_bin;
+         exon_bin_map.at(bin_coord)._iso_bias_map[it->first] = m*weight;
       }
       //iso_2_bias_factor_map[it->first] = bias_iso;
       //cout<<"bias iso "<<bias_iso<<endl;
    }
 
-//   for(auto & bin: exon_bin_map){
-//      for(auto & iso: bin.second._iso_bias_map){
-//         iso.second /= iso_2_bias_factor_map.at(iso.first);
-//      }
-//   }
+   for(auto & il: iso_2_len_map){
+#ifdef DEBUG
+            cout<<"isoform length for "<<il.first<<": "<<il.second<<endl;
+#endif
+   }
 
 //#ifdef DEBUG
 //   for(auto const & bin: exon_bin_map){
@@ -495,21 +497,21 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
       _u(count),
       _F(model)
 {
-//#ifdef DEBUG
-//   int nrow = _u.size();
-//   int ncol = _num_isoforms;
-//   ublas_vector obs_d (nrow);
-//   matrix F(nrow, ncol);
-//    for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
-//         for(size_t j= 0; j < ncol; ++j){
-//            F(i,j) = _F[i][j];
-//         }
-//    }
-//    for(size_t i = 0; i < nrow; ++i)
-//      obs_d(i) = _u[i];
-//    cout<<obs_d<<endl;
-//    cout<<F<<endl;
-//#endif
+#ifdef DEBUG
+   int nrow = _u.size();
+   int ncol = _num_isoforms;
+   ublas_vector obs_d (nrow);
+   matrix F(nrow, ncol);
+    for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+         for(size_t j= 0; j < ncol; ++j){
+            F(i,j) = _F[i][j];
+         }
+    }
+    for(size_t i = 0; i < nrow; ++i)
+      obs_d(i) = _u[i];
+    cout<<obs_d<<endl;
+    cout<<F<<endl;
+#endif
 }
 
 
@@ -518,12 +520,15 @@ bool EmSolver::run(){
    size_t ncol = _num_isoforms;
 
    ublas_vector obs_d (nrow);
-   ublas_vector next_theta(ncol,0.0);
-
-
    for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
 
+   matrix F_init(nrow, ncol);
+   for(size_t i =0; i < nrow; ++i)
+         for(size_t j= 0; j < ncol; ++j)
+            F_init(i,j) = _F[i][j];
+
+   ublas_vector next_theta(ncol,0.0);
    for(int it_num = 0; it_num < _max_iter_num; ++it_num){
       /*
        * E-step
@@ -548,18 +553,20 @@ bool EmSolver::run(){
       /*
        * M-step
        */
-      double m = 0.0;
+      //double normalized_count = 0.0;
       for(size_t j = 0; j< U.size2(); ++j){
-         matrix_col mc(U,j);
+         matrix_col U_col(U,j);
          one_vector one(nrow, 1);
-         next_theta[j] = boost::numeric::ublas::inner_prod(one, mc);
-         m += next_theta[j];
+         matrix_col F_init_col(F_init,j);
+         double denom = boost::numeric::ublas::inner_prod(one, F_init_col);
+         next_theta[j] = boost::numeric::ublas::inner_prod(one, U_col)/denom;
+         //normalized_count += next_theta[j];
       }
 
       /* Normalizing next_theta */
-      for(size_t j = 0; j< ncol; ++j){
-         next_theta[j] /= m;
-      }
+      //for(size_t j = 0; j< ncol; ++j){
+        // next_theta[j] /= normalized_count;
+      //}
 
       int num_changed = 0;
       for(size_t j=0; j<ncol; ++j){

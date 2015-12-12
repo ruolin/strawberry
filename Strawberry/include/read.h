@@ -121,11 +121,16 @@ private:
 
 class InsertSize{
 public:
+   double _total_reads;
+   vector<double> _emp_dist;
+   uint _start_offset;
+   uint _end_offset;
    double _mean;
    double _sd;
    InsertSize();
-   InsertSize(double mean, double sd);
-   double truncated_normal_pdf(uint insert_size) const;
+   InsertSize(const vector<int> frag_lens);
+   double emp_dist_pdf(uint insert_size) const;
+   //double truncated_normal_pdf(uint insert_size) const;
 };
 
 
@@ -248,5 +253,5 @@ public:
    float collapse_mass() const;
 };
 
-
+void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd);
 #endif /* STRAWB_READ_H_ */

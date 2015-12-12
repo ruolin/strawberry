@@ -82,7 +82,7 @@ public:
       map<set<uint>, ExonBin> & exon_bin_map,
       map<int, set<set<uint>>> &iso_2_bins_map);
 
-   void calcuate_bin_bias(const map<int, set<set<uint>>> &iso_2_bins_map,
+   void calcuate_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_map,
                           const map<int,int> &iso_2_len_map,
                           const int m,
                           map<set<uint>, ExonBin> & exon_bin_map);
@@ -111,7 +111,7 @@ class EmSolver{
    vector<vector<double>> _U; // hidden unobserved data matrix.
    int _max_iter_num = 10000;
    double _theta_limit = 1e-7;
-   double _theta_change_limit = 1e-4;
+   double _theta_change_limit = 1e-7;
 public:
    EmSolver( const int num_iso,
          const vector<int> &count,

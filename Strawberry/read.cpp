@@ -12,6 +12,15 @@
 #include <boost/math/distributions/normal.hpp>
 #include "read.h"
 
+void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd){
+   double sum = accumulate(vec.begin(), vec.end(), 0.0);
+   mean = sum / vec.size();
+   double sq_sum = inner_product(vec.begin(), vec.end(), vec.begin(), 0.0);
+   sd = std::sqrt(sq_sum / vec.size() - mean * mean);
+
+}
+
+
 ReadHit::ReadHit(
    ReadID readID,
    GenomicInterval iv,
@@ -141,17 +150,48 @@ ReadID ReadTable::get_id(const string& name)
 //}
 
 InsertSize::InsertSize():_mean(kInsertSizeMean), _sd(kInsertSizeSD){}
-InsertSize::InsertSize(double mean, double sd): _mean(mean), _sd(sd){}
-
-double InsertSize::truncated_normal_pdf(uint insert_size) const
+InsertSize::InsertSize(const vector<int> frag_lens)
 {
-   using boost::math::normal;
-   normal standard_normal;
-   double numerator = 1/_sd * pdf(standard_normal, (insert_size - _mean)/_sd);
-   double denominator = 1 - cdf(standard_normal, (0 - _mean)/_sd);
-   assert(denominator != 0);
-   return numerator/denominator;
+   _total_reads = frag_lens.size();
+   mean_and_sd_insert_size(frag_lens, _mean, _sd);
+   auto result = minmax_element(frag_lens.begin(), frag_lens.end());
+   if (verbose){
+      cout<<"Calculated averaged fragment length is: "<<_mean<<endl;
+      cout<<"Calculated fragment length sd is: "<<_sd<<endl;
+      cout<<"Min fragment length is: "<<*result.first<<endl;
+      cout<<"Max fragment length is: "<<*result.second<<endl;
+   }
+   _start_offset = *result.first;
+   _end_offset = *result.second;
+   _emp_dist.resize(_end_offset - _start_offset +1, 0);
+   for(size_t i = 0; i< frag_lens.size(); ++i){
+      _emp_dist[frag_lens[i]-_start_offset] ++ ;
+   }
+
+#ifdef DEBUG
+   //cout<<"number of fragments: "<<frag_lens.size()<<endl;
+   size_t n = accumulate(_emp_dist.begin(), _emp_dist.end(), 0);
+   assert(n == _total_reads);
+   //cout<<"empirical distribution len: "<<n<<endl;
+#endif
 }
+
+double InsertSize::emp_dist_pdf(uint insert_size) const
+{
+   if(insert_size < _start_offset || insert_size > _end_offset)
+      return 0.0;
+   return _emp_dist[insert_size - _start_offset] / _total_reads;
+}
+
+//double InsertSize::truncated_normal_pdf(uint insert_size) const
+//{
+//   using boost::math::normal;
+//   normal standard_normal;
+//   double numerator = 1/_sd * pdf(standard_normal, (insert_size - _mean)/_sd);
+//   double denominator = 1 - cdf(standard_normal, (0 - _mean)/_sd);
+//   assert(denominator != 0);
+//   return numerator/denominator;
+//}
 
 
 HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):

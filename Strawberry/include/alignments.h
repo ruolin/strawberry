@@ -86,6 +86,7 @@ class ClusterFactory{
    size_t _refmRNA_offset;
    bool _has_load_all_refs;
    string _current_chrom;
+   int _total_mapped_reads = 0;
    void compute_doc(const uint left,
                      const uint right,
                      const vector<Contig> & hits,
@@ -102,7 +103,7 @@ public:
       _has_load_all_refs(false),
       _hit_factory(move(hit_fac))
    {}
-
+   int total_mapped_reads() const;
    bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
    bool hasLoadRefmRNAs() const {
       return _ref_mRNAs.size() > 0;

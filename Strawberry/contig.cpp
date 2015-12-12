@@ -472,19 +472,19 @@ bool Contig::is_contained_in(const Contig & small, const Contig & large)
    return true;
 }
 
-int Contig::infer_inner_dist(const Contig & isoform, const Contig & hit){
-   int gap_len = 0;
-   for(const GenomicFeature &hit_gf: hit._genomic_feats){
-      if(hit_gf._match_op._code == Match_t::S_GAP){
-         for(const GenomicFeature &iso_gf: isoform._genomic_feats){
-            if(iso_gf._match_op._code == Match_t::S_MATCH){
-                  gap_len += GenomicFeature::overlap_len(hit_gf, iso_gf);
-            }
-         } // inner for loop
-      }
-   }
-   return gap_len;
-}
+//int Contig::infer_inner_dist(const Contig & isoform, const Contig & hit){
+//   int gap_len = 0;
+//   for(const GenomicFeature &hit_gf: hit._genomic_feats){
+//      if(hit_gf._match_op._code == Match_t::S_GAP){
+//         for(const GenomicFeature &iso_gf: isoform._genomic_feats){
+//            if(iso_gf._match_op._code == Match_t::S_MATCH){
+//                  gap_len += GenomicFeature::overlap_len(hit_gf, iso_gf);
+//            }
+//         } // inner for loop
+//      }
+//   }
+//   return gap_len;
+//}
 
 bool Contig::is_compatible(const Contig &read, const Contig &isoform)
 /*
