@@ -40,18 +40,17 @@ endif()
 # ############################
 
 #
-set(LEMON_INCLUDE lemon/include)
+
 set(BAM_INCLUDE /usr/local/include/bam)
-set(EIGEN_INCLUDE eigen)
 link_directories(/usr/local/lib)
 include_directories(include )
 add_library(strawlib common.cpp fasta.cpp contig.cpp read.cpp gff.cpp logger.cpp)
 add_library(estimate.o OBJECT estimate.cpp include/assembly.h)
-target_include_directories(estimate.o PRIVATE ${EIGEN_INCLUDE})
+target_include_directories(estimate.o PRIVATE)
 add_library(alignments.o OBJECT alignments.cpp include/alignments.h)
-target_include_directories(alignments.o PRIVATE ${LEMON_INCLUDE})
+target_include_directories(alignments.o PRIVATE)
 add_library(assembly.o OBJECT assembly.cpp include/assembly.h include/common.h)
-target_include_directories(assembly.o PRIVATE ${LEMON_INCLUDE})
+target_include_directories(assembly.o PRIVATE)
 
 add_executable(Strawberry Strawberry.cpp  $<TARGET_OBJECTS:alignments.o> $<TARGET_OBJECTS:assembly.o> $<TARGET_OBJECTS:estimate.o>) 
 target_link_libraries(Strawberry strawlib bam z pthread )

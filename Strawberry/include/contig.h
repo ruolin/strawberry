@@ -125,7 +125,7 @@ public:
    bool is_single_read() const;
    float mass() const;
    void mass(float m);
-   void print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const double abd, int gene_id, int tscp_id);
+   void print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const string abd, int gene_id, int tscp_id);
    SingleOrit_t single_read_orit() const;
 };
 

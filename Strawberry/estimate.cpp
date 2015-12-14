@@ -24,12 +24,7 @@
 
 // program and solution types
 
-typedef boost::numeric::ublas::matrix<double> matrix;
-typedef boost::numeric::ublas::vector<double> ublas_vector;
-typedef boost::numeric::ublas::zero_vector<double> zero_vector;
-typedef boost::numeric::ublas::matrix_row<matrix> matrix_row;
-typedef boost::numeric::ublas::matrix_column<matrix> matrix_col;
-typedef boost::numeric::ublas::scalar_vector<double> one_vector;
+
 
 uint generate_pair_end(const Contig& ct, const uint& start, int span,  SingleOrit_t orit){
 /*
@@ -153,18 +148,21 @@ int ExonBin::bin_len() const
    return bin_len;
 }
 
-double ExonBin::read_depth() const
-{
-   int bin_len = this->bin_len();
-   double bin_cov = 0;
-   for(auto const & kv:_iso_2_frag_lens){
-      for(auto const &frag: kv.second){
-         bin_cov += frag.first * frag.second;
-      }
-   }
-
-   return bin_cov/bin_len;
-}
+//double ExonBin::read_depth() const
+/*
+ * This function contains bugs.
+ */
+//{
+//   int bin_len = this->bin_len();
+//   double bin_cov = 0;
+//   for(auto const & kv:_iso_2_frag_lens){
+//      for(auto const &frag: kv.second){
+//         bin_cov += frag.first * frag.second;
+//      }
+//   }
+//
+//   return bin_cov/bin_len;
+//}
 
 
 void ExonBin::add_frag_len(const int iso, const int frag_len, const float mass)
@@ -342,15 +340,6 @@ void Estimation::assign_exon_bin(
 void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_bins_map,
           const map<set<uint>, ExonBin> & exon_bin_map)
 {
-   for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
-      double count = 0;
-      for(auto const &bin_coord: it->second){
-         count += exon_bin_map.at(bin_coord).read_depth();
-      }
-#ifdef DEBUG
-      cout<<"Raw read number for "<<it->first<<": "<<count<<endl;
-#endif
-   }
 
 }
 
@@ -397,21 +386,21 @@ void Estimation::calcuate_bin_weight( const map<int, set<set<uint>>> &iso_2_bins
 //#endif
 }
 
-void Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
+bool Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
                      const double mass,
                      vector<Isoform>& isoforms,
                      bool use_qp,
                      bool with_bias_correction)
 {
    size_t nrow = exon_bin_map.size();
-   size_t ncol = isoforms.size();
+   size_t niso = isoforms.size();
 
    vector<int> n (nrow);
-   vector<vector<double>> alpha (nrow, vector<double>(ncol));
+   vector<vector<double>> alpha (nrow, vector<double>(niso));
    unsigned i = 0;
    for(auto const& bin: exon_bin_map){
       n[i] = bin.second.read_count();
-      for(unsigned j = 0; j< ncol; ++j){
+      for(unsigned j = 0; j< niso; ++j){
          auto ret = bin.second._iso_bias_map.find(j+1);
          if (ret == bin.second._iso_bias_map.end())
             alpha[i][j] = 0;
@@ -420,8 +409,17 @@ void Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_ma
       } // //inner loop
       ++i;
    } // outer loop
-   EmSolver em(ncol, n, alpha);
-   em.run();
+   EmSolver em(niso, n, alpha);
+   bool success = em.run();
+   if(success){
+      for(int i=0; i< niso; ++i)
+         isoforms[i]._abundance = to_string(em._theta[i]);
+   }
+   else{
+      for(int i=0; i< niso; ++i)
+         isoforms[i]._abundance = "FAILED";
+   }
+   return success;
 
       /*
        * Now using EM algorithm
@@ -493,15 +491,34 @@ void Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_ma
 
 EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vector<double>> &model):
       _num_isoforms(num_iso),
-      _theta(num_iso, 1.0/num_iso),
-      _u(count),
-      _F(model)
+      _theta(num_iso, 1.0/num_iso)
+      //_u(count),
+      //_F(model)
 {
-#ifdef DEBUG
-   int nrow = _u.size();
+   int nrow = count.size();
    int ncol = _num_isoforms;
-   ublas_vector obs_d (nrow);
-   matrix F(nrow, ncol);
+   vector<size_t> erase_pos;
+   for(int i= 0; i< nrow; ++i){
+      bool remove = true;
+      for(int j=0; j < ncol; ++j){
+         if(model[i][j] > 1e-6) remove = false;
+      }
+      if(remove)
+         erase_pos.push_back(i);
+   }
+
+   for(int i=0; i<nrow; ++i){
+      if(binary_search(erase_pos.begin(), erase_pos.end(), i)) continue;
+      _u.push_back(count[i]);
+      _F.push_back(model[i]);
+   }
+#ifdef DEBUG
+   nrow = _u.size();
+   Eigen::VectorXi obs_d(nrow);
+   //ublas_vector obs_d (nrow);
+
+   Eigen::MatrixXd F(nrow, ncol);
+   //matrix F(nrow, ncol);
     for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
          for(size_t j= 0; j < ncol; ++j){
             F(i,j) = _F[i][j];
@@ -509,33 +526,50 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
     }
     for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
+    cout<<"------n_i----------"<<endl;
     cout<<obs_d<<endl;
+    cout<<"------Bias---------"<<endl;
     cout<<F<<endl;
+    cout<<"-------------------"<<endl;
 #endif
 }
 
 
 bool EmSolver::run(){
+   if (_u.empty()) return false;
+
    size_t nrow = _u.size();
    size_t ncol = _num_isoforms;
 
-   ublas_vector obs_d (nrow);
+   //ublas_vector obs_d (nrow);
+   Eigen::VectorXi obs_d(nrow);
    for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
 
-   matrix F_init(nrow, ncol);
+   //matrix F_init(nrow, ncol);
+   Eigen::MatrixXd F_init(nrow,ncol);
    for(size_t i =0; i < nrow; ++i)
          for(size_t j= 0; j < ncol; ++j)
             F_init(i,j) = _F[i][j];
 
-   ublas_vector next_theta(ncol,0.0);
+   //ublas_vector next_theta(ncol,0.0);
+   Eigen::VectorXd next_theta(ncol);
+   next_theta.setZero(ncol);
+
    for(int it_num = 0; it_num < _max_iter_num; ++it_num){
       /*
        * E-step
        * */
-      matrix F(nrow, ncol, 0.0);
-      ublas_vector F_row_sum(nrow, 0.0);
-      matrix U (nrow, ncol, 0.0);
+      //matrix F(nrow, ncol, 0.0);
+      //ublas_vector F_row_sum(nrow, 0.0);
+      //matrix U (nrow, ncol, 0.0);
+      Eigen::MatrixXd F(nrow, ncol);
+      F.setZero(nrow, ncol);
+      Eigen::VectorXd F_row_sum(nrow);
+      F_row_sum.setZero(nrow);
+      Eigen::MatrixXd U(nrow, ncol);
+      U.setZero(nrow, ncol);
+
       for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
          for(size_t j= 0; j < ncol; ++j){
             F(i,j) = _F[i][j] * _theta[j];
@@ -553,20 +587,22 @@ bool EmSolver::run(){
       /*
        * M-step
        */
-      //double normalized_count = 0.0;
-      for(size_t j = 0; j< U.size2(); ++j){
-         matrix_col U_col(U,j);
-         one_vector one(nrow, 1);
-         matrix_col F_init_col(F_init,j);
-         double denom = boost::numeric::ublas::inner_prod(one, F_init_col);
-         next_theta[j] = boost::numeric::ublas::inner_prod(one, U_col)/denom;
-         //normalized_count += next_theta[j];
+      double normalized_count = 0.0;
+      for(size_t j = 0; j< U.cols(); ++j){
+         //matrix_col U_col(U,j);
+         //one_vector one(nrow, 1);
+         //matrix_col F_init_col(F_init,j);
+
+         //double denom = boost::numeric::ublas::inner_prod(one, F_init_col);
+         //next_theta[j] = boost::numeric::ublas::inner_prod(one, U_col)/denom;
+         next_theta[j] = U.col(j).sum();
+         normalized_count += next_theta[j];
       }
 
       /* Normalizing next_theta */
-      //for(size_t j = 0; j< ncol; ++j){
-        // next_theta[j] /= normalized_count;
-      //}
+      for(size_t j = 0; j< ncol; ++j){
+         next_theta[j] /= normalized_count;
+      }
 
       int num_changed = 0;
       for(size_t j=0; j<ncol; ++j){
@@ -584,7 +620,7 @@ bool EmSolver::run(){
       }
    }
 
-
+   return true;
 }
 
 

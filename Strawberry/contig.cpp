@@ -540,7 +540,7 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
 
 
 
-void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const double abundance, int gene_id, int tscp_id){
+void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const string abundance, int gene_id, int tscp_id){
    const char* ref = ref_lookup.ref_name(_ref_id).c_str();
    char strand = 0;
    switch(_strand){
@@ -563,8 +563,7 @@ void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const double 
    char frac[6];
    Sitoa(gene_id, gene_str, 10);
    Sitoa(tscp_id,tscp_str, 10);
-   auto str =std::to_string(abundance);
-   strncpy(frac, str.c_str(), sizeof(frac));
+   strncpy(frac, abundance.c_str(), sizeof(frac));
    frac[sizeof(frac) - 1] = 0;
    strcat(locus, gene_str);
    strcat(tscp, gene_str);

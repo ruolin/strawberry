@@ -883,11 +883,11 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
          est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
          est.calcuate_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
          est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-         est.estimate_abundances(exon_bin_map, cluster.collapse_mass(), isoforms, true, true);
+         bool success = est.estimate_abundances(exon_bin_map, cluster.collapse_mass(), isoforms, true, true);
          for(auto & iso: isoforms){
             iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._abundance, iso._gene_id, iso._isoform_id);
          }
-         if(cluster.left() > 203000) exit(0);
+         if(cluster.left() > 450772) exit(0);
       }
    }// if cutoff > kMinDepth4Locus
 }

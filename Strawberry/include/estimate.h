@@ -10,14 +10,14 @@
 #include <contig.h>
 #include <read.h>
 
-class Isoform{
+struct Isoform{
 
 public:
    Contig _contig;
    int _gene_id;
    int _isoform_id;
    double _bais_factor;
-   double _abundance = 0.0;
+   string _abundance;
    //Isoform() = default;
    Isoform(Contig contig, int gene, int isoform);
 
@@ -90,7 +90,7 @@ public:
    void calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_bins_map,
           const map<set<uint>, ExonBin> & exon_bin_map);
 
-   void estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
+   bool estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
                      const double mass,
                      vector<Isoform>& isoforms,
                      bool use_qp,
@@ -104,15 +104,15 @@ uint generate_pair_end(const Contig& ct, const uint& start, int span,  SingleOri
 class EmSolver{
    const double TOLERANCE = std::numeric_limits<double>::denorm_min();
    int _num_isoforms;
-   vector<double> _theta;
    vector<double> _theta_after_zero;
-   const vector<int> &_u; // observed data vector
-   const vector<vector<double>> &_F; // hidden model matrix
+   vector<int> _u; // observed data vector
+   vector<vector<double>> _F; // hidden model matrix
    vector<vector<double>> _U; // hidden unobserved data matrix.
-   int _max_iter_num = 10000;
+   int _max_iter_num = 1000;
    double _theta_limit = 1e-7;
    double _theta_change_limit = 1e-7;
 public:
+   vector<double> _theta;
    EmSolver( const int num_iso,
          const vector<int> &count,
          const vector<vector<double>> &model);
