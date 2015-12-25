@@ -9,7 +9,10 @@
 #include "common.h"
 #include "contig.h"
 #include <iterator>
+#ifdef DEBUG
 #include <iostream>
+#endif
+#include <climits>
 //#include <lemon/smart_graph.h>
 #include <lemon/lgf_reader.h>
 #include <lemon/lgf_writer.h>
@@ -133,7 +136,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    sort(single_bars.begin(), single_bars.end(),comp_lt_first);
    auto newend = unique(single_bars.begin(), single_bars.end(),
          [](const pair<uint, bool> &lhs, const pair<uint, bool> &rhs){
-         return lhs.first == rhs.first;}
+         return (lhs.first == rhs.first && lhs.second == rhs.second) ;}
          );
    single_bars.erase(newend, single_bars.end());
 
@@ -210,7 +213,6 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    auto e = exon_boundaries.begin();
    size_t s = 0;
    while(e != exon_boundaries.end() && s < single_bars.size()){
-
       uint bar = single_bars[s].first;
       bool left = single_bars[s].second;
       if(bar < e->first){
@@ -282,16 +284,18 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
          }
       }
       else{
-         if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
+         //if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
             bool no_intron_on_left = false;
             bool no_intron_on_right = false;
             auto l = lower_bound(left_coords.begin(), left_coords.end(), pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
             if(l != left_coords.end() && l->first == e_boundaries[ex].second+1){
                uint right = paired_bars[l->second].second;
+
                if(!binary_search(e_boundaries.begin(), e_boundaries.end(), pair<uint, uint>(right+1,0), comp_lt_first))
                   no_intron_on_right = true;
 
             }
+            //else if(e_boundaries[ex].second+1 == e_boundaries[ex+1].first);
             else{
                no_intron_on_right = true;
             }
@@ -302,13 +306,15 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
                if(!binary_search(e_boundaries.begin(), e_boundaries.end(), pair<uint, uint>(0,left-1), comp_lt_second))
                   no_intron_on_left = true;
             }
+            //else if(e_boundaries[ex].first-1 == e_boundaries[ex-1].second);
             else{
                no_intron_on_left = true;
             }
             if(no_intron_on_left && no_intron_on_right){
+               //cout<<e_boundaries[ex].first<<"-"<<e_boundaries[ex].second<<endl;
                dropoff.push_back(ex);
             }
-         }
+         //}
       } // end of if-ifelse-else condition
 //      else{
 //
@@ -374,10 +380,11 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 
 
    for(auto i: exon_boundaries){
-      exons.push_back(GenomicFeature(Match_t::S_MATCH, i.first, i.second-i.first+1));
-      double sum = accumulate(exon_doc.begin() + i.first - left, exon_doc.begin() + i.second+1-left,0);
-      double avg_doc = sum/(i.second - i.first +1);
-      exons.back().avg_doc(avg_doc);
+      if(i.second - i.first +1 > 0)
+         exons.push_back(GenomicFeature(Match_t::S_MATCH, i.first, i.second-i.first+1));
+//      double sum = accumulate(exon_doc.begin() + i.first - left, exon_doc.begin() + i.second+1-left,0);
+//      double avg_doc = sum/(i.second - i.first +1);
+//      exons.back().avg_doc(avg_doc);
    }
    sort(exons.begin(), exons.end());
 }
@@ -687,6 +694,9 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    FlowNetwork.flowMap(flow);
    if(ret == NetworkSimplex<Graph>::INFEASIBLE || ret == NetworkSimplex<Graph>::UNBOUNDED){
 #ifdef DEBUG
+      for(auto e: exons){
+         cout<<e.left()<<"-"<<e.right()<<endl;
+      }
       digraphWriter(_g).                  // write g to the standard output
         arcMap("cost", cost_map).          // write 'cost' for for arcs
         arcMap("flow", min_flow_map).          // write 'flow' for for arcs

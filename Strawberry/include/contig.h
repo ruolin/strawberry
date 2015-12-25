@@ -52,6 +52,7 @@ public:
    MatchOp _match_op;
    double _avg_cov; // average coverage
    GenomicFeature(const Match_t& op, uint offset, int len);
+   int len() const;
    void left(uint left);
    uint left() const;
    void right(uint right);
@@ -99,7 +100,7 @@ class Contig{
 public:
    std::vector<GenomicFeature> _genomic_feats;
    bool _is_ref;
-   //Contig() = default;
+   Contig() = default;
    Contig(const PairedHit& ph);
    Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, double mass,bool is_ref);
    //Contig(const ExonBin& eb);
@@ -125,7 +126,12 @@ public:
    bool is_single_read() const;
    float mass() const;
    void mass(float m);
-   void print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const string abd, int gene_id, int tscp_id);
+   void print2gtf(FILE *pFile,
+                  const RefSeqTable &ref_lookup,
+                  const string fpkm,
+                  const string tpm,
+                  int gene_id, int tscp_id);
+
    SingleOrit_t single_read_orit() const;
 };
 

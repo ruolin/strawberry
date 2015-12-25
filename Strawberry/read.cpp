@@ -9,7 +9,6 @@
 #include<assert.h>
 #include <stdexcept>
 #include <string.h>
-#include <boost/math/distributions/normal.hpp>
 #include "read.h"
 
 void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd){

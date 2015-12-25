@@ -20,16 +20,6 @@ if ( COMMAND cmake_policy )
 
 endif()
 
-# Boost and its components
-find_package( Boost REQUIRED )
-
-if ( NOT Boost_FOUND )
-
-  message(STATUS "This project requires the Boost library, and will not be compiled.")
-
-  return()  
-
-endif()
 
 # include for local directory
 

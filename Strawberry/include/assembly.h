@@ -9,14 +9,7 @@
 #define ASSEMBLY_H_
 #include<vector>
 #include <lemon/list_graph.h>
-#include <boost/graph/adjacency_list.hpp>
-#include <boost/graph/graph_traits.hpp>
-#include<boost/version.hpp>
-#if (BOOST_VERSION < 103800)
-#include <boost/vector_property_map.hpp>
-#else
-#include<boost/property_map/vector_property_map.hpp>
-#endif
+#include<map>
 
 //namespace lemon{
 //   class ListDigraph;

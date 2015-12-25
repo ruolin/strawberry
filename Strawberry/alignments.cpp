@@ -8,8 +8,6 @@
 #include <algorithm>
 #include <iterator>
 #include <random>
-#include <boost/math/distributions/binomial.hpp>
-#include <boost/math/distributions/normal.hpp>
 #include <math.h>
 #ifdef DEBUG
    #include <iostream>
@@ -782,6 +780,11 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
 
 
 void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool calculateFD){
+   /*
+    * Isoform id is integer from 1. The index
+    * for each isoform in vector<Isoform> is id+1.
+    * */
+
    cluster.clearOpenMates();
    cluster.collapseHits();
    double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
@@ -875,19 +878,21 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
             vector<GenomicFeature> merged_feats;
             GenomicFeature::mergeFeatures(feats, merged_feats);
             Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
-            Isoform iso(assembled_transcript, cluster._id, tscp_id);
+            Isoform iso(assembled_transcript, cluster._id, tscp_id, feats);
             iso_2_len_map[tscp_id] = assembled_transcript.exonic_length();
             isoforms.push_back(iso);
          }
          Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs);
          est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
-         est.calcuate_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
-         est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-         bool success = est.estimate_abundances(exon_bin_map, cluster.collapse_mass(), isoforms, true, true);
+         //est.empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
+         est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
+         //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
+         bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
+                                                iso_2_len_map, isoforms, false);
          for(auto & iso: isoforms){
-            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._abundance, iso._gene_id, iso._isoform_id);
+            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM, iso._TPM, iso._gene_id, iso._isoform_id);
          }
-         if(cluster.left() > 450772) exit(0);
+         //if(cluster.left() > 9002656) exit(0);
       }
    }// if cutoff > kMinDepth4Locus
 }
@@ -1064,8 +1069,6 @@ void ClusterFactory::filter_intron(uint cluster_left,
       vector<float> &exon_doc, IntronMap& intron_counter)
 {
    // bad_intron_pos for indexes for intron to be drop off in intron_counter
-   using boost::math::binomial;
-   using boost::math::normal;
    vector<float> intron_doc(exon_doc.size(),0.0);
 
 //Filtering one: by overlapping with better intron
@@ -1102,8 +1105,8 @@ void ClusterFactory::filter_intron(uint cluster_left,
 //And at least two non small overhang supporting per intron
 
    for(auto i= intron_counter.cbegin(); i !=intron_counter.cend();){
-      float total_read = i->second.total_junc_reads;
-      float small_read = i->second.small_span_read;
+      double total_read = i->second.total_junc_reads;
+      double small_read = i->second.small_span_read;
 //#ifdef DEBUG
 //      cout<<small_read<<": ";
 //      cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
@@ -1117,26 +1120,20 @@ void ClusterFactory::filter_intron(uint cluster_left,
       for(size_t k = i->first.first; k < i->first.second+1; ++k){
          intron_doc[k-cluster_left] += total_read;
       }
-
-      if(small_read < 1.0){
+      if(small_read == total_read){
+         i = intron_counter.erase(i);
+         continue;
+      }
+      if(small_read < 1){
          ++i;
          continue;
       }
       double success = 2 * kSmallOverHangProp;
       double prob_not_lt_observed = 1.0;
-      if(total_read < 100){
-         binomial small_anchor_dist((int)total_read, success);
-          prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-1);
-
-      }
-      else{
-         double normal_mean = total_read * success;
-         double normal_sd = sqrt(total_read * success*(1-success));
-         normal small_anchor_dist(normal_mean, normal_sd);
-         prob_not_lt_observed = 1.0 - cdf(small_anchor_dist, small_read-0.5);
-         //cout<<"total: "<<total_read<<" small: "<<small_read<<" prob: "<<prob_not_lt_observed<<endl;
-
-      }
+      double normal_mean = total_read * success;
+      double normal_sd = sqrt(total_read * success*(1-success));
+      double x = (small_read-0.5 - normal_mean)/normal_sd;
+      prob_not_lt_observed = 1.0 - standard_normal_cdf(x);
       if(prob_not_lt_observed < kBinomialOverHangAlpha) {
          LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
                " has ", small_read, " small overhang read vs ", total_read, " total read.");

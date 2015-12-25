@@ -10,16 +10,18 @@
 #include <contig.h>
 #include <read.h>
 
-struct Isoform{
+class Isoform{
 
 public:
    Contig _contig;
+   vector<GenomicFeature> _exon_segs;
    int _gene_id;
    int _isoform_id;
    double _bais_factor;
-   string _abundance;
+   string _TPM;
+   string _FPKM;
    //Isoform() = default;
-   Isoform(Contig contig, int gene, int isoform);
+   Isoform(Contig contig, int gene, int isoform, vector<GenomicFeature> feats);
 
 };
 
@@ -38,8 +40,8 @@ private:
 public:
    set<const Contig*> _frags;
    void add_read_mass(float mass);
-   /* trainscript_id -> pair<frag_len, read_mass>  */
-   map<int, double> _iso_bias_map;
+
+   map<int, double> _bin_weight_map; // iso -> bin_weight
    map<int, vector<pair<int,float>>> _iso_2_frag_lens;
    ExonBin(set<uint> coordinates);
    uint left_most() const;
@@ -48,8 +50,18 @@ public:
    void add_frag_len(const int iso, const int frag_len, const float mass);
    double read_depth() const;
    int bin_len() const;
+   vector<uint> bin_under_iso(const Isoform& iso,
+         vector<pair<uint, uint>> & exon_coords) const;
+
+   int effective_len(const vector<uint> & exons,
+         const vector<uint>& implicit_idx,
+         const int fl,
+         const int rl
+         ) const;
    bool operator==(const ExonBin& rhs) const;
    bool add_frag(const Contig* fg);
+   int num_exons() const;
+   int left_exon_len() const;
 };
 
 
@@ -70,9 +82,8 @@ class Estimation {
 public:
    Estimation(shared_ptr<InsertSize> insert_size, int read_len);
    void test();
-   void overlap_exons(const vector<GenomicFeature> exons,
-                     const uint left,
-                     const uint right,
+   void overlap_exons(const vector<GenomicFeature>& exons,
+                     const Contig& read,
                      set<uint> &coords);
 
    void assign_exon_bin(
@@ -82,7 +93,13 @@ public:
       map<set<uint>, ExonBin> & exon_bin_map,
       map<int, set<set<uint>>> &iso_2_bins_map);
 
-   void calcuate_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_map,
+   void theory_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_map,
+                          const map<int,int> &iso_2_len_map,
+                          const vector<Isoform>& isoforms,
+                          map<set<uint>, ExonBin> & exon_bin_map
+                          );
+
+   void empirical_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_map,
                           const map<int,int> &iso_2_len_map,
                           const int m,
                           map<set<uint>, ExonBin> & exon_bin_map);
@@ -92,13 +109,13 @@ public:
 
    bool estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
                      const double mass,
+                     map<int, int>& iso_2_len_map,
                      vector<Isoform>& isoforms,
-                     bool use_qp,
                      bool with_bias_correction = true);
 };
 
 
-uint generate_pair_end(const Contig& ct, const uint& start, int span,  SingleOrit_t orit);
+
 
 
 class EmSolver{
@@ -119,5 +136,8 @@ public:
    bool run();
 };
 
+int gap_ef(const int l_left, const int l_right, const int l_int, const int rl, const int gap);
+int no_gap_ef(const int l_left, const int l_right, const int l_int, const int fl);
+uint generate_pair_end(const Contig& ct, const Contig& s, int span,  SingleOrit_t orit, Contig & mp);
 
 #endif /* QP_H_ */

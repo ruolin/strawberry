@@ -12,11 +12,7 @@
 #include <iostream>
 #include <cassert>
 #include <iterator>
-#include <boost/random.hpp>
-#include <boost/random/normal_distribution.hpp>
-#include <boost/numeric/ublas/matrix.hpp>
-#include <boost/numeric/ublas/matrix_proxy.hpp>
-#include <boost/numeric/ublas/io.hpp>
+#include <random>
 #include <Eigen/Dense>
 #include <stdexcept>
 #include "contig.h"
@@ -26,45 +22,127 @@
 
 
 
-uint generate_pair_end(const Contig& ct, const uint& start, int span,  SingleOrit_t orit){
+uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_2_extend,  SingleOrit_t orit, Contig & inferred_mp){
 /*
- * Given a singleton pair, its position 1bp before gap and orientation
- * infer the farthermost position of the other end.
+ * Given one end of a read pair, its orientation, simulated inner distance and its possible transcript origin
+ * Genearte a simulated pair-end read as Contig inferred_mp
+ *
+ * Find the exon that the read inner part hit and extend the read from that position to the end of the exon
+ * The extended distance is calculated as the total distance need_to_extend.
+ * If still_need is negative, roll back. Stop till still_need is 0.
+ *
+ *       isoform:                      |@@@@@@@....@@@@@@@@|
+ *       raw read, need to extend 4bp     @@@@
+ * =====================================================================
+ *    1. extend 1, still_need 3           @@@@@
+ *    2. extend 8, still_need -5          @@@@@....@@@@@@@@
+ *    3. extend -5, still_need 0          @@@@@....@@@
  */
    vector<GenomicFeature> exons;
+   inferred_mp = orig_read;
+   inferred_mp.mass(orig_read.mass()/2.0);
+
    for(auto gf:ct._genomic_feats){
       if(gf._match_op._code == Match_t::S_MATCH){
          exons.push_back(gf);
       }
    }
+
    if(orit == SingleOrit_t::Forward){
+      uint start = inferred_mp.right();
+
       auto it = lower_bound(exons.cbegin(), exons.cend(), start,
          [](const GenomicFeature &gf, uint s){return gf.right() < s;});
-      //cout<<start<<" c "<< exons.cbegin()->left()<<endl;
       assert(it != exons.cend());
-      span = span + start  - it->right();
-      while(span >=0 && ++it != exons.cend()){
-         span = span + it->left() - it->right();
+      dist_need_2_extend = dist_need_2_extend + start  - it->right();
+      while(dist_need_2_extend >0 && ++it != exons.cend()){
+         if(inferred_mp._genomic_feats.back()._match_op._code == Match_t::S_INTRON){
+             GenomicFeature gf(Match_t::S_MATCH, start, (it-1)->right() -start +1);
+             inferred_mp._genomic_feats.push_back(gf);
+         }
+         else{
+            inferred_mp._genomic_feats.back().right( (it-1)->right() );
+         }
+         GenomicFeature gf(Match_t::S_INTRON, (it-1)->right()+1, it->left() - 1 - (it-1)->right());
+         inferred_mp._genomic_feats.push_back(gf);
+         start = it->left();
+         dist_need_2_extend = dist_need_2_extend + start - it->right();
       }
-      if(it == exons.cend())
-         return exons.crbegin()->right();
-      return span + it->right();
+      if(it == exons.cend() && dist_need_2_extend >0)
+         return 0;
+
+      if(inferred_mp._genomic_feats.back()._match_op._code == Match_t::S_INTRON){
+         GenomicFeature gf(Match_t::S_MATCH, it->left(), it->right() + dist_need_2_extend - it->left() +1);
+         inferred_mp._genomic_feats.push_back(gf);
+      }
+      else{
+         inferred_mp._genomic_feats.back().right(dist_need_2_extend + it->right());
+      }
+
+      return dist_need_2_extend + it->right();
    }
 
 
    if(orit == SingleOrit_t::Reverse){
+      uint start = inferred_mp.left();
       auto it = lower_bound(exons.crbegin(), exons.crend(), start,
             [](const GenomicFeature &gf, uint s){return gf.left() > s;});
       assert(it != exons.crend());
-      span = span - (start - it->left());
-      while(span >= 0 && ++it != exons.crend()){
-         span = span - (it->right() - it->left());
+      dist_need_2_extend = dist_need_2_extend - start + it->left();
+      while(dist_need_2_extend > 0 && ++it != exons.crend()){
+         if(inferred_mp._genomic_feats.front()._match_op._code == Match_t::S_INTRON){
+            GenomicFeature gf(Match_t::S_MATCH, (it-1)->left(), start - (it-1)->left() +1);
+            inferred_mp._genomic_feats.insert(inferred_mp._genomic_feats.begin(), gf);
+         }
+         else{
+            inferred_mp._genomic_feats.front().left( (it-1)->left() );
+         }
+         GenomicFeature gf(Match_t::S_INTRON, it->right()+1, (it-1)->left() -1 - it->right());
+         inferred_mp._genomic_feats.insert(inferred_mp._genomic_feats.begin(), gf);
+         start = it->right();
+         dist_need_2_extend = dist_need_2_extend - start + it->left();
       }
-      if(it == exons.crend())
-         return exons.cbegin()->left();
-      return it->left() - span;
+      if(it == exons.crend() && dist_need_2_extend > 0)
+         return 0;
+
+      if(inferred_mp._genomic_feats.front()._match_op._code == Match_t::S_INTRON){
+         GenomicFeature gf(Match_t::S_MATCH, it->left()-dist_need_2_extend, it->right() - it->left() + dist_need_2_extend +1);
+         inferred_mp._genomic_feats.insert(inferred_mp._genomic_feats.begin(), gf);
+      }
+      else{
+         inferred_mp._genomic_feats.front().left(it->left() - dist_need_2_extend);
+      }
+      return it->left() - dist_need_2_extend;
    }
    return 0;
+}
+
+
+int no_gap_ef(const int l_left, const int l_right, const int l_int, const int fl)
+/*
+ * Effective length of a fragment hitting both ends but
+ * do not consider whether it hits the inner segments.
+ */
+{
+   if(fl < l_int + 2) return 0;
+   if(fl > l_left + l_right + l_int) return 0;
+   int mid = fl - l_int -1;
+   return min(l_left, mid) + min(l_right, mid) - mid;
+}
+
+int gap_ef(const int l_left, const int l_right, const int l_int, const int rl, const int gap)
+/*
+ * Effective length of a fragment hitting both ends but
+ * CANNOT hit any inner segmetns!
+ * This time we need to consider the read gap between two ends.
+ */
+
+{
+   if(2*rl+gap < l_int +2) return 0;
+   if(2*rl+gap > l_left + l_right + l_int) return 0;
+   int start = max(rl, l_left + l_int - gap -1);
+   int end = min(l_left, l_left+l_right+l_int - gap - rl);
+   return ( max(0, end-start));
 }
 
 
@@ -133,6 +211,13 @@ bool ExonBin::add_frag(const Contig* fg)
    return true;
 }
 
+int ExonBin::num_exons() const
+{
+   int reminder = _coords.size() %2;
+   assert(reminder == 0);
+   return _coords.size()/2;
+}
+
 float ExonBin::read_count() const
 {
    return _frags.size();
@@ -143,11 +228,178 @@ int ExonBin::bin_len() const
    int bin_len = 0;
    for(auto c = _coords.cbegin(); c != _coords.cend(); ++c){
       uint h = *(c++);
+      assert(c != _coords.cend());
       bin_len += *c - h +1;
+
    }
    return bin_len;
 }
 
+vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
+         vector<pair<uint, uint>> & exon_coords) const
+/*
+ * NOTE: The number of segments of a bin might be less than the number of
+ * segments under its compatible isoform. This is because the fragment gap.
+ *
+ * Return two things.
+ * First, the implicit whole exon segments under a isoform
+ * Second, the idx of the exon segments that are implicit.
+ */
+{
+   vector<uint> idx;
+   const vector<GenomicFeature> & exons = iso._exon_segs;
+   vector<uint> start_pos(exons.size());
+   for(uint i=0; i<exons.size(); ++i){
+      start_pos[i] = exons[i].left();
+   }
+   vector<uint>::const_iterator low = lower_bound(start_pos.cbegin(), start_pos.cend(), this->left_most());
+
+   assert(low != start_pos.cend());
+   vector<uint>::const_iterator up  = lower_bound(start_pos.cbegin(), start_pos.cend(), *(++_coords.crbegin()));
+   assert(up  != start_pos.cend());
+   for(vector<uint>::const_iterator it = low; it != up; ++it){
+      const GenomicFeature & cur_exon = exons[distance(start_pos.cbegin(),it)];
+      exon_coords.push_back( pair<uint,uint>( cur_exon.left(), cur_exon.right()));
+   }
+   const GenomicFeature & cur_exon = exons[distance(start_pos.cbegin(),up)];
+   exon_coords.push_back(  pair<uint,uint>( cur_exon.left(), cur_exon.right()));
+
+   auto c = _coords.cbegin();
+   ++c;
+   ++c;
+   uint i = 1;
+
+   while(i< exon_coords.size()-1){
+      if(exon_coords[i].first < *c){
+         idx.push_back(i);
+         ++i;
+      }
+      else if(exon_coords[i].first == *c){
+         ++i;
+         ++c;
+         ++c;
+      }
+      else{
+
+//         cout<<"false"<<endl;
+//         for(auto e: exons)
+//            cout<<e.left()<<endl;
+//         cout<<*c<<endl;
+         assert(false);
+      }
+   }
+   return idx;
+}
+
+int ExonBin::left_exon_len() const
+{
+   auto t = _coords.cbegin();
+   auto s = t++;
+
+   return *t - *s + 1;
+}
+
+
+
+
+
+
+int ExonBin::effective_len(const vector<uint> & seg_lens,
+         const vector<uint>& implicit_idx,
+         const int fl,
+         const int rl
+         ) const
+{
+
+   int gap = fl - 2*rl;
+
+   if(seg_lens.size() == 1){ // single exon
+      return seg_lens[0] - fl + 1;
+   }
+   else if(seg_lens.size() == 2){ //double seg_lens
+      return no_gap_ef(seg_lens[0], seg_lens[1], 0, fl);
+   }
+
+
+   else if(seg_lens.size() == 3){ // triple seg_lens
+      if(implicit_idx.size() == 1){
+         return gap_ef(seg_lens[0], seg_lens[2], seg_lens[1], rl, gap);
+      }
+
+      else if(implicit_idx.size() == 0){
+         return ( no_gap_ef(seg_lens[0], seg_lens[2], seg_lens[1], fl) - gap_ef(seg_lens[0], seg_lens[2], seg_lens[1], rl, gap));
+      }
+
+      else{
+         assert(false);
+      }
+   }
+   else if(seg_lens.size() == 4){ // quadruple seg_lens
+      int hit14 = gap_ef(seg_lens[0], seg_lens[3], seg_lens[2] + seg_lens[3], rl, gap);
+      int hit24 = gap_ef(seg_lens[3], seg_lens[1], seg_lens[2], rl ,gap);
+      int hit124 = gap_ef(seg_lens[0]+seg_lens[1], seg_lens[3], seg_lens[2], rl, gap);
+      int hit13 = gap_ef(seg_lens[0], seg_lens[2], seg_lens[1], rl, gap);
+      int hit134 = gap_ef(seg_lens[0], seg_lens[2]+seg_lens[3], seg_lens[1], rl, gap);
+
+      if(implicit_idx.size() == 0){
+         int hit_all_124 = hit124 - hit14 - hit24;
+         int hit_all_134 = hit134 - hit14 - hit13;
+         int total = no_gap_ef(seg_lens[0], seg_lens[1]+seg_lens[2], seg_lens[3], fl);
+         return (total - hit_all_124 - hit_all_134 - hit14);
+      }
+      else if(implicit_idx.size() == 2){
+         return hit14;
+      }
+      else{
+         if(implicit_idx[0] == 1){
+            int hit_all_134 = hit134 - hit14 - hit13;
+            return hit_all_134;
+         }
+         else{
+            int hit_all_124 = hit124 - hit14 - hit24;
+            return hit_all_124;
+         }
+      }
+   }
+   else{ // more than quadruple seg_lens
+      uint num_inners = seg_lens.size() - 2;
+      uint num_pos = 0;
+      uint target = pow(2.0, seg_lens.size()) -1;
+      for(uint idx : implicit_idx){
+         target &= ~(1u << idx);
+      }
+      for( int i = 1; i != seg_lens[0]+1; ++i){
+         uint hit = 1;
+         int bp_last = fl - i - accumulate(seg_lens.begin()+1, seg_lens.end()-1,0);
+         if(bp_last > *seg_lens.rbegin()) continue;
+         if(bp_last < 0) assert(false);
+         if(bp_last == 0) break;
+
+         hit |= (1u << (seg_lens.size() -1));//
+         //right-end cover
+         uint last_rest_bp = rl - bp_last;
+         uint j = num_inners;
+         while(last_rest_bp > 0 && j > 0){
+            hit |= (1u << j);
+            last_rest_bp = last_rest_bp - seg_lens[j];
+            j = j-1;
+         }
+
+         //left-end cover
+         uint first_rest_bp = rl - i;
+         j = 1;
+         while(first_rest_bp > 0 && j <= num_inners){
+            hit |= (1u << j);
+            first_rest_bp = first_rest_bp - seg_lens[j];
+            j = j+1;
+         }
+
+         if(hit == target) num_pos++;
+      }
+      return num_pos;
+   }
+   return 0;
+}
 //double ExonBin::read_depth() const
 /*
  * This function contains bugs.
@@ -179,9 +431,14 @@ void ExonBin::add_frag_len(const int iso, const int frag_len, const float mass)
 }
 
 
-Isoform::Isoform(Contig contig, int gene, int iso_id):
+Isoform::Isoform(Contig contig, int gene, int iso_id, vector<GenomicFeature> feats):
       _contig(contig), _gene_id(gene), _isoform_id(iso_id)
 {
+   for(uint i = 0; i< feats.size(); ++i){
+      if(feats[i]._match_op._code == Match_t::S_MATCH){
+         _exon_segs.push_back(feats[i]);
+      }
+   }
    _bais_factor = 0.0;
 }
 
@@ -220,17 +477,22 @@ void Estimation::set_maps(
 }
 
 
-void Estimation::overlap_exons(const vector<GenomicFeature> exons,
-                     const uint left,
-                     const uint right,
+void Estimation::overlap_exons(const vector<GenomicFeature>& exons,
+                     const Contig& read,
                      set<uint> &coords)
 {
    for(auto const& gfeat : exons){
-         if (GenomicFeature::overlap_in_genome(gfeat, left, right)){
+      if (gfeat._match_op._code != Match_t::S_MATCH) continue;
+
+      for(auto const &read_f: read._genomic_feats){
+         if (read_f._match_op._code != Match_t::S_MATCH) continue;
+
+         if (GenomicFeature::overlaps(read_f, gfeat)){
             auto ret_l = coords.insert(gfeat.left());
             auto ret_r = coords.insert(gfeat.right());
-            assert(ret_l.second && ret_r.second);
+            //assert(ret_l.second && ret_r.second);
          }
+      }
    }
 }
 
@@ -251,12 +513,13 @@ void Estimation::assign_exon_bin(
       map<set<uint>, pair<set<int>, int>> frag_mult_exonbin;
       double sr_fg_len = 0.0;
       if(mp->is_single_read() && infer_the_other_end){
-         boost::mt19937 rng;
+         random_device rd;
+         mt19937 gen(rd());
          double mean = _insert_size_dist->_mean;
-         boost::normal_distribution<> nd(mean, _insert_size_dist->_sd);
-         boost::variate_generator<boost::mt19937&, boost::normal_distribution<>> normal_rng(rng,nd);
+         double sd = _insert_size_dist->_sd;
+         normal_distribution<> nd(mean, sd);
 
-         while( (sr_fg_len = normal_rng()) <= 0){}
+         while( (sr_fg_len = nd(gen)) <= 0){}
       }
 
       for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
@@ -267,73 +530,69 @@ void Estimation::assign_exon_bin(
             /*For singleton, we random generate the other end */
             if(mp->is_single_read()){
                if(infer_the_other_end){
+                  Contig new_read;
                   if(mp->single_read_orit() == SingleOrit_t::Forward){
-                     uint other_end = generate_pair_end(iso->_contig, mp->right(), (int)sr_fg_len - _read_len, SingleOrit_t::Forward);
-      //#ifdef DEBUG
-      //                cout<<"Forward: "<<mp->left()<<":"<<other_end<<endl;
-      //#endif
-                     overlap_exons(exon_segs, mp->left(), other_end, coords);
+                     uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Forward, new_read);
+                     if(other_end == 0) continue;
+                     overlap_exons(exon_segs, new_read, coords);
+//#ifdef DEBUG
+//   cout<<"Forward: "<<new_read.left()<<":"<<other_end<<endl;
+//   cout<<"Forward: "<<new_read.right()<<endl;
+//   cout<<"iso "<<iso->_isoform_id<<endl;
+//   cout<<"coords";
+//   for(auto const& c : coords)
+//      cout<<" "<<c;
+//   cout<<endl;
+//#endif
                   }
                   else if (mp->single_read_orit() == SingleOrit_t::Reverse) {
-                     uint other_end = generate_pair_end(iso->_contig, mp->left(), (int)sr_fg_len - _read_len, SingleOrit_t::Reverse);
-      //#ifdef DEBUG
-      //                  cout<<"Reverse: "<<other_end<<":"<<mp->right()<<endl;
-      //#endif
-                     overlap_exons(exon_segs, other_end, mp->right(), coords);
+
+                     uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Reverse, new_read);
+                     if(other_end == 0) continue;
+                     assert(coords.empty());
+                     overlap_exons(exon_segs, new_read, coords);
+//#ifdef DEBUG
+//   cout<<"raw read right "<<mp->right()<<endl;
+//   cout<<"Reverse: "<<other_end<<":"<<new_read.right()<<endl;
+//   for(auto gf: new_read._genomic_feats){
+//      cout<<gf._match_op._code<<":"<<gf.left()<<"-"<<gf.right()<<endl;
+//   }
+//   cout<<"Reverse: "<<new_read.left()<<endl;
+//   cout<<"iso "<<iso->_isoform_id<<endl;
+//   cout<<"coords";
+//   for(auto const& c : coords)
+//      cout<<" "<<c;
+//   cout<<endl;
+//#endif
+
                   }
-                  auto ret = frag_mult_exonbin.find(coords);
-                  if(ret == frag_mult_exonbin.end()){
-                     frag_mult_exonbin.emplace (coords, pair<set<int>,int>({iso->_isoform_id}, sr_fg_len));
-                  }
-                  else{
-                     ret->second.first.insert(iso->_isoform_id);
-                  }
+                  frag_len = Contig::exonic_overlaps_len(iso->_contig, new_read.left(), new_read.right());
+                  set_maps(iso->_isoform_id, frag_len, new_read.mass(), &new_read, coords, exon_bin_map , iso_2_bins_map);
                } // end if infer the other
                else{
-                  overlap_exons(exon_segs, mp->left(), mp->right(), coords);
+                  overlap_exons(exon_segs, *mp, coords);
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                   set_maps(iso->_isoform_id, frag_len, mp->mass(), &(*mp), coords, exon_bin_map , iso_2_bins_map);
                }
             } // and and single end
 
             else{
-               set<uint> l;
-               overlap_exons(exon_segs,mp->left(), mp->gap_left()-1, l);
-               for(auto i: l)
-                  coords.insert(i);
-               set<uint> r;
-               overlap_exons(exon_segs, mp->gap_right()+1, mp->right(), r);
-               for(auto i: r)
-                  coords.insert(i);
+               overlap_exons(exon_segs,*mp, coords);
                frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                set_maps(iso->_isoform_id, frag_len, mp->mass(), &(*mp), coords, exon_bin_map , iso_2_bins_map);
             }
+
             //assert(!coords.empty());
 //#ifdef DEBUG
+//            cout<<"iso "<<iso->_isoform_id<<endl;
 //            cout<<"coords";
 //            for(auto const& c : coords)
 //               cout<<" "<<c;
 //            cout<<" hit: "<<mp->left()<<endl;
+//            //cout<<frag_len<<""<<endl;
 //#endif
-//            cout<<frag_len<<""<<endl;
          } // end if compatible condition
       }// end second inner for loop
-      if(frag_mult_exonbin.size() == 1){
-         const set<uint> coords  = frag_mult_exonbin.begin()->first;
-         const int frag_len = frag_mult_exonbin.begin()->second.second;
-         for(auto iso_num: frag_mult_exonbin.begin()->second.first)
-            set_maps(iso_num, frag_len, mp->mass(), &(*mp),coords, exon_bin_map , iso_2_bins_map);
-      }
-      if(frag_mult_exonbin.size() > 1){
-         for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
-            if(Contig::is_compatible(*mp, iso->_contig)){
-               set<uint> coords;
-               overlap_exons(exon_segs, mp->left(), mp->right(), coords);
-               int frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
-               set_maps(iso->_isoform_id, frag_len, mp->mass(), &(*mp), coords, exon_bin_map , iso_2_bins_map);
-            }
-         }
-      }
    }
 }
 
@@ -343,14 +602,75 @@ void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_
 
 }
 
+void Estimation::theory_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_map,
+                          const map<int,int> &iso_2_len_map,
+                          const vector<Isoform>& isoforms,
+                          map<set<uint>, ExonBin> & exon_bin_map
+                          )
+{
 
-void Estimation::calcuate_bin_weight( const map<int, set<set<uint>>> &iso_2_bins_map,
+   for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
+      for(auto const &bin_coord: it->second){
+
+         double weight = 0.0;
+         assert(isoforms[it->first-1]._isoform_id == it->first);
+         vector<pair<uint,uint>> exon_segs;
+         vector<uint> implicit_exon_idx = exon_bin_map.at(bin_coord).bin_under_iso(isoforms[it->first-1], exon_segs);
+//#ifdef DEBUG
+//         cout<<"exon segments under isoform "<<it->first<<endl;
+//         for(auto e: exon_segs){
+//            cout<<e.first<<"-"<<e.second<<endl;
+//         }
+//         cout<<"in which, exon id ";
+//         for(auto id: implicit_exon_idx){
+//            cout<<id<<",";
+//         }
+//         cout<<"are implicited."<<endl;
+//#endif
+         vector<uint> seg_lens(exon_segs.size());
+         for(uint i=0; i< seg_lens.size(); ++i){
+            seg_lens[i] = exon_segs[i].second - exon_segs[i].first + 1;
+         }
+
+         int lmax = accumulate(seg_lens.begin(), seg_lens.end(),0);
+         int lmin = _insert_size_dist->_start_offset;
+         if(seg_lens.size() > 2)
+            lmin = max(lmin, accumulate(seg_lens.begin() +1, seg_lens.end()-1, 0));
+
+         for(int fl = lmin ; fl <= lmax; ++fl){
+            double le_eff = exon_bin_map.at(bin_coord).effective_len(seg_lens,implicit_exon_idx, fl, _read_len);
+            double tmp = _insert_size_dist->emp_dist_pdf(fl)* le_eff / (iso_2_len_map.at(it->first)-fl+1);
+            weight += tmp;
+         }
+         exon_bin_map.at(bin_coord)._bin_weight_map[it->first] = weight;
+
+//#ifdef DEBUG
+//   cout<<"iso "<<it->first<<endl;
+//   cout<<"coords";
+//      for(auto const& c : bin_coord)
+//   cout<<" "<<c;
+//   cout<<endl;
+//         cout<<"weight "<<weight<< " lmax "<<lmax<<endl;
+//#endif
+      }
+   }
+
+//#ifdef DEBUG
+//     for(auto & il: iso_2_len_map){
+//            cout<<"isoform length for "<<il.first<<": "<<il.second<<endl;
+//   }
+//#endif
+}
+
+
+void Estimation::empirical_bin_weight( const map<int, set<set<uint>>> &iso_2_bins_map,
                                   const map<int,int> &iso_2_len_map,
                                   const int m,
                                   map<set<uint>, ExonBin> & exon_bin_map)
 {
-   //map<int, double> iso_2_bias_factor_map;
+   map<int, double> iso_weight_factor_map;
    for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
+      double iso_weight = 0;
       for(auto const &bin_coord : it->second){
          double weight = 0.0;
          //iso_num = exon_bin_map.at(bin_coord)
@@ -358,10 +678,17 @@ void Estimation::calcuate_bin_weight( const map<int, set<set<uint>>> &iso_2_bins
             int num_start_pos = iso_2_len_map.at(it->first)-len_mass_pair.first+1;
             weight += len_mass_pair.second * _insert_size_dist->emp_dist_pdf(len_mass_pair.first) / num_start_pos;
          }
-         exon_bin_map.at(bin_coord)._iso_bias_map[it->first] = m*weight;
+         exon_bin_map.at(bin_coord)._bin_weight_map[it->first] = weight;
+         iso_weight += weight;
       }
-      //iso_2_bias_factor_map[it->first] = bias_iso;
-      //cout<<"bias iso "<<bias_iso<<endl;
+      iso_weight_factor_map[it->first] = iso_weight;
+      cout<<"bias iso "<<iso_weight<<endl;
+   }
+
+   for(auto it = exon_bin_map.begin(); it != exon_bin_map.end(); ++it){
+      for(auto iso = iso_weight_factor_map.cbegin(); iso != iso_weight_factor_map.cend(); ++iso){
+         it->second._bin_weight_map[iso->first]  /= iso->second;
+      }
    }
 
    for(auto & il: iso_2_len_map){
@@ -370,26 +697,12 @@ void Estimation::calcuate_bin_weight( const map<int, set<set<uint>>> &iso_2_bins
 #endif
    }
 
-//#ifdef DEBUG
-//   for(auto const & bin: exon_bin_map){
-//      cout<<"bin_coord: ";
-//      for(auto it = bin.first.cbegin() ; it!= bin.first.cend(); ++it)
-//         cout<<*it<<"-";
-//      cout<<endl;
-//      for(auto f : bin.second._frags)
-//         cout<<"read "<<f->left()<<"-"<<f->right()<<"\t";
-//      cout<<endl;
-////      for(auto const & iso: bin.second._iso_bias_map){
-////         cout<<"iso bias: "<<iso.first<<": "<<iso.second<<endl;;
-////      }
-//   }
-//#endif
 }
 
 bool Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
                      const double mass,
+                     map<int, int>& iso_2_len_map,
                      vector<Isoform>& isoforms,
-                     bool use_qp,
                      bool with_bias_correction)
 {
    size_t nrow = exon_bin_map.size();
@@ -401,8 +714,8 @@ bool Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_ma
    for(auto const& bin: exon_bin_map){
       n[i] = bin.second.read_count();
       for(unsigned j = 0; j< niso; ++j){
-         auto ret = bin.second._iso_bias_map.find(j+1);
-         if (ret == bin.second._iso_bias_map.end())
+         auto ret = bin.second._bin_weight_map.find(j+1);
+         if (ret == bin.second._bin_weight_map.end())
             alpha[i][j] = 0;
          else
             alpha[i][j] = ret->second;
@@ -412,12 +725,26 @@ bool Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_ma
    EmSolver em(niso, n, alpha);
    bool success = em.run();
    if(success){
-      for(int i=0; i< niso; ++i)
-         isoforms[i]._abundance = to_string(em._theta[i]);
+      vector<double> total_fpkm(niso, 0.0);
+      for(uint i=0; i< niso; ++i){
+         uint id = isoforms[i]._isoform_id;
+         double kb = 1e3/iso_2_len_map[id];
+         double rpm = 1e6/mass;
+         double fpkm = em._theta[i]*rpm*kb;
+         total_fpkm[i] = fpkm;
+         isoforms[i]._FPKM = to_string(fpkm);
+      }
+      double sum_fpkm = accumulate(total_fpkm.begin(), total_fpkm.end(), 0.0);
+      for(uint i=0; i< niso; ++i){
+         double tpm = total_fpkm[i]/sum_fpkm;
+         isoforms[i]._TPM = to_string(tpm);
+      }
    }
    else{
-      for(int i=0; i< niso; ++i)
-         isoforms[i]._abundance = "FAILED";
+      for(uint i=0; i< niso; ++i){
+         isoforms[i]._TPM = "FAILED";
+         isoforms[i]._FPKM = "FAILED";
+      }
    }
    return success;
 
@@ -541,21 +868,26 @@ bool EmSolver::run(){
    size_t nrow = _u.size();
    size_t ncol = _num_isoforms;
 
-   //ublas_vector obs_d (nrow);
+
    Eigen::VectorXi obs_d(nrow);
    for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
 
-   //matrix F_init(nrow, ncol);
-   Eigen::MatrixXd F_init(nrow,ncol);
-   for(size_t i =0; i < nrow; ++i)
-         for(size_t j= 0; j < ncol; ++j)
-            F_init(i,j) = _F[i][j];
+   Eigen::MatrixXd F(nrow, ncol);
+     F.setZero(nrow, ncol);
+   for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+      for(size_t j= 0; j < ncol; ++j){
+         F(i,j) = _F[i][j];
+      }
+   }
 
-   //ublas_vector next_theta(ncol,0.0);
+   Eigen::VectorXd theta(ncol);
+   theta.setZero(ncol);
+   for(int i = 0; i<ncol; ++i){
+      theta[i] = _theta[i];
+   }
    Eigen::VectorXd next_theta(ncol);
    next_theta.setZero(ncol);
-
    for(int it_num = 0; it_num < _max_iter_num; ++it_num){
       /*
        * E-step
@@ -563,58 +895,46 @@ bool EmSolver::run(){
       //matrix F(nrow, ncol, 0.0);
       //ublas_vector F_row_sum(nrow, 0.0);
       //matrix U (nrow, ncol, 0.0);
-      Eigen::MatrixXd F(nrow, ncol);
-      F.setZero(nrow, ncol);
-      Eigen::VectorXd F_row_sum(nrow);
-      F_row_sum.setZero(nrow);
+
       Eigen::MatrixXd U(nrow, ncol);
       U.setZero(nrow, ncol);
 
-      for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
-         for(size_t j= 0; j < ncol; ++j){
-            F(i,j) = _F[i][j] * _theta[j];
-            F_row_sum(i) += F(i,j);
-         }
-      }
       for(size_t i =0; i < nrow; ++i){ // updating the unobserved data matrix
+         double denom = F.row(i).dot(theta);
+         if(denom < TOLERANCE) return false;
          for(size_t j= 0; j < ncol; ++j){
-            double num = obs_d(i) * F(i,j);
-            if(F_row_sum(i) < TOLERANCE) return false;
-            double denom = F_row_sum(i);
+            double num = obs_d(i) * F(i,j)*theta[j];
             U(i,j) = num/denom;
          }
       }
       /*
        * M-step
        */
-      double normalized_count = 0.0;
-      for(size_t j = 0; j< U.cols(); ++j){
-         //matrix_col U_col(U,j);
-         //one_vector one(nrow, 1);
-         //matrix_col F_init_col(F_init,j);
-
-         //double denom = boost::numeric::ublas::inner_prod(one, F_init_col);
-         //next_theta[j] = boost::numeric::ublas::inner_prod(one, U_col)/denom;
-         next_theta[j] = U.col(j).sum();
-         normalized_count += next_theta[j];
+      //double normalized_count = 0.0;
+      for(int j = 0; j< U.cols(); ++j){
+         next_theta[j] = U.col(j).sum() / F.col(j).sum();
+         //normalized_count += next_theta[j];
       }
 
       /* Normalizing next_theta */
-      for(size_t j = 0; j< ncol; ++j){
-         next_theta[j] /= normalized_count;
-      }
+//      for(size_t j = 0; j< ncol; ++j){
+//         next_theta[j] /= normalized_count;
+//      }
 
       int num_changed = 0;
       for(size_t j=0; j<ncol; ++j){
-         if(next_theta[j] > _theta_limit && (fabs(next_theta[j]-_theta[j])/next_theta[j]) > _theta_change_limit)
+         if(next_theta[j] > _theta_limit && (fabs(next_theta[j]-theta[j])/next_theta[j]) > _theta_change_limit)
             num_changed++;
-         _theta[j] = next_theta[j];
+         theta[j] = next_theta[j];
          next_theta[j] = 0.0;
       }
 
       if(num_changed == 0) {
          for(size_t j = 0; j< ncol; ++j){
+         _theta[j] = theta[j];
+#ifdef DEBUG
          cout<<"tehta: "<<_theta[j]<<endl;
+#endif
          }
          break;
       }

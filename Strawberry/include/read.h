@@ -123,8 +123,8 @@ class InsertSize{
 public:
    double _total_reads;
    vector<double> _emp_dist;
-   uint _start_offset;
-   uint _end_offset;
+   int _start_offset;
+   int _end_offset;
    double _mean;
    double _sd;
    InsertSize();

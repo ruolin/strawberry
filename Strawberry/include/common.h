@@ -21,16 +21,16 @@ typedef int RefID;
 const static int kMaxInnerDist = 5000;
 //const static int kMinTransLen =
 const static int kMaxIntronLength = 30000;
-const static double kSmallOverHangProp = 6/76.0;
+const static double kSmallOverHangProp = 3/100.0;
 const static double kMinIsoformFrac = 0.05;
-const static double kBinomialOverHangAlpha = 0.05;
+const static double kBinomialOverHangAlpha = 0.0;
 const static bool enforce_ref_models = false;
 const static float kMinJuncSupport = 0.1; // min number of spliced aligned reads for a valid intron
 const static int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
 const static double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
                                            //select locus have enough reads covered.
-const static int kMaxCoverGap = 50;
+const static int kMaxCoverGap = 500;
 const static int kMaxReadNum4FD = 5000;
 const static double kInsertSizeMean = 200;
 const static double kInsertSizeSD = 80;
@@ -38,6 +38,8 @@ const static bool infer_the_other_end = true;
 const static bool verbose = true;
 //const static int kMinExonLen = 5;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
+
+double standard_normal_cdf(double x);
 
 int fileExists(const char* fname);
 

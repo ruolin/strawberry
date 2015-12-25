@@ -77,11 +77,16 @@ GenomicFeature::GenomicFeature(const Match_t& code, uint offset, int len):
    assert(len >= 0);
 }
 
+int GenomicFeature::len() const
+{
+   return _match_op._len;
+}
+
 void GenomicFeature::left(uint left)
 {
-      int right = _genomic_offset + _match_op._len;
+      int right = _genomic_offset + _match_op._len - 1;
       _genomic_offset = left;
-      _match_op._len = right -left;
+      _match_op._len = right -left + 1;
 }
 
 uint GenomicFeature::left() const { return _genomic_offset;}
@@ -507,7 +512,7 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
       return false;
    }
    else{
-      if(!(*first_exon)->contains(first_feat,2)) return false;
+      if(!(*first_exon)->contains(first_feat)) return false;
       else{
          auto it = first_exon;
          for(size_t i = 1; i != read._genomic_feats.size(); ++i){
@@ -525,7 +530,7 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
                assert(read._genomic_feats[i]._match_op._code == S_MATCH);
                it = find_if(it, exons.end(),
                      [&](const GenomicFeature *p)
-                     {return p->contains(read._genomic_feats[i],2);
+                     {return p->contains(read._genomic_feats[i]);
                      });
                if(it == exons.end()){
                   return false;
@@ -540,7 +545,11 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
 
 
 
-void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const string abundance, int gene_id, int tscp_id){
+void Contig::print2gtf(FILE *pFile,
+                       const RefSeqTable &ref_lookup,
+                       const string fpkm,
+                       const string tpm,
+                       int gene_id, int tscp_id){
    const char* ref = ref_lookup.ref_name(_ref_id).c_str();
    char strand = 0;
    switch(_strand){
@@ -554,17 +563,20 @@ void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const string 
       strand = '.';
       break;
    }
-
    char gff_attr[200];
    char locus[13] = "gene.";
    char tscp[24] = "transcript.";
    char gene_str[7];
    char tscp_str[4]; // at most 999 transcripts for a gene.
-   char frac[6];
+   char fpkm_c[12];
+   char tpm_c[12];
    Sitoa(gene_id, gene_str, 10);
    Sitoa(tscp_id,tscp_str, 10);
-   strncpy(frac, abundance.c_str(), sizeof(frac));
-   frac[sizeof(frac) - 1] = 0;
+   strncpy(fpkm_c, fpkm.c_str(), sizeof(fpkm_c));
+   fpkm_c[sizeof(fpkm_c) - 1] = 0;
+   strncpy(tpm_c, tpm.c_str(), sizeof(tpm_c));
+   tpm_c[sizeof(tpm_c) - 1] = 0;
+
    strcat(locus, gene_str);
    strcat(tscp, gene_str);
    strcat(tscp, ".");
@@ -575,10 +587,12 @@ void Contig::print2gtf(FILE *pFile, const RefSeqTable &ref_lookup, const string 
    strcat(gff_attr, "\"; transcript_id \"");
    strcat(gff_attr, tscp);
    strcat(gff_attr, "\";");
-   strcat(gff_attr, "frac \"");
-   strcat(gff_attr, frac);
+   strcat(gff_attr, "FPKM \"");
+   strcat(gff_attr, fpkm_c);
    strcat(gff_attr, "\";");
-
+   strcat(gff_attr, "TPM \"");
+   strcat(gff_attr, tpm_c);
+   strcat(gff_attr, "\";");
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
          ref, "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);
 
