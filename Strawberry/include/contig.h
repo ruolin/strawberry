@@ -120,6 +120,8 @@ public:
    //static int infer_inner_dist(const Contig &isoform, const Contig &hit);
 
    bool operator<(const Contig &rhs) const;
+   friend bool operator==(const Contig &lhs, const Contig & rhs);
+
    RefID ref_id() const;
    Strand_t strand() const;
    size_t featSize() const;

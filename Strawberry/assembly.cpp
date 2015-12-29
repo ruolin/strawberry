@@ -284,7 +284,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
          }
       }
       else{
-         //if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
+         if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
             bool no_intron_on_left = false;
             bool no_intron_on_right = false;
             auto l = lower_bound(left_coords.begin(), left_coords.end(), pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
@@ -314,7 +314,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
                //cout<<e_boundaries[ex].first<<"-"<<e_boundaries[ex].second<<endl;
                dropoff.push_back(ex);
             }
-         //}
+         }
       } // end of if-ifelse-else condition
 //      else{
 //
@@ -372,6 +372,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    vector<list<pair<uint,uint>>::iterator> drops;
    for(auto d: dropoff){
       drops.push_back(next(exon_boundaries.begin(),d));
+
    }
 
    for(auto&d: drops){

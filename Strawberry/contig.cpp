@@ -350,6 +350,11 @@ bool Contig::operator<(const Contig &rhs) const
    return false;
 }
 
+bool operator==(const Contig &lhs, const Contig & rhs)
+{
+   return lhs == rhs;
+}
+
 bool Contig::is_single_read() const
 {
    for(auto const & gf: _genomic_feats){

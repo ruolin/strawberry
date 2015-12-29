@@ -40,7 +40,7 @@ uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_
  */
    vector<GenomicFeature> exons;
    inferred_mp = orig_read;
-   inferred_mp.mass(orig_read.mass()/2.0);
+   inferred_mp.mass(orig_read.mass());
 
    for(auto gf:ct._genomic_feats){
       if(gf._match_op._code == Match_t::S_MATCH){
@@ -205,9 +205,15 @@ void ExonBin::add_read_mass(float mass)
    _whole_read_mass += mass;
 }
 
-bool ExonBin::add_frag(const Contig* fg)
+bool ExonBin::add_frag(const Contig& fg)
 {
-   _frags.insert(fg);
+   auto ret = _frags.insert(fg);
+#ifdef DEBUG
+//   if(ret.second == false){
+//      cout<<(*ret.first).left()<<" has existed"<<endl;
+//      cout<<fg.left()<<" want to be added"<<endl;
+//   }
+#endif
    return true;
 }
 
@@ -220,7 +226,14 @@ int ExonBin::num_exons() const
 
 float ExonBin::read_count() const
 {
-   return _frags.size();
+   float sum = 0.0 ;
+   for(auto it = _frags.cbegin(); it != _frags.cend(); ++it ){
+//#ifdef DEBUG
+//      cout<<"it->left "<<it->left()<<" mass: "<<it->mass()<<endl;
+//#endif
+      sum += it->mass();
+   }
+   return sum;
 }
 
 int ExonBin::bin_len() const
@@ -449,7 +462,7 @@ void Estimation::set_maps(
              const int& iso_id,
              const int& fg_len,
              const float& mass,
-             const Contig* read,
+             const Contig& read,
              const set<uint>& coords,
              map<set<uint>, ExonBin> & exon_bin_map,
              map<int, set<set<uint>>> &iso_2_bins_map)
@@ -513,8 +526,9 @@ void Estimation::assign_exon_bin(
       map<set<uint>, pair<set<int>, int>> frag_mult_exonbin;
       double sr_fg_len = 0.0;
       if(mp->is_single_read() && infer_the_other_end){
-         random_device rd;
-         mt19937 gen(rd());
+         //random_device rd;
+         //mt19937 gen(rd());
+         mt19937 gen(3); // we use a fixed seed to make sure the output are the same every time.
          double mean = _insert_size_dist->_mean;
          double sd = _insert_size_dist->_sd;
          normal_distribution<> nd(mean, sd);
@@ -567,19 +581,19 @@ void Estimation::assign_exon_bin(
 
                   }
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, new_read.left(), new_read.right());
-                  set_maps(iso->_isoform_id, frag_len, new_read.mass(), &new_read, coords, exon_bin_map , iso_2_bins_map);
+                  set_maps(iso->_isoform_id, frag_len, new_read.mass(), new_read, coords, exon_bin_map , iso_2_bins_map);
                } // end if infer the other
                else{
                   overlap_exons(exon_segs, *mp, coords);
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
-                  set_maps(iso->_isoform_id, frag_len, mp->mass(), &(*mp), coords, exon_bin_map , iso_2_bins_map);
+                  set_maps(iso->_isoform_id, frag_len, mp->mass(), *mp, coords, exon_bin_map , iso_2_bins_map);
                }
             } // and and single end
 
             else{
                overlap_exons(exon_segs,*mp, coords);
                frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
-               set_maps(iso->_isoform_id, frag_len, mp->mass(), &(*mp), coords, exon_bin_map , iso_2_bins_map);
+               set_maps(iso->_isoform_id, frag_len, mp->mass(), *mp, coords, exon_bin_map , iso_2_bins_map);
             }
 
             //assert(!coords.empty());
@@ -588,7 +602,7 @@ void Estimation::assign_exon_bin(
 //            cout<<"coords";
 //            for(auto const& c : coords)
 //               cout<<" "<<c;
-//            cout<<" hit: "<<mp->left()<<endl;
+//            cout<<" hit: "<<mp->left()<<" mass: "<<mp->mass()<<endl;
 //            //cout<<frag_len<<""<<endl;
 //#endif
          } // end if compatible condition

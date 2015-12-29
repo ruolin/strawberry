@@ -38,7 +38,7 @@ private:
    /*  exon boundaries left1,right1,left2,right2,... */
    set<uint> _coords;
 public:
-   set<const Contig*> _frags;
+   set<Contig> _frags;
    void add_read_mass(float mass);
 
    map<int, double> _bin_weight_map; // iso -> bin_weight
@@ -59,7 +59,7 @@ public:
          const int rl
          ) const;
    bool operator==(const ExonBin& rhs) const;
-   bool add_frag(const Contig* fg);
+   bool add_frag(const Contig& fg);
    int num_exons() const;
    int left_exon_len() const;
 };
@@ -74,7 +74,7 @@ class Estimation {
 
    void set_maps(const int& iso_id, const int& fg_len,
                 const float& mass,
-                const Contig* read,
+                const Contig& read,
                 const set<uint>& coords,
                 map<set<uint>, ExonBin> & exon_bin_map,
                 map<int, set<set<uint>>> &iso_2_bins_map);

@@ -892,7 +892,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
          for(auto & iso: isoforms){
             iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM, iso._TPM, iso._gene_id, iso._isoform_id);
          }
-         //if(cluster.left() > 9002656) exit(0);
+         if(cluster.left() > 190000) exit(0);
       }
    }// if cutoff > kMinDepth4Locus
 }
