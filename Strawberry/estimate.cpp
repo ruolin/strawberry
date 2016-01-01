@@ -348,7 +348,7 @@ int ExonBin::effective_len(const vector<uint> & seg_lens,
       }
    }
    else if(seg_lens.size() == 4){ // quadruple seg_lens
-      int hit14 = gap_ef(seg_lens[0], seg_lens[3], seg_lens[2] + seg_lens[3], rl, gap);
+      int hit14 = gap_ef(seg_lens[0], seg_lens[3], seg_lens[2] + seg_lens[1], rl, gap);
       int hit24 = gap_ef(seg_lens[3], seg_lens[1], seg_lens[2], rl ,gap);
       int hit124 = gap_ef(seg_lens[0]+seg_lens[1], seg_lens[3], seg_lens[2], rl, gap);
       int hit13 = gap_ef(seg_lens[0], seg_lens[2], seg_lens[1], rl, gap);
@@ -357,7 +357,7 @@ int ExonBin::effective_len(const vector<uint> & seg_lens,
       if(implicit_idx.size() == 0){
          int hit_all_124 = hit124 - hit14 - hit24;
          int hit_all_134 = hit134 - hit14 - hit13;
-         int total = no_gap_ef(seg_lens[0], seg_lens[1]+seg_lens[2], seg_lens[3], fl);
+         int total = no_gap_ef(seg_lens[0], seg_lens[3], seg_lens[1]+seg_lens[2], fl);
          return (total - hit_all_124 - hit_all_134 - hit14);
       }
       else if(implicit_idx.size() == 2){
@@ -390,7 +390,7 @@ int ExonBin::effective_len(const vector<uint> & seg_lens,
 
          hit |= (1u << (seg_lens.size() -1));//
          //right-end cover
-         uint last_rest_bp = rl - bp_last;
+         int last_rest_bp = rl - bp_last;
          uint j = num_inners;
          while(last_rest_bp > 0 && j > 0){
             hit |= (1u << j);
@@ -399,7 +399,7 @@ int ExonBin::effective_len(const vector<uint> & seg_lens,
          }
 
          //left-end cover
-         uint first_rest_bp = rl - i;
+         int first_rest_bp = rl - i;
          j = 1;
          while(first_rest_bp > 0 && j <= num_inners){
             hit |= (1u << j);
@@ -409,6 +409,9 @@ int ExonBin::effective_len(const vector<uint> & seg_lens,
 
          if(hit == target) num_pos++;
       }
+//#ifdef DEBUG
+//      cout<<"fl: "<<fl<<"  num pos: "<<num_pos<<endl;
+//#endif
       return num_pos;
    }
    return 0;
@@ -842,7 +845,7 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
    for(int i= 0; i< nrow; ++i){
       bool remove = true;
       for(int j=0; j < ncol; ++j){
-         if(model[i][j] > 1e-6) remove = false;
+         if(model[i][j] > 1e-5) remove = false;
       }
       if(remove)
          erase_pos.push_back(i);
@@ -860,7 +863,7 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
 
    Eigen::MatrixXd F(nrow, ncol);
    //matrix F(nrow, ncol);
-    for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+    for(size_t i =0; i < nrow; ++i){
          for(size_t j= 0; j < ncol; ++j){
             F(i,j) = _F[i][j];
          }
