@@ -935,6 +935,8 @@ void ClusterFactory::inspectCluster()
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, NULL, true);
       _total_mapped_reads += last_cluster->collapse_mass();
+      cout<<"inspect gene: "<<last_cluster->ref_id()<<": "<<last_cluster->left()<<"-"<<last_cluster->right()<<endl;
+      cout<<"total reads: "<<_total_mapped_reads<<endl;
       last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;
