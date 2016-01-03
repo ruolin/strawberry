@@ -13,6 +13,7 @@
 #include<vector>
 #include <sys/stat.h>
 #include <memory>
+#include <cmath>
 #include "logger.hpp"
 typedef void* pointer;
 typedef uint64_t ReadID;
@@ -40,6 +41,16 @@ const static bool verbose = true;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 double standard_normal_cdf(double x);
+
+template <typename T>
+T normal_pdf(T x, T m, T s)
+{
+    static const T inv_sqrt_2pi = 0.3989422804014327;
+    T a = (x - m) / s;
+
+    return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
+}
+
 
 int fileExists(const char* fname);
 

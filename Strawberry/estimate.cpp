@@ -146,7 +146,7 @@ int gap_ef(const int l_left, const int l_right, const int l_int, const int rl, c
 }
 
 
-ExonBin::ExonBin(std::set<uint> coordinate): _coords(coordinate){}
+ExonBin::ExonBin(std::set<pair<uint,uint>> coordinate): _coords(coordinate){}
 
 bool ExonBin::operator==(const ExonBin& rhs) const
 {
@@ -190,13 +190,13 @@ bool ExonBin::operator==(const ExonBin& rhs) const
 
 uint ExonBin::left_most() const
 {
-   return *_coords.begin();
+   return _coords.cbegin()->first;
 }
 
 
 uint ExonBin::right_most() const
 {
-   return *_coords.rbegin();
+   return _coords.crbegin()->second;
 }
 
 
@@ -219,9 +219,7 @@ bool ExonBin::add_frag(const Contig& fg)
 
 int ExonBin::num_exons() const
 {
-   int reminder = _coords.size() %2;
-   assert(reminder == 0);
-   return _coords.size()/2;
+   return _coords.size();
 }
 
 float ExonBin::read_count() const
@@ -240,10 +238,7 @@ int ExonBin::bin_len() const
 {
    int bin_len = 0;
    for(auto c = _coords.cbegin(); c != _coords.cend(); ++c){
-      uint h = *(c++);
-      assert(c != _coords.cend());
-      bin_len += *c - h +1;
-
+      bin_len = c->second - c->first;
    }
    return bin_len;
 }
@@ -268,7 +263,7 @@ vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
    vector<uint>::const_iterator low = lower_bound(start_pos.cbegin(), start_pos.cend(), this->left_most());
 
    assert(low != start_pos.cend());
-   vector<uint>::const_iterator up  = lower_bound(start_pos.cbegin(), start_pos.cend(), *(++_coords.crbegin()));
+   vector<uint>::const_iterator up  = lower_bound(start_pos.cbegin(), start_pos.cend(), _coords.crbegin()->first );
    assert(up  != start_pos.cend());
    for(vector<uint>::const_iterator it = low; it != up; ++it){
       const GenomicFeature & cur_exon = exons[distance(start_pos.cbegin(),it)];
@@ -279,25 +274,23 @@ vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
 
    auto c = _coords.cbegin();
    ++c;
-   ++c;
    uint i = 1;
 
    while(i< exon_coords.size()-1){
-      if(exon_coords[i].first < *c){
+      if(exon_coords[i].first < c->first){
          idx.push_back(i);
          ++i;
       }
-      else if(exon_coords[i].first == *c){
+      else if(exon_coords[i].first == c->first){
          ++i;
-         ++c;
          ++c;
       }
       else{
 
-//         cout<<"false"<<endl;
-//         for(auto e: exons)
-//            cout<<e.left()<<endl;
-//         cout<<*c<<endl;
+         cout<<"false"<<endl;
+         for(auto e: exons)
+            cout<<e.left()<<"-"<<e.right()<<endl;
+         cout<<"coordiantes"<<endl;
          assert(false);
       }
    }
@@ -306,10 +299,7 @@ vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
 
 int ExonBin::left_exon_len() const
 {
-   auto t = _coords.cbegin();
-   auto s = t++;
-
-   return *t - *s + 1;
+   return _coords.cbegin()->second - _coords.cbegin()->first + 1;
 }
 
 
@@ -466,9 +456,9 @@ void Estimation::set_maps(
              const int& fg_len,
              const float& mass,
              const Contig& read,
-             const set<uint>& coords,
-             map<set<uint>, ExonBin> & exon_bin_map,
-             map<int, set<set<uint>>> &iso_2_bins_map)
+             const set<pair<uint, uint>>& coords,
+             map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
+             map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map)
 {
    if(coords.empty()) return;
    auto find_it = exon_bin_map.find(coords);
@@ -484,7 +474,7 @@ void Estimation::set_maps(
    }
    auto find_it2 = iso_2_bins_map.find(iso_id);
    if (find_it2 == iso_2_bins_map.end()){
-      set<set<uint>> exon_bins = {coords};
+      set<set<pair<uint, uint>>> exon_bins = {coords};
       iso_2_bins_map.emplace(iso_id, exon_bins);
    }
    else{
@@ -495,7 +485,7 @@ void Estimation::set_maps(
 
 void Estimation::overlap_exons(const vector<GenomicFeature>& exons,
                      const Contig& read,
-                     set<uint> &coords)
+                     set<pair<uint,uint>> &coords)
 {
    for(auto const& gfeat : exons){
       if (gfeat._match_op._code != Match_t::S_MATCH) continue;
@@ -504,9 +494,8 @@ void Estimation::overlap_exons(const vector<GenomicFeature>& exons,
          if (read_f._match_op._code != Match_t::S_MATCH) continue;
 
          if (GenomicFeature::overlaps(read_f, gfeat)){
-            auto ret_l = coords.insert(gfeat.left());
-            auto ret_r = coords.insert(gfeat.right());
-            //assert(ret_l.second && ret_r.second);
+            auto ret = coords.insert(pair<uint,uint>(gfeat.left(),gfeat.right()));
+            //assert(ret.second)
          }
       }
    }
@@ -521,8 +510,8 @@ void Estimation::assign_exon_bin(
       const vector<Contig> &hits,
       const vector<Isoform> &transcripts,
       const vector<GenomicFeature> & exon_segs,
-      map<set<uint>, ExonBin> & exon_bin_map,
-      map<int, set<set<uint>>> &iso_2_bins_map)
+      map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
+      map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map)
 {
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
 
@@ -541,7 +530,7 @@ void Estimation::assign_exon_bin(
 
       for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
          if(Contig::is_compatible(*mp, iso->_contig)){
-            set<uint> coords;
+            set<pair<uint,uint>> coords;
             int frag_len = 0;
 
             /*For singleton, we random generate the other end */
@@ -619,16 +608,15 @@ void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_
 
 }
 
-void Estimation::theory_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_map,
+void Estimation::theory_bin_weight(const map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map,
                           const map<int,int> &iso_2_len_map,
                           const vector<Isoform>& isoforms,
-                          map<set<uint>, ExonBin> & exon_bin_map
+                          map<set<pair<uint,uint>>, ExonBin> & exon_bin_map
                           )
 {
 
    for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
       for(auto const &bin_coord: it->second){
-
          double weight = 0.0;
          assert(isoforms[it->first-1]._isoform_id == it->first);
          vector<pair<uint,uint>> exon_segs;
@@ -650,7 +638,11 @@ void Estimation::theory_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_ma
          }
 
          int lmax = accumulate(seg_lens.begin(), seg_lens.end(),0);
-         int lmin = _insert_size_dist->_start_offset;
+         int lmin;
+         if(_insert_size_dist->_use_emp)
+            lmin = _insert_size_dist->_start_offset;
+         else
+            lmin = 2*_read_len;
          if(seg_lens.size() > 2)
             lmin = max(lmin, accumulate(seg_lens.begin() +1, seg_lens.end()-1, 0));
 
@@ -680,10 +672,10 @@ void Estimation::theory_bin_weight(const map<int, set<set<uint>>> &iso_2_bins_ma
 }
 
 
-void Estimation::empirical_bin_weight( const map<int, set<set<uint>>> &iso_2_bins_map,
+void Estimation::empirical_bin_weight( const map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map,
                                   const map<int,int> &iso_2_len_map,
                                   const int m,
-                                  map<set<uint>, ExonBin> & exon_bin_map)
+                                  map<set<pair<uint,uint>>, ExonBin> & exon_bin_map)
 {
    map<int, double> iso_weight_factor_map;
    for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
@@ -716,7 +708,7 @@ void Estimation::empirical_bin_weight( const map<int, set<set<uint>>> &iso_2_bin
 
 }
 
-bool Estimation::estimate_abundances(const map<set<uint>, ExonBin> & exon_bin_map,
+bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
                      const double mass,
                      map<int, int>& iso_2_len_map,
                      vector<Isoform>& isoforms,

@@ -148,8 +148,17 @@ ReadID ReadTable::get_id(const string& name)
 //   else GError("ID %d is not in the Reference Sequence Table\n", ID);
 //}
 
-InsertSize::InsertSize():_mean(kInsertSizeMean), _sd(kInsertSizeSD){}
-InsertSize::InsertSize(const vector<int> frag_lens)
+InsertSize::InsertSize():
+                     _mean(kInsertSizeMean),
+                     _sd(kInsertSizeSD),
+                     _use_emp(false){}
+
+InsertSize::InsertSize(double mean, double sd):
+                     _mean(mean),
+                     _sd(sd),
+                     _use_emp(false){}
+
+InsertSize::InsertSize(const vector<int> frag_lens):_use_emp(true)
 {
    _total_reads = frag_lens.size();
    mean_and_sd_insert_size(frag_lens, _mean, _sd);
@@ -177,9 +186,16 @@ InsertSize::InsertSize(const vector<int> frag_lens)
 
 double InsertSize::emp_dist_pdf(uint insert_size) const
 {
-   if(insert_size < _start_offset || insert_size > _end_offset)
-      return 0.0;
-   return _emp_dist[insert_size - _start_offset] / _total_reads;
+   if(_use_emp){
+      if(insert_size < _start_offset || insert_size > _end_offset)
+         return 0.0;
+      return _emp_dist[insert_size - _start_offset] / _total_reads;
+   }
+   else{
+      double p = normal_pdf( (double) insert_size, _mean, _sd);
+      if(p > 0) return p;
+      else return 0.0;
+   }
 }
 
 //double InsertSize::truncated_normal_pdf(uint insert_size) const

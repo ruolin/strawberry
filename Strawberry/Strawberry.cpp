@@ -21,7 +21,8 @@ int main(){
    const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
+   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
+   const char *bam_file = "/home/ruolin/git/Strawberry/RD100.control_r1.concordant_uniq.sort.bam";
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
 
    //FaInterface fa_api(path);
@@ -43,11 +44,11 @@ int main(){
    pFile = fopen("assembled_transcripts.gtf", "w");
    //QpSolver qps;
 
-   read_clusters.inspectCluster();
+   //read_clusters.inspectCluster();
    double mean, sd;
    const vector<int> & fd = read_clusters._hit_factory->_reads_table._frag_dist;
-   unique_ptr<InsertSize> insert_size(new InsertSize(fd));
-
+   //unique_ptr<InsertSize> insert_size(new InsertSize(fd));
+   unique_ptr<InsertSize> insert_size(new InsertSize(300.0, 70.0));
    read_clusters._insert_size_dist = move(insert_size);
    cout<<"Total number of mapped reads is: "<<read_clusters.total_mapped_reads()<<endl;
    read_clusters.parseClusters(pFile);

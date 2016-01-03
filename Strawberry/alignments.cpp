@@ -732,21 +732,25 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
    vector<PairedHit> imcompatible_hits;
    vector<vector<PairedHit>::iterator> imcomp_hits_its;
    bool first_incompatible = false;
-   for(auto hit_it = last._hits.begin(); hit_it != last._hits.end(); ++hit_it){
+   for(auto hit_it = last._hits.begin(); hit_it != last._hits.end();){
       if(hit_it->contains_splice()){
          if(hit_it->strand() != last.guessStrand()){
             first_incompatible = true;
             imcompatible_hits.push_back(*hit_it);
-            imcomp_hits_its.push_back(hit_it);
+            hit_it = last._hits.erase(hit_it);
          }
          else{
+            ++hit_it;
             first_incompatible = false;
          }
       }
       else{
          if(first_incompatible){
             imcompatible_hits.push_back(*hit_it);
-            imcomp_hits_its.push_back(hit_it);
+            hit_it = last._hits.erase(hit_it);
+         }
+         else{
+            ++hit_it;
          }
       }
    }
@@ -787,6 +791,12 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
 
    cluster.clearOpenMates();
    cluster.collapseHits();
+
+   //enough read for calculating empirical distribution of reads.
+   if(calculateFD &&
+      _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD)
+      return;
+
    double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
    cutoff /= (double)cluster.len();
    if(cutoff > kMinDepth4Locus){
@@ -847,30 +857,25 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
             vector<GenomicFeature> merged_feats;
             GenomicFeature::mergeFeatures(assembled_feats[0], merged_feats);
             Contig assembled_transcript(cluster._ref_id, cluster.strand(), merged_feats, 1, false);
-            if( _hit_factory->_reads_table._frag_dist.size() < kMaxReadNum4FD){
-               for(size_t h = 0; h< hits.size(); ++h){
+            for(size_t h = 0; h< hits.size(); ++h){
 
-                  if(hits[h].is_single_read()) continue;
-                  if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
+               if(hits[h].is_single_read()) continue;
+               if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
 
-                  double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
+               double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
 //#ifdef DEBUG
 //                  cout<<"frag_len: "<<frag_len<<endl;
 //                  cout<<"frag location>> "<<hits[h].ref_id()<<":"<<hits[h].left()<<"-"<<hits[h].right()<<endl;
 //#endif
-                        _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-               }
-            }
-            else{ // have enough reads for calculating fragment dists.
-               return;
+                     _hit_factory->_reads_table._frag_dist.push_back(frag_len);
             }
          }
       }
 
       else{
          vector<Isoform> isoforms;
-         map<set<uint>, ExonBin>  exon_bin_map;
-         map<int, set<set<uint>>> iso_2_bins_map;
+         map<set<pair<uint,uint>>, ExonBin>  exon_bin_map;
+         map<int, set<set<pair<uint,uint>>>> iso_2_bins_map;
          map<int, int> iso_2_len_map;
          int tscp_id = 0;
          for(auto feats: assembled_feats){
@@ -922,9 +927,9 @@ void ClusterFactory::inspectCluster()
             break;
          }
       }
-      if(cur_cluster->overlaps(*last_cluster) ){
-         mergeClusters(*last_cluster, *cur_cluster);
-      }
+//      if(cur_cluster->overlaps(*last_cluster) ){
+//         mergeClusters(*last_cluster, *cur_cluster);
+//      }
       if(last_cluster->ref_id() == -1){
          last_cluster = move(cur_cluster);
          continue;

@@ -123,11 +123,13 @@ class InsertSize{
 public:
    double _total_reads;
    vector<double> _emp_dist;
-   int _start_offset;
-   int _end_offset;
    double _mean;
    double _sd;
+   bool _use_emp;
+   int _start_offset;
+   int _end_offset;
    InsertSize();
+   InsertSize(double mean, double sd);
    InsertSize(const vector<int> frag_lens);
    double emp_dist_pdf(uint insert_size) const;
    //double truncated_normal_pdf(uint insert_size) const;

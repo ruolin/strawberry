@@ -255,6 +255,10 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    sort(right_coords.begin(), right_coords.end(), comp_lt_first);
 
    for(size_t ex = 0 ; ex < e_boundaries.size(); ++ex){
+//      if(e_boundaries[ex].second -e_boundaries[ex].first == 0) {
+//         dropoff.push_back(ex);
+//         continue;
+//      }
       if(ex == 0){
          if(e_boundaries[ex].second == e_boundaries[ex+1].first-1);
          else{
@@ -361,13 +365,13 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 
    }
 
-//#ifdef DEBUG
-//   for(auto i: exon_boundaries)
-//      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
-//   for(auto s: paired_bars)
-//      cout<<"intorn: "<<s.first<<"-"<<s.second<<endl;
-//   cout<<"---------------------"<<endl;
-//#endif
+#ifdef DEBUG
+   for(auto i: exon_boundaries)
+      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
+   for(auto s: paired_bars)
+      cout<<"intorn: "<<s.first<<"-"<<s.second<<endl;
+   cout<<"---------------------"<<endl;
+#endif
 
    vector<list<pair<uint,uint>>::iterator> drops;
    for(auto d: dropoff){
@@ -695,8 +699,9 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    FlowNetwork.flowMap(flow);
    if(ret == NetworkSimplex<Graph>::INFEASIBLE || ret == NetworkSimplex<Graph>::UNBOUNDED){
 #ifdef DEBUG
-      for(auto e: exons){
-         cout<<e.left()<<"-"<<e.right()<<endl;
+      for(Graph::NodeIt n(_g); n != lemon::INVALID; ++n){
+         if( n == _source|| n == _sink) continue;
+         std::cout<<_g.id(n)<<":"<<node_map[n]->left()<<"-"<<node_map[n]->right()<<endl;
       }
       digraphWriter(_g).                  // write g to the standard output
         arcMap("cost", cost_map).          // write 'cost' for for arcs
