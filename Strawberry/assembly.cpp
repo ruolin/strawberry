@@ -198,18 +198,31 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       ++iTer;
       if(iTer == exon_boundaries.end()) break;
       uint tail = iTer->first;
-      bool is_coverage_deficit = true;
+      bool no_intron_overlap = true;
+      bool no_intron_support = true;
       for(auto i= intron_counter.cbegin(); i != intron_counter.cend(); ++i){
-         if(i->first.first == head + 1 && tail-1 == i->first.second){ // if a intron fill in this gap
-            is_coverage_deficit = false;
-            break;
+         if(i->first.first <= tail && head <= i->first.second){
+            no_intron_overlap = false;
+         }
+         if(i->first.first == head + 1 && tail-1 == i->first.second){
+            no_intron_support =false;
          }
       }
-      if(is_coverage_deficit && tail - head < kMaxCoverGap){
-         iTer--;
-         uint newStart = iTer->first;
-         exon_boundaries.erase(iTer++);
-         iTer->first = newStart;
+      if(no_intron_overlap){
+         if(tail - head < kMaxCoverGap1){
+            iTer--;
+            uint newStart = iTer->first;
+            exon_boundaries.erase(iTer++);
+            iTer->first = newStart;
+         }
+      }
+      else{
+         if(no_intron_support && tail - head < kMaxCoverGap2){
+            iTer--;
+            uint newStart = iTer->first;
+            exon_boundaries.erase(iTer++);
+            iTer->first = newStart;
+         }
       }
    };
 

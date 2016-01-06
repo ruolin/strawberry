@@ -833,13 +833,14 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
 }
 
 EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vector<double>> &model):
-      _num_isoforms(num_iso),
-      _theta(num_iso, 1.0/num_iso)
+      _num_isoforms(num_iso)
       //_u(count),
       //_F(model)
 {
    int nrow = count.size();
    int ncol = _num_isoforms;
+   double total_count = accumulate(count.begin(), count.end(), 0.0);
+   _theta = vector<double>(_num_isoforms, total_count/_num_isoforms);
    vector<size_t> erase_pos;
    for(int i= 0; i< nrow; ++i){
       bool remove = true;
@@ -927,7 +928,9 @@ bool EmSolver::run(){
        */
       //double normalized_count = 0.0;
       for(int j = 0; j< U.cols(); ++j){
-         next_theta[j] = U.col(j).sum() / F.col(j).sum();
+         double den = F.col(j).sum();
+         if(den < TOLERANCE) return false;
+         next_theta[j] = U.col(j).sum() / den;
          //normalized_count += next_theta[j];
       }
 

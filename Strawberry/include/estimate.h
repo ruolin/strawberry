@@ -18,8 +18,8 @@ public:
    int _gene_id;
    int _isoform_id;
    double _bais_factor;
-   string _TPM = "UNKNOWN";
-   string _FPKM = "UNKNOWN";
+   string _TPM = "nan";
+   string _FPKM = "nan";
    //Isoform() = default;
    Isoform(const vector<GenomicFeature>& feats, Contig contig, int gene, int isoform);
 

@@ -1065,7 +1065,7 @@ void ClusterFactory::parseClusters(FILE *pfile)
          //}
 #endif
      last_cluster = move(cur_cluster);
-     //if(last_cluster->left() > 15939000) exit(0);
+     //if(last_cluster->left() > 8600500) exit(0);
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, pfile, false);

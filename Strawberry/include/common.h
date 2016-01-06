@@ -32,7 +32,8 @@ const static int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for 
 const static double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
                                            //select locus have enough reads covered.
 const static double kMinDepth4Quantify = 1;
-const static int kMaxCoverGap = 50;
+const static int kMaxCoverGap1 = 200;
+const static int kMaxCoverGap2 = 50;
 const static int kMaxReadNum4FD = 50000;
 const static double kInsertSizeMean = 200;
 const static double kInsertSizeSD = 80;
