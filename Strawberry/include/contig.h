@@ -101,9 +101,17 @@ public:
    std::vector<GenomicFeature> _genomic_feats;
    bool _is_ref;
    Contig() = default;
+
    Contig(const PairedHit& ph);
-   Contig(RefID ref_id, Strand_t strand, const std::vector<GenomicFeature> &feats, double mass,bool is_ref);
-   //Contig(const ExonBin& eb);
+
+   Contig(
+         RefID ref_id,
+         Strand_t strand,
+         double mass,
+         std::vector<GenomicFeature> feats,
+         bool is_ref
+         );
+
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
    uint left() const;
@@ -117,6 +125,7 @@ public:
    static bool overlaps_directional(const Contig &lhs, const Contig &rhs);
    static bool is_contained_in(const Contig &small, const Contig &large);
    static bool is_compatible(const Contig &read, const Contig &isoform);
+   static bool is_compatible(const Contig &isoform, const GenomicFeature& feat);
    //static int infer_inner_dist(const Contig &isoform, const Contig &hit);
 
    bool operator<(const Contig &rhs) const;

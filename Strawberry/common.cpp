@@ -5,6 +5,7 @@
  *      Author: ruolin
  */
 #include "common.h"
+#include <libgen.h>
 #include <cmath>
 #include <algorithm>
 
@@ -87,6 +88,13 @@ void split(const std::string& s, const std::string& delims, std::vector<std::str
     }
 }
 
+const char* stripFileName(char *path)
+{
+   char *dummy = strdup(path);
+   const char *dname = dirname(dummy);
+   return dname;
+};
+
 int stricmp(const char* a, const char* b, int n) {
  if (a==NULL || b==NULL) return a==NULL ? -1 : 1;
  register int ua, ub;
@@ -165,30 +173,6 @@ char* Sitoa(int num, char* str, int base)
     return str;
 }
 
-bool SRealloc(pointer* ptr,unsigned long size)
-{
-   if (size==0) {
-      SFree(ptr);
-      return true;
-   }
-   if (*ptr==NULL) {//simple malloc
-      void *p=malloc(size);
-      if (p != NULL) {
-         *ptr=p;
-         return true;
-      }
-      else return false;
-   }
-
-   else {//realloc
-      void *p=realloc(*ptr,size);
-      if (p) {
-         *ptr=p;
-         return true;
-      }
-      return false;
-   }
-}
 
 char* SlineReader::getLine(FILE* stream, off_t& f_pos)
 {

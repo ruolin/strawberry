@@ -437,12 +437,12 @@ void ExonBin::add_frag_len(const int iso, const int frag_len, const float mass)
 }
 
 
-Isoform::Isoform(Contig contig, int gene, int iso_id, vector<GenomicFeature> feats):
+Isoform::Isoform(const vector<GenomicFeature>& exons, Contig contig, int gene, int iso_id):
       _contig(contig), _gene_id(gene), _isoform_id(iso_id)
 {
-   for(uint i = 0; i< feats.size(); ++i){
-      if(feats[i]._match_op._code == Match_t::S_MATCH){
-         _exon_segs.push_back(feats[i]);
+   for(uint i = 0; i< exons.size(); ++i){
+      if(Contig::is_compatible(_contig, exons[i])){
+         _exon_segs.push_back(exons[i]);
       }
    }
    _bais_factor = 0.0;
@@ -593,7 +593,7 @@ void Estimation::assign_exon_bin(
 //            cout<<"iso "<<iso->_isoform_id<<endl;
 //            cout<<"coords";
 //            for(auto const& c : coords)
-//               cout<<" "<<c;
+//               cout<<" "<<c.first<<"-"<<c.second;
 //            cout<<" hit: "<<mp->left()<<" mass: "<<mp->mass()<<endl;
 //            //cout<<frag_len<<""<<endl;
 //#endif
@@ -656,8 +656,8 @@ void Estimation::theory_bin_weight(const map<int, set<set<pair<uint,uint>>>> &is
 //#ifdef DEBUG
 //   cout<<"iso "<<it->first<<endl;
 //   cout<<"coords";
-//      for(auto const& c : bin_coord)
-//   cout<<" "<<c;
+//   for(auto const& c : bin_coord)
+//      cout<<" "<<c.first<<"-"<<c.second;
 //   cout<<endl;
 //         cout<<"weight "<<weight<< " lmax "<<lmax<<endl;
 //#endif
@@ -725,12 +725,19 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
       for(unsigned j = 0; j< niso; ++j){
          auto ret = bin.second._bin_weight_map.find(j+1);
          if (ret == bin.second._bin_weight_map.end())
-            alpha[i][j] = 0;
+            alpha[i][j] = 0.0;
          else
             alpha[i][j] = ret->second;
       } // //inner loop
       ++i;
    } // outer loop
+//#ifdef DEBUG
+//   for(uint i=0; i!= alpha.size();++i){
+//      for(uint j=0; j!= alpha[i].size(); ++j)
+//         cout<<alpha[i][j]<<" ";
+//      cout<<endl;
+//   }
+//#endif
    EmSolver em(niso, n, alpha);
    bool success = em.run();
    if(success){
@@ -749,12 +756,12 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
          isoforms[i]._TPM = to_string(tpm);
       }
    }
-   else{
-      for(uint i=0; i< niso; ++i){
-         isoforms[i]._TPM = "FAILED";
-         isoforms[i]._FPKM = "FAILED";
-      }
-   }
+//   else{
+//      for(uint i=0; i< niso; ++i){
+//         isoforms[i]._TPM = "FAILED";
+//         isoforms[i]._FPKM = "FAILED";
+//      }
+//   }
    return success;
 
       /*
@@ -862,18 +869,17 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
     }
     for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
-    cout<<"------n_i----------"<<endl;
-    cout<<obs_d<<endl;
-    cout<<"------Bias---------"<<endl;
-    cout<<F<<endl;
-    cout<<"-------------------"<<endl;
+    cerr<<"------n_i----------"<<endl;
+    cerr<<obs_d<<endl;
+    cerr<<"------Bias---------"<<endl;
+    cerr<<F<<endl;
+    cerr<<"-------------------"<<endl;
 #endif
 }
 
 
 bool EmSolver::run(){
    if (_u.empty()) return false;
-
    size_t nrow = _u.size();
    size_t ncol = _num_isoforms;
 
@@ -932,9 +938,10 @@ bool EmSolver::run(){
 
       int num_changed = 0;
       for(size_t j=0; j<ncol; ++j){
-         if(next_theta[j] > _theta_limit && (fabs(next_theta[j]-theta[j])/next_theta[j]) > _theta_change_limit)
+         if((fabs(next_theta[j]-theta[j])/next_theta[j]) > _theta_change_limit)
             num_changed++;
          theta[j] = next_theta[j];
+         if(theta[j]< _theta_limit) return false;
          next_theta[j] = 0.0;
       }
 
@@ -942,7 +949,7 @@ bool EmSolver::run(){
          for(size_t j = 0; j< ncol; ++j){
          _theta[j] = theta[j];
 #ifdef DEBUG
-         cout<<"tehta: "<<_theta[j]<<endl;
+         cerr<<"isoform "<<j+1<<"'s theta: "<<_theta[j]<<endl;
 #endif
          }
          break;

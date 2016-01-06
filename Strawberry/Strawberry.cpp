@@ -22,7 +22,15 @@ int main(){
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
-   const char *bam_file = "/home/ruolin/git/Strawberry/RD100.control_r1.concordant_uniq.sort.bam";
+   char *bam_file = "/home/ruolin/git/Strawberry/RD100.control_r1.concordant_uniq.sort.bam";
+   //char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/accepted_hits.bam";
+   const char* bam_dir = stripFileName(bam_file);
+   size_t len1 = strlen(bam_dir);
+   char *output = (char*) malloc(len1+27);// assembled_transcripts.gtf 25 characters
+   char *suffix = "/assembled_transcripts.gtf";
+   strcpy(output, bam_dir);
+   strcat(output, suffix);
+
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
 
    //FaInterface fa_api(path);
@@ -41,14 +49,14 @@ int main(){
    ClusterFactory read_clusters(move(hf));
    read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
    FILE *pFile;
-   pFile = fopen("assembled_transcripts.gtf", "w");
+   pFile = fopen(output, "w");
    //QpSolver qps;
 
-   //read_clusters.inspectCluster();
+   read_clusters.inspectCluster();
    double mean, sd;
    const vector<int> & fd = read_clusters._hit_factory->_reads_table._frag_dist;
-   //unique_ptr<InsertSize> insert_size(new InsertSize(fd));
-   unique_ptr<InsertSize> insert_size(new InsertSize(300.0, 70.0));
+   unique_ptr<InsertSize> insert_size(new InsertSize(fd));
+   //unique_ptr<InsertSize> insert_size(new InsertSize(300.0, 70.0));
    read_clusters._insert_size_dist = move(insert_size);
    cout<<"Total number of mapped reads is: "<<read_clusters.total_mapped_reads()<<endl;
    read_clusters.parseClusters(pFile);

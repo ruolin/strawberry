@@ -218,12 +218,17 @@ void GenomicFeature::mergeFeatures(const vector<GenomicFeature> & feats, vector<
 
 
 
-Contig::Contig(RefID ref_id, Strand_t strand, const vector<GenomicFeature> &feats, double mass, bool is_ref):
-      _genomic_feats(feats),
-      _is_ref(is_ref),
+Contig::Contig(
+         RefID ref_id,
+         Strand_t strand,
+        double mass,
+      vector<GenomicFeature> feats,
+        bool is_ref):
       _ref_id(ref_id),
       _strand(strand),
-      _mass(mass)
+      _mass(mass),
+      _genomic_feats(feats),
+      _is_ref(is_ref)
    {
       assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
       assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
@@ -548,7 +553,26 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
    return true;
 }
 
-
+bool Contig::is_compatible(const Contig &isoform, const GenomicFeature &feat)
+{
+   if(feat._match_op._code != Match_t::S_MATCH) return false;
+   vector<const GenomicFeature*> exons;
+   for(size_t i = 0; i<isoform._genomic_feats.size(); ++i){
+      if(isoform._genomic_feats[i]._match_op._code == S_MATCH){
+         exons.push_back(&isoform._genomic_feats[i]);
+      }
+   }
+   auto first_exon = lower_bound(exons.begin(), exons.end(), feat,
+      [](const GenomicFeature* gf, const GenomicFeature & first)
+      {return gf->right() < first.left();});
+   if(first_exon == exons.end()){
+      return false;
+   }
+   else{
+      if(!(*first_exon)->contains(feat)) return false;
+   }
+   return true;
+}
 
 void Contig::print2gtf(FILE *pFile,
                        const RefSeqTable &ref_lookup,
@@ -595,7 +619,7 @@ void Contig::print2gtf(FILE *pFile,
    strcat(gff_attr, "FPKM \"");
    strcat(gff_attr, fpkm_c);
    strcat(gff_attr, "\";");
-   strcat(gff_attr, "TPM \"");
+   strcat(gff_attr, "cov \"");
    strcat(gff_attr, tpm_c);
    strcat(gff_attr, "\";");
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \

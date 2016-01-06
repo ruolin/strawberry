@@ -161,4 +161,7 @@ inline std::string logger< log_policy >::get_logline_header()
  #define LOG_WARN log_inst.print< severity_type::warning >
  #define LOG_INPUT log_inst.print<severity_type::input_error>
 
+//static logger<file_log_policy> log_track("tracking.log");
+//#define LOG_TRACK log_track.print< severity_type::debug >
+
 #endif /* LOGGER_HPP_ */

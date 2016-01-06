@@ -6,7 +6,6 @@
  */
 
 #include "assembly.h"
-#include "common.h"
 #include "contig.h"
 #include <iterator>
 #ifdef DEBUG
@@ -24,19 +23,36 @@ using namespace lemon;
 typedef int LimitValueType;
 
 
-bool FlowNetwork::comp_lt_first(const std::pair<uint, uint> & lhs, const std::pair<uint,uint> &rhs){
-      return lhs.first < rhs.first;
+void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembled_feats,
+                        const RefID & ref_id,
+                        const Strand_t & strand,
+                        std::vector<Contig> &transcript)
+{
+   for(auto const &feats: assembled_feats){
+      vector<GenomicFeature> merged_feats;
+      GenomicFeature::mergeFeatures(feats, merged_feats);
+      Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
+      transcript.push_back(assembled_transcript);
    }
+}
 
-bool FlowNetwork::comp_lt_second(const std::pair<uint, uint> & lhs, const std::pair<uint,uint> &rhs){
-      return lhs.second < rhs.second;
-   }
+bool FlowNetwork::comp_lt_first(const std::pair<uint, uint> & lhs, const std::pair<uint,uint> &rhs)
+{
+   return lhs.first < rhs.first;
+}
 
-bool FlowNetwork::search_left(const GenomicFeature &lhs, const uint rhs){
+bool FlowNetwork::comp_lt_second(const std::pair<uint, uint> & lhs, const std::pair<uint,uint> &rhs)
+{
+   return lhs.second < rhs.second;
+}
+
+bool FlowNetwork::search_left(const GenomicFeature &lhs, const uint rhs)
+{
    return lhs._genomic_offset < rhs;
 }
 
-bool FlowNetwork::search_right(const GenomicFeature & lhs, const uint rhs){
+bool FlowNetwork::search_right(const GenomicFeature & lhs, const uint rhs)
+{
    uint right = lhs._genomic_offset + lhs._match_op._len -1;
    return right < rhs;
 }
@@ -57,7 +73,8 @@ bool FlowNetwork::search_right(const GenomicFeature & lhs, const uint rhs){
 // whether it is left boundary or right boundary.
 // left = true; right = false
 
-void FlowNetwork::add_sink_source(Graph &g, Graph::Node &source, Graph::Node &sink){
+void FlowNetwork::add_sink_source(Graph &g, Graph::Node &source, Graph::Node &sink)
+{
    source = g.addNode();
    sink = g.addNode();
    for(Graph::NodeIt n(g); n != lemon::INVALID; ++n){
@@ -85,7 +102,8 @@ void FlowNetwork::flowDecompose(const Graph &g,
    const Graph::ArcMap<int> &flow,
    const Graph::Node &source,
    const Graph::Node &sink,
-   std::vector<std::vector<Graph::Arc>> &paths ){
+   std::vector<std::vector<Graph::Arc>> &paths )
+{
 
    Graph::ArcMap<int> copy_flow(g);
    for(Graph::ArcIt arc(g); arc != lemon::INVALID; ++arc){
@@ -182,7 +200,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       uint tail = iTer->first;
       bool is_coverage_deficit = true;
       for(auto i= intron_counter.cbegin(); i != intron_counter.cend(); ++i){
-         if(i->first.first <= tail && head <= i->first.second){ // if a intron overlap this region
+         if(i->first.first == head + 1 && tail-1 == i->first.second){ // if a intron fill in this gap
             is_coverage_deficit = false;
             break;
          }
@@ -365,13 +383,13 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 
    }
 
-#ifdef DEBUG
-   for(auto i: exon_boundaries)
-      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
-   for(auto s: paired_bars)
-      cout<<"intorn: "<<s.first<<"-"<<s.second<<endl;
-   cout<<"---------------------"<<endl;
-#endif
+//#ifdef DEBUG
+//   for(auto i: exon_boundaries)
+//      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
+//   for(auto s: paired_bars)
+//      cout<<"intorn: "<<s.first<<"-"<<s.second<<endl;
+//   cout<<"---------------------"<<endl;
+//#endif
 
    vector<list<pair<uint,uint>>::iterator> drops;
    for(auto d: dropoff){
@@ -718,7 +736,10 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    flowDecompose(_g, flow, _source, _sink, paths);
 
    //put paths into vector<vector<GenomicFeature>>
+   //int i=0;
    for(auto p: paths){
+      //cout<<"number "<<i<<endl;
+      //++i;
       vector<GenomicFeature> tscp;
       for(size_t i = 1; i <p.size(); ++i){
          const Graph::Arc e = p[i];
@@ -736,9 +757,11 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
                for(size_t idx = 0; idx<cstr.size()-1; ++idx){
                   const Graph::Node &n1 = _g.source(cstr[idx]);
                   const Graph::Node &n2 = _g.source(cstr[idx+1]);
+                  //cout<<" inside constraint exon: "<< node_map[n1]->left()<<"-"<<node_map[n1]->right()<<endl;
                   tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[n1]->_genomic_offset, node_map[n1]->_match_op._len));
-                  if(idx+1 < cstr.size()-1)
+                  //if(idx+1 < cstr.size()-1)
                      if(node_map[n2]->left()-node_map[n1]->right() > 1){
+                        //cout<<" inside constriant intron "<<node_map[n1]->right()+1<<"-"<<node_map[n2]->left()<<endl;
                         tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[n1]->right()+1, node_map[n2]->left()-1-node_map[n1]->right()));
                      }
                }

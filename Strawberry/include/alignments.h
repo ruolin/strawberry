@@ -120,7 +120,6 @@ public:
    void rewindReference(HitCluster &clusterOut, int num_regress);
 
    static void mergeClusters(HitCluster & dest, HitCluster &resource);
-
    //void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
                               //map<pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
 

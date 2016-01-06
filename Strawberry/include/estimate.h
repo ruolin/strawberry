@@ -18,10 +18,10 @@ public:
    int _gene_id;
    int _isoform_id;
    double _bais_factor;
-   string _TPM;
-   string _FPKM;
+   string _TPM = "UNKNOWN";
+   string _FPKM = "UNKNOWN";
    //Isoform() = default;
-   Isoform(Contig contig, int gene, int isoform, vector<GenomicFeature> feats);
+   Isoform(const vector<GenomicFeature>& feats, Contig contig, int gene, int isoform);
 
 };
 
@@ -125,9 +125,9 @@ class EmSolver{
    vector<int> _u; // observed data vector
    vector<vector<double>> _F; // hidden model matrix
    vector<vector<double>> _U; // hidden unobserved data matrix.
-   int _max_iter_num = 1000;
-   double _theta_limit = 1e-7;
-   double _theta_change_limit = 1e-7;
+   int _max_iter_num = 10000;
+   double _theta_limit = 1e-1;
+   double _theta_change_limit = 1e-2;
 public:
    vector<double> _theta;
    EmSolver( const int num_iso,

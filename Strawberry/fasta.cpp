@@ -202,10 +202,8 @@ void FaInterface::initiate(const char* fpath){
       LOG_ERR("File or directory ",fpath, " does not exist!");
       exit(1);
    case 2: // is a file. One file multiple chromosomes.
-      // if .fai file is given instead of .fa
 
-
-      if(endsWith(_fa_path,".fai") ){
+      if(endsWith(_fa_path,".fai") ){ // if .fai file is given instead of .fa
          string fa_name = _fa_path.substr(0, _fa_path.length()-4);
          if(!fileExists(fa_name.c_str() )  ){
             LOG_ERR("Cannot find fasta file for index file ",fpath);

@@ -10,6 +10,7 @@
 #include<vector>
 #include <lemon/list_graph.h>
 #include<map>
+#include "common.h"
 
 //namespace lemon{
 //   class ListDigraph;
@@ -94,6 +95,9 @@ public:
          std::vector<std::vector<GenomicFeature>> &transcripts);
 };
 
-
+void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assembled_feats,
+                        const RefID & ref_id,
+                        const Strand_t & strand,
+                        std::vector<Contig>& transcript);
 
 #endif /* ASSEMBLY_H_ */

@@ -21,22 +21,25 @@ typedef int RefID;
 
 const static int kMaxInnerDist = 5000;
 //const static int kMinTransLen =
-const static int kMaxIntronLength = 30000;
+const static int kMaxIntronLength = 3000;
 const static double kSmallOverHangProp = 3/100.0;
 const static double kMinIsoformFrac = 0.05;
 const static double kBinomialOverHangAlpha = 0.0;
 const static bool enforce_ref_models = false;
-const static float kMinJuncSupport = 0.1; // min number of spliced aligned reads for a valid intron
+const static float kMinJuncSupport = 2; // min number of spliced aligned reads for a valid intron
 const static int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
 const static double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
                                            //select locus have enough reads covered.
-const static int kMaxCoverGap = 500;
-const static int kMaxReadNum4FD = 5000;
+const static double kMinDepth4Quantify = 1;
+const static int kMaxCoverGap = 50;
+const static int kMaxReadNum4FD = 50000;
 const static double kInsertSizeMean = 200;
 const static double kInsertSizeSD = 80;
 const static bool infer_the_other_end = true;
 const static bool verbose = true;
+const static double kSimDepthCorrect = 1;
+const static bool kCombineShrotTransfrag = true;
 //const static int kMinExonLen = 5;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
@@ -70,11 +73,8 @@ bool endsWith(const char* s, const char* suffix);
 
 void split(const std::string& s, const std::string& delims, std::vector<std::string>& result);
 
-inline void SFree(pointer* ptr)
-{
-   if (*ptr) free(*ptr);
-   *ptr=NULL;
-}
+const char* stripFileName(char *path);
+
 void reverseString(char str[], int length);
 char* Sitoa(int num, char* str, int base);
 
@@ -115,21 +115,9 @@ inline double getMedian(const vector<float> &vec){
 
 int stricmp(const char* a, const char* b, int n);
 
-
-bool SRealloc(pointer* ptr,unsigned long size);
-
-inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint rhs_right){
-
-   if (lhs_left >= rhs_left && lhs_left < rhs_right)
-      return true;
-   if (lhs_right > rhs_left && lhs_right < rhs_right)
-      return true;
-   if (rhs_left >= lhs_left && rhs_left < lhs_right)
-      return true;
-   if (rhs_right > lhs_left && rhs_right < lhs_right)
-      return true;
-   return false;
-
+inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint rhs_right)
+{
+   return lhs_left <= rhs_right && rhs_left <= lhs_right;
 }
 
 
