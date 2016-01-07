@@ -1,10 +1,3 @@
-/*
- * fasta.cpp
- *
- *  Created on: Jan 23, 2015
- *      Author: ruolin
- */
-
 #include "fasta.h"
 #include "common.h"
 #include <dirent.h>

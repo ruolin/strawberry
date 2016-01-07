@@ -1,10 +1,21 @@
-//============================================================================
-// Name        : Strawberry.cpp
-// Author      : 
-// Version     :
-// Copyright   : Your copyright notice
-// Description : For Strawberry
-//============================================================================
+/*
+>HEADER
+    Copyright (c) 2015 Ruolin Liu rliu0606@gmail.com
+    This file is part of Strawberry.
+    Strawberry is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Strawberry is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Strawberry.  If not, see <http://www.gnu.org/licenses/>.
+<HEADER
+*/
 
 #include <iostream>
 #include <algorithm>
@@ -22,8 +33,8 @@ int main(){
    const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
-   char *bam_file = "/home/ruolin/git/Strawberry/RD100.control_r1.concordant_uniq.sort.bam";
-   //char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/accepted_hits.bam";
+   //char *bam_file = "/home/ruolin/git/Strawberry/RD100.control_r1.concordant_uniq.sort.bam";
+   char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/accepted_hits.bam";
    const char* bam_dir = stripFileName(bam_file);
    size_t len1 = strlen(bam_dir);
    char *output = (char*) malloc(len1+27);// assembled_transcripts.gtf 25 characters
