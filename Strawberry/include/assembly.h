@@ -1,9 +1,8 @@
 /*
- * assembly.h
- *
- *  Created on: Mar 18, 2015
- *      Author: ruolin
+ * Builidng splicing graphs.
+ * Solve the CMPC problem.
  */
+
 
 #ifndef ASSEMBLY_H_
 #define ASSEMBLY_H_
@@ -12,9 +11,7 @@
 #include<map>
 #include "common.h"
 
-//namespace lemon{
-//   class ListDigraph;
-//}
+
 class IntronTable;
 class GenomicFeature;
 class Contig;
@@ -93,6 +90,8 @@ public:
          Graph::ArcMap<int> &cost_map,
          Graph::ArcMap<int> &min_map,
          std::vector<std::vector<GenomicFeature>> &transcripts);
+
+   void filter_short_transcripts(std::vector<std::vector<GenomicFeature>> &transcripts);
 };
 
 void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assembled_feats,

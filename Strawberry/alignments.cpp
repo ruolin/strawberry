@@ -74,6 +74,17 @@ bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster
  * Global utility functions end:
  */
 
+HitCluster::HitCluster():
+   _leftmost(UINT_MAX),
+   _rightmost(0),
+   _hit_for_plus_strand(0),
+   _hit_for_minus_strand(0),
+   _first_encounter_strand(Strand_t::StrandUnknown),
+   _ref_id(-1),
+   _final(false),
+   _raw_mass(0.0)
+{}
+
 
 RefID HitCluster::ref_id() const
 {
@@ -191,8 +202,34 @@ bool HitCluster::addHit(const PairedHit &hit){
    return true;
 }
 
+//void HitCluster::count_current_intron(const std::vector<std::pair<uint,uint>> &intron)
+//{
+//   bool not_found = true;
+//   for(auto it: intron){
+//      auto p = _current_intron_counter.find(it);
+//      if(p != _current_intron_counter.end()) {
+//         not_found = false;
+//         p->second++;
+//      }
+//   }
+//   if(not_found){
+//      _current_intron_counter.clear();
+//      for(auto it: intron){
+//         _current_intron_counter.emplace(it,0);
+//      }
+//   }
+//}
+//
+//bool HitCluster::current_intron_is_reliable() const
+//{
+//   for(auto it:_current_intron_counter){
+//      if(it.second > kMinJuncSupport)
+//         return true;
+//   }
+//   return false;
+//}
 
-bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
+bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
 {
    uint orig_left = _leftmost;
    uint orig_right = _rightmost;
@@ -202,19 +239,40 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
    RefID hit_ref_id = hit->ref_id();
    uint hit_partner_pos = hit->partner_pos();
    ReadID hit_id = hit->read_id();
-   if(extend_by_hit){
-      _leftmost = min(_leftmost, hit_left);
-      _rightmost = max(_rightmost, hit_right);
-   }
-   if(extend_by_partner && hit_partner_pos != 0){
-      if((int)hit_partner_pos - (int)hit_left > kMaxInnerDist){
-         LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ", kMaxInnerDist);
-         return false;
+
+//   if(hit->contains_splice() && hit->intron_len() > kMaxIntronLen4ExtCluster){
+//      vector<pair<uint,uint>> intron_coords = hit->intron_coords();
+//
+//      //count_current_intron(intron_coords);
+//      if(extend_by_hit && current_intron_is_reliable()){
+//         _leftmost = min(_leftmost, hit_left);
+//         _rightmost = max(_rightmost, hit_right);
+//      }
+//      if(extend_by_partner && hit_partner_pos != 0 && current_intron_is_reliable()){
+//         if((int)hit_partner_pos - (int)hit_left > max_inner_d){
+//            LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
+//            return false;
+//         }
+//         _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
+//      }
+//   } //end if
+//   else{
+      if(extend_by_hit && hit->intron_len() < kMaxIntronLen4ExtCluster){
+         _leftmost = min(_leftmost, hit_left);
+         _rightmost = max(_rightmost, hit_right);
       }
-      _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
-   }
-   // Double check. This is only useful when called in ClusterFactory::mergeCluster()
-   if(hit_lt_cluster(*hit, *this, ClusterFactory::_kMaxOlapDist)){
+      if(extend_by_partner && hit_partner_pos != 0 && hit->intron_len() > kMaxIntronLen4ExtCluster){
+         if((int)hit_partner_pos - (int)hit_left > max_inner_d){
+            LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
+            return false;
+         }
+         _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
+      }
+//   }//end else
+
+
+   // Double check. This is only useful when called in Sample::mergeCluster()
+   if(hit_lt_cluster(*hit, *this, kMaxOlapDist)){
       _leftmost = orig_left;
       _rightmost = orig_right;
       return false;
@@ -455,8 +513,19 @@ bool HitCluster::see_both_strands(){
    return see_plus && see_minus;
 }
 
-bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt,
-      const char *seqFile)
+int Sample::max_inner_dist() const
+{
+   if(_is_inspecting)
+      return kMaxInnerDist;
+   else{
+      if(_insert_size_dist->empty())
+         return kMaxInnerDist;
+      else
+         return _insert_size_dist->_end_offset;
+   }
+}
+
+bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile)
 {
    //sort gseqs accroding to the observation order in ref_table
    // or if ref_table is empty, initialize it according to gseqs
@@ -500,7 +569,8 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
          fsg = new FaSeqGetter();
          fa_api.load2FaSeqGetter(*fsg,gseqs[i]->_g_seq_name);
          if(fsg == NULL){
-            LOG_ERR("Reference sequence ", gseqs[i]->_g_seq_name, " can not be load!\n");
+            cerr<<"Reference sequence "<<gseqs[i]->_g_seq_name<<" can not be load!"<<endl;
+            cerr<<"Please check if the names of sequences in fasta file match the names in BAM/SAM file"<<endl;
          }
       }
       int f_total = gseqs[i]->_forward_rnas.size();
@@ -545,7 +615,7 @@ bool ClusterFactory::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqT
    return true;
 }
 
-double ClusterFactory::next_valid_alignment(ReadHit& readin){
+double Sample::next_valid_alignment(ReadHit& readin){
    const char* hit_buf=NULL;
    size_t hit_buf_size = 0;
    double raw_mass = 0.0;
@@ -579,14 +649,14 @@ double ClusterFactory::next_valid_alignment(ReadHit& readin){
    return raw_mass;
 }
 
-double ClusterFactory::rewindHit(const ReadHit& rh)
+double Sample::rewindHit(const ReadHit& rh)
 {
    double mass = rh.mass();
    _hit_factory->undo_hit();
    return mass;
 }
 
-int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
+int Sample::addRef2Cluster(HitCluster &clusterOut){
    if(_refmRNA_offset >=  _ref_mRNAs.size()) {
       _has_load_all_refs = true;
       return 0;
@@ -616,7 +686,7 @@ int ClusterFactory::addRef2Cluster(HitCluster &clusterOut){
    return clusterOut._ref_mRNAs.size();
 }
 
-void ClusterFactory::rewindReference(HitCluster &clusterOut , int num_regress)
+void Sample::rewindReference(HitCluster &clusterOut , int num_regress)
 {
    clusterOut.left(UINT_MAX);
    clusterOut.right(0);
@@ -626,13 +696,13 @@ void ClusterFactory::rewindReference(HitCluster &clusterOut , int num_regress)
    assert(_refmRNA_offset >= 0);
 }
 
-void ClusterFactory::reset_refmRNAs()
+void Sample::reset_refmRNAs()
 {
    _refmRNA_offset = 0;
    _has_load_all_refs = false;
 }
 
-int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
+int Sample::nextCluster_denovo(HitCluster &clusterOut,
                                        uint next_ref_start_pos,
                                        RefID next_ref_start_ref
                                        )
@@ -654,20 +724,20 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
       }
 
       if(clusterOut.size() == 0){ // add first hit
-         clusterOut.addOpenHit(new_hit, true, true);
+         clusterOut.addOpenHit( max_inner_dist(), new_hit, true, true);
          clusterOut.addRawMass(mass);
 
       } else { //add the rest
-         if(hit_lt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){
+         if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
             // should never reach here
             LOG_ERR("In alignments.cpp: It appears that SAM/BAM not sorted!");
          }
-         if(hit_gt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){
+         if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
             // read has gone to far.
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(new_hit, true, true);
+         clusterOut.addOpenHit(max_inner_dist(), new_hit, true, true);
          clusterOut.addRawMass(mass);
       }
    }
@@ -675,7 +745,7 @@ int ClusterFactory::nextCluster_denovo(HitCluster &clusterOut,
 }
 
 
-int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
+int Sample::nextCluster_refGuide(HitCluster &clusterOut)
 {
    //bool skip_read = false;
    if(!_hit_factory->recordsRemain()) return -1;
@@ -689,14 +759,14 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
          return nextCluster_denovo(clusterOut);
       }
       //else
-      // add as many as possible until encounter gap > _kMaxOlapDist
+      // add as many as possible until encounter gap > kMaxOlapDist
       while(true){
          ReadHitPtr new_hit(new ReadHit());
          double mass = next_valid_alignment(*new_hit);
          if(!_hit_factory->recordsRemain())
             return clusterOut.size();
 
-         if(hit_lt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){ // hit hasn't reach reference region
+         if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // hit hasn't reach reference region
             rewindHit(*new_hit);
             if(_has_load_all_refs){
                rewindReference(clusterOut, num_added_refmRNA);
@@ -715,12 +785,12 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
             }
          }
 
-         if(hit_gt_cluster(*new_hit, clusterOut, _kMaxOlapDist)){ // read has gone too far.
+         if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // read has gone too far.
             rewindHit(*new_hit);
             break;
          }
 
-         clusterOut.addOpenHit(new_hit, false, false);
+         clusterOut.addOpenHit(max_inner_dist(), new_hit, false, false);
          clusterOut.addRawMass(mass);
 
          // if too many hits, i.e., read depths too high. Then randomly sample a fraction of them.
@@ -736,7 +806,7 @@ int ClusterFactory::nextCluster_refGuide(HitCluster &clusterOut)
    return clusterOut.size();
 }
 
-void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
+void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
    /*
     * reassign paired hits;
     */
@@ -787,11 +857,11 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
    for(auto it = last._open_mates.begin(); it != last._open_mates.end(); ++it){
       for(auto hit = it->second.begin(); hit != it->second.end(); ++hit){
          if(hit->_left_read){
-            cur.addOpenHit(hit->_left_read,false,false);
+            cur.addOpenHit(this->max_inner_dist(), hit->_left_read,false,false);
          }
          else{
             assert(hit->_right_read);
-            cur.addOpenHit(hit->_right_read,false,false);
+            cur.addOpenHit(this->max_inner_dist(), hit->_right_read,false,false);
          }
       }
 
@@ -799,7 +869,7 @@ void ClusterFactory::mergeClusters(HitCluster & last, HitCluster &cur){
 }
 
 
-void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool calculateFD){
+void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
    /*
     * Isoform id is integer from 1. The index
     * for each isoform in vector<Isoform> is id+1.
@@ -809,7 +879,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
    cluster.collapseHits();
 
    //enough read for calculating empirical distribution of reads.
-   if(calculateFD &&
+   if(_is_inspecting &&
       _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD)
       return;
 
@@ -820,9 +890,7 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
       vector<float> exon_doc;
       IntronMap intron_counter;
       vector<GenomicFeature> exons;
-      uint small_overhang;
       vector<Contig> hits;
-      uint read_len = _hit_factory->_reads_table._read_len_abs;
       cluster._strand = cluster.guessStrand();
 
 
@@ -835,17 +903,16 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
          Contig hit(*r);
          hits.push_back(hit);
       }
-      small_overhang = read_len * kSmallOverHangProp;
       sort(hits.begin(), hits.end());
       size_t s = cluster.right() - cluster.left() + 1;
       exon_doc.resize(s,0);
-      compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
+      compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
       if(enforce_ref_models && cluster.hasRefmRNAs()){
          vector<Contig> hits;
          for(auto i: cluster._ref_mRNAs){
             hits.push_back(*i);
          }
-         compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, small_overhang);
+         compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
       }
 
       //if(!calculateFD)
@@ -867,7 +934,9 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
 
       bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs,cost_map, min_flow_map,assembled_feats);
       if(!stat2)return;
-      if(calculateFD){ // just calculated the fragment length distribution
+
+
+      if(_is_inspecting){ // just calculated the fragment length distribution
          if(assembled_feats.size() == 1){
             vector<GenomicFeature> merged_feats;
             GenomicFeature::mergeFeatures(assembled_feats[0], merged_feats);
@@ -893,8 +962,10 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
          map<int, set<set<pair<uint,uint>>>> iso_2_bins_map;
          map<int, int> iso_2_len_map;
 
+         /* Merge transfrags if they
+          *  do not overlaps.
+          *  Begin*/
          assemble_2_contigs(assembled_feats,cluster.ref_id(), cluster.strand(), assembled_transcripts);
-          /* Merge transfrags if they do not overlaps. */
          if(kCombineShrotTransfrag){
             vector<pair<uint,uint>> to_merge;
             vector<Contig> merged_transcripts;
@@ -941,6 +1012,9 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
                assembled_transcripts = merged_transcripts;
             } // end if(!to_merge.empty())
          }  //end if(kCombineShrotTransfrag)
+         /* Merge transfrags if they
+          *  do not overlaps.
+          *  End*/
 
          int tscp_id = 0;
          for(auto t: assembled_transcripts){
@@ -959,17 +1033,18 @@ void ClusterFactory::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, bool
                                                    iso_2_len_map, isoforms, false);
          }
          for(auto & iso: isoforms){
-            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM, iso._TPM, iso._gene_id, iso._isoform_id);
+            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
          }
       }
    }// if cutoff > kMinDepth4Locus
 }
 
-void ClusterFactory::inspectCluster()
+void Sample::inspectSample()
 /*
  *  First run-through to calculate fragment distribution FD
  * */
 {
+   _is_inspecting = true;
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    unique_ptr<HitCluster> last_cluster (new HitCluster());
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
@@ -1001,25 +1076,26 @@ void ClusterFactory::inspectCluster()
          _current_chrom = ref_t.ref_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
-      finalizeAndAssemble(*last_cluster, NULL, true);
+      finalizeAndAssemble(*last_cluster, NULL);
       _total_mapped_reads += last_cluster->collapse_mass();
       cout<<"inspect gene: "<<last_cluster->ref_id()<<": "<<last_cluster->left()<<"-"<<last_cluster->right()<<endl;
       cout<<"total reads: "<<_total_mapped_reads<<endl;
       last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(*last_cluster, NULL, true);
+   finalizeAndAssemble(*last_cluster, NULL);
    _total_mapped_reads += (int)last_cluster->collapse_mass();
    _hit_factory->reset();
+   _is_inspecting = false;
    reset_refmRNAs();
 }
 
-int ClusterFactory::total_mapped_reads() const
+int Sample::total_mapped_reads() const
 {
    return _total_mapped_reads;
 }
 
-void ClusterFactory::parseClusters(FILE *pfile)
+void Sample::procSample(FILE *pfile)
 {
 /*
  * The major function which calls nextCluster() and finalizes cluster and
@@ -1031,7 +1107,7 @@ void ClusterFactory::parseClusters(FILE *pfile)
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
       return;
    }
-
+   _is_inspecting = false;
    _current_chrom = ref_t.ref_name(last_cluster->ref_id());
 
    while(true){
@@ -1064,7 +1140,7 @@ void ClusterFactory::parseClusters(FILE *pfile)
          _current_chrom = ref_t.ref_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
-      finalizeAndAssemble(*last_cluster, pfile, false);
+      finalizeAndAssemble(*last_cluster, pfile);
 #ifdef DEBUG
      //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
@@ -1077,14 +1153,14 @@ void ClusterFactory::parseClusters(FILE *pfile)
          //}
 #endif
      last_cluster = move(cur_cluster);
-     //if(last_cluster->left() > 8600500) exit(0);
+     //if(last_cluster->ref_id() == 4 && last_cluster->left() > 10,027,601) exit(0);
    }
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(*last_cluster, pfile, false);
+   finalizeAndAssemble(*last_cluster, pfile);
 }
 
 
-void ClusterFactory::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
+void Sample::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
       vector<float> &exon_doc,  IntronMap &intron_counter, uint smallOverHang)
 {
 
@@ -1136,7 +1212,7 @@ void ClusterFactory::compute_doc(const uint left, const uint right, const vector
 
 }
 
-void ClusterFactory::filter_intron(uint cluster_left,
+void Sample::filter_intron(uint cluster_left,
       vector<float> &exon_doc, IntronMap& intron_counter)
 {
    // bad_intron_pos for indexes for intron to be drop off in intron_counter
@@ -1199,7 +1275,7 @@ void ClusterFactory::filter_intron(uint cluster_left,
          ++i;
          continue;
       }
-      double success = 2 * kSmallOverHangProp;
+      double success = 2 * (double) kMaxSmallAnchor/_hit_factory->_reads_table._read_len_abs;;
       double prob_not_lt_observed = 1.0;
       double normal_mean = total_read * success;
       double normal_sd = sqrt(total_read * success*(1-success));

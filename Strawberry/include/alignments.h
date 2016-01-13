@@ -12,32 +12,33 @@
 #include "read.h"
 #include "contig.h"
 #include "gff.h"
-class ClusterFactory;
+class Sample;
 using IntronMap = std::map<std::pair<uint,uint>,IntronTable>;
 
 class HitCluster{
-   friend ClusterFactory;
-   uint _leftmost = UINT_MAX;
-   uint _rightmost = 0;
-   int _hit_for_plus_strand = 0;
-   int _hit_for_minus_strand = 0;
-   Strand_t _first_encounter_strand = Strand_t::StrandUnknown;
+   friend Sample;
+   uint _leftmost;
+   uint _rightmost;
+   int _hit_for_plus_strand;
+   int _hit_for_minus_strand;
+   Strand_t _first_encounter_strand;
    int _id;
-   RefID _ref_id = -1;
-   bool _final = false; // HitCluster is finished
-   double _raw_mass = 0.0;
+   RefID _ref_id;
+   bool _final; // HitCluster is finished
+   double _raw_mass;
    Strand_t _strand;
    std::unordered_map<ReadID, list<PairedHit>> _open_mates;
    std::vector<PairedHit> _hits;
    std::vector<PairedHit> _uniq_hits;
-   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by ClusterFactory
+   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by Sample
    std::vector<GenomicFeature> _introns;
    std::vector<float> _dep_of_cov;
+   //std::map<std::pair<int,int>,int> _current_intron_counter;
 public:
    static const int _kMaxGeneLen = 1000000;
    static const int _kMaxFragPerCluster = 100000;
    static const int _kMinFold4BothStrand = 10;
-   HitCluster() = default;
+   HitCluster();
    RefID ref_id() const;
    void ref_id(RefID id);
    uint left() const;
@@ -52,9 +53,10 @@ public:
       return _strand;
    }
    bool addHit(const PairedHit &hit);
+   void count_current_intron(const std::vector<std::pair<uint,uint>>& cur_intron);
    void setBoundaries();
    void clearOpenMates();
-   bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
+   bool addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
    int collapseHits();
    bool overlaps(const HitCluster& rhs) const;
    bool hasRefmRNAs() const {
@@ -74,11 +76,13 @@ public:
       return _raw_mass;
    }
    double collapse_mass() const;
-
+   //void count_current_intron(const ReadHit & hit);
+   //bool current_intron_is_reliable() const;
    bool see_both_strands();
 };
 
-class ClusterFactory{
+class Sample{
+   bool _is_inspecting;
    int _num_cluster = 0;
    uint _prev_pos = 0;
    RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
@@ -96,13 +100,13 @@ class ClusterFactory{
 public:
    unique_ptr<HitFactory> _hit_factory;
    shared_ptr<InsertSize> _insert_size_dist =nullptr;
-   static const int _kMaxOlapDist = 50;
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
-   ClusterFactory(unique_ptr<HitFactory> hit_fac):
+   Sample(unique_ptr<HitFactory> hit_fac):
       _refmRNA_offset(0),
       _has_load_all_refs(false),
       _hit_factory(move(hit_fac))
    {}
+   int max_inner_dist() const;
    int total_mapped_reads() const;
    bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
    bool hasLoadRefmRNAs() const {
@@ -119,14 +123,14 @@ public:
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
 
-   static void mergeClusters(HitCluster & dest, HitCluster &resource);
+   void mergeClusters(HitCluster & dest, HitCluster &resource);
    //void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
                               //map<pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
 
    void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
-   void parseClusters(FILE *f);
-   void inspectCluster();
-   void finalizeAndAssemble(HitCluster & cluster, FILE *f, bool calculatedFD);
+   void procSample(FILE *f);
+   void inspectSample();
+   void finalizeAndAssemble(HitCluster & cluster, FILE *f);
 };
 
 

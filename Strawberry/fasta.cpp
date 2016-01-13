@@ -192,14 +192,14 @@ void FaInterface::initiate(const char* fpath){
    pair<ItFaidx, bool> ret;
    switch(fileExists(fpath)){
    case 0:
-      LOG_ERR("File or directory ",fpath, " does not exist!");
+      cerr<<"File or directory "<<fpath<<" does not exist!"<<endl;
       exit(1);
    case 2: // is a file. One file multiple chromosomes.
 
       if(endsWith(_fa_path,".fai") ){ // if .fai file is given instead of .fa
          string fa_name = _fa_path.substr(0, _fa_path.length()-4);
          if(!fileExists(fa_name.c_str() )  ){
-            LOG_ERR("Cannot find fasta file for index file ",fpath);
+            cerr<<"Cannot find fasta file for index file "<<fpath<<endl;
             exit(1);
          }else{
             ret = _fa_indexes.insert(make_pair(fa_name, unique_ptr<FaIndex> (new FaIndex(fa_name.c_str(), fpath) ) ) );
@@ -211,7 +211,7 @@ void FaInterface::initiate(const char* fpath){
          assert(ret.second);
 
       } else {
-         LOG_ERR("Cannot find .fasta or .fa file");
+         cerr<<"Cannot find .fasta or .fa file"<<endl;
          exit(1);
       }
 
@@ -239,7 +239,7 @@ void FaInterface::initiate(const char* fpath){
             string fa_name(fai_name);
             strcat(fai_name, ".fai");
             if(strlen(fai_name) > 199) {
-               LOG_ERR("file name is too long ", fai_name);
+               cerr<<"file name is too long "<<fai_name<<endl;
                exit(1);
             }
             // if index file exists
@@ -255,15 +255,15 @@ void FaInterface::initiate(const char* fpath){
                   }
                }//end for loop
             }
-//            #ifdef DEBUG
-//               printf("index file: %s\n", fai_name);
-//            #endif
+            else{
+               cerr<<"Error: fasta file "<<fa_name<<" lack index file!"<<endl;
+            }
          }
       }
       closedir(dir);
       break;
    default:
-      LOG_ERR("Error: not a valid file or directory ", fpath);
+      cerr<<"Error: not a valid file or directory "<<fpath<<endl;;
       break;
    }
    _has_load = true;

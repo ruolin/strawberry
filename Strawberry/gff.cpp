@@ -439,9 +439,8 @@ GffmRNA* GffSeqData::findmRNA(const string mrna_id, const Strand_t strand){
    return NULL;
 }
 
-GffReader::GffReader(const char* fname):
-      SlineReader(fname),
-      _fname(string(fname))
+GffReader::GffReader(const char* fname, FILE* stream):
+      SlineReader(stream), _fname(string(fname))
 {}
 
 bool GffReader::nextGffLine(){

@@ -631,7 +631,7 @@ void Contig::print2gtf(FILE *pFile,
    strcat(gff_attr, "FPKM \"");
    strcat(gff_attr, fpkm_c);
    strcat(gff_attr, "\";");
-   strcat(gff_attr, "cov \"");
+   strcat(gff_attr, "TPM \"");
    strcat(gff_attr, tpm_c);
    strcat(gff_attr, "\";");
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \

@@ -1,26 +1,43 @@
-/*
->HEADER
-    Copyright (c) 2015 Ruolin Liu rliu0606@gmail.com
-    This file is part of Strawberry.
-    Strawberry is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
 
-    Strawberry is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+/* **
+ * Note:
+ * Some functions are borrowed from Cufflinks: https://github.com/cole-trapnell-lab/cufflinks
+ * **/
 
-    You should have received a copy of the GNU General Public License
-    along with Strawberry.  If not, see <http://www.gnu.org/licenses/>.
-<HEADER
-*/
-
-#include "common.h"
 #include <libgen.h>
 #include <cmath>
 #include <algorithm>
+#include <iostream>
+#include "common.h"
+bool WITH_BIAS_CORRECTION = false;
+int kMaxInnerDist = 5000;
+int kMaxIntronLength = 5000; // max-junction-splice-distance
+int kMinIntronLength = 50; // min-junction-splice-distance
+int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
+int kMinTransLen = 200; //ignore isoforms if its length is too short.
+int kMaxOlapDist = 30; // merge cluster if within this distance.
+double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
+double kMinIsoformFrac = 0.05;
+double kBinomialOverHangAlpha = 0.0;
+float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
+int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
+                                     // weights on non-intron edges.
+double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
+                                        //select locus have enough reads covered.
+double kMinDepth4Quantify = 1;
+int kMaxCoverGap1 = 200; // cover gap due the read depth.
+int kMaxCoverGap2 = 50;
+int kMaxReadNum4FD = 50000;
+double kInsertSizeMean = 0;
+double kInsertSizeSD = 0;
+bool infer_the_other_end = true;
+bool verbose = true;
+bool kCombineShrotTransfrag = true;
+std::string output_dir = "./";
+std::string ref_gtf_filename = "";
+std::string ref_fasta_file = "";
+bool enforce_ref_models = false;
+
 
 double standard_normal_cdf(double x)
 /*
@@ -143,6 +160,58 @@ void reverseString(char str[], int length)
         start++;
         end--;
     }
+}
+
+
+/**
+ * Parse an int out of optarg and enforce that it be at least 'lower';
+ * if it is less than 'lower', than output the given error message and
+ * exit with an error and a usage message.
+ */
+
+
+int parseInt(const char* optarg, int lower, const char *errmsg, void (*print_help)()) {
+    long l;
+    char *endPtr= NULL;
+    l = strtol(optarg, &endPtr, 10);
+    if (endPtr != NULL) {
+        if (l < lower) {
+            cerr << errmsg << endl;
+            print_help();
+            exit(1);
+        }
+        return (int32_t)l;
+    }
+    cerr<< errmsg <<endl;
+    print_help();
+    exit(1);
+    return -1;
+}
+
+
+float parseFloat(const char* optarg, float lower, float upper, const char *errmsg, void (*print_help)()) {
+    float l;
+    l = (float)atof(optarg);
+
+    if (l < lower) {
+        cerr << errmsg <<endl;
+        print_help();
+        exit(1);
+    }
+
+    if (l > upper)
+    {
+        cerr << errmsg << endl;
+        print_help();
+        exit(1);
+    }
+
+    return l;
+
+    cerr << errmsg << endl;
+    print_help();
+    exit(1);
+    return -1;
 }
 
 // Implementation of itoa()

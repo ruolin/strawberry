@@ -18,8 +18,10 @@ public:
    int _gene_id;
    int _isoform_id;
    double _bais_factor;
-   string _TPM = "nan";
-   string _FPKM = "nan";
+   double _TPM = 0.0;
+   double _FPKM = 0.0;
+   string _TPM_s = "nan";
+   string _FPKM_s = "nan";
    //Isoform() = default;
    Isoform(const vector<GenomicFeature>& feats, Contig contig, int gene, int isoform);
 
@@ -68,7 +70,8 @@ public:
 class Estimation {
 //typedef CGAL::Quadratic_program<double> Program;
 //typedef CGAL::Quadratic_program_solution<ET> Solution;
-
+   static const double _kMinTPM;
+   static constexpr double _kMinFPKM = 1e-2;
    shared_ptr<InsertSize> _insert_size_dist;
    int _read_len;
 
@@ -120,19 +123,30 @@ public:
 
 class EmSolver{
    const double TOLERANCE = std::numeric_limits<double>::denorm_min();
-   int _num_isoforms;
    vector<double> _theta_after_zero;
    vector<int> _u; // observed data vector
-   vector<vector<double>> _F; // hidden model matrix
+   vector<vector<double>> _F; // sampling rate matrix, \alpha
+   vector<vector<double>> _B; // bias matrix, \beta
    vector<vector<double>> _U; // hidden unobserved data matrix.
-   int _max_iter_num = 10000;
-   double _theta_limit = 1e-1;
-   double _theta_change_limit = 1e-2;
+   static constexpr int _max_iter_num = 10000;
+   static constexpr int _max_bias_it_num = 1000;
+   static constexpr int _max_theta_it_num = 5000;
+   static constexpr int _max_out_it_num = 10;
+   static constexpr double _theta_change_limit = 1e-2;
+   static constexpr double _bias_change_limit = 1e-4;
 public:
    vector<double> _theta;
-   EmSolver( const int num_iso,
+   vector<double> _bias;
+   EmSolver() = default;
+   bool init( const int num_iso,
          const vector<int> &count,
          const vector<vector<double>> &model);
+
+   bool init( const int num_iso,
+         const vector<int> &count,
+         const vector<vector<double>> &model,
+         const vector<vector<double>> &bias);
+
    bool run();
 };
 

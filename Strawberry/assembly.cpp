@@ -174,6 +174,12 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    sort(paired_bars.begin(), paired_bars.end());
    auto new_end = unique(paired_bars.begin(), paired_bars.end());
    paired_bars.erase(new_end, paired_bars.end());
+//#ifdef DEBUG
+//   for(auto s: paired_bars)
+//      cout<<"intorn: "<<s.first<<"-"<<s.second<<endl;
+//   cout<<"---------------------"<<endl;
+//#endif
+
    list<pair<uint,uint>> exon_boundaries;
 
 
@@ -201,8 +207,8 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 //#endif
 
    /*
-    * When some exonic coverage gaps exist
-    * due to low sequncing coverages.
+    * When some exonic coverage gaps exist due to low sequncing coverages.
+    * This loop tries to fill in gaps and bring together separated exons.
     */
    auto iTer = exon_boundaries.begin();
    while(true){
@@ -363,57 +369,11 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
             }
          }
       } // end of if-ifelse-else condition
-//      else{
-//
-//         // first two conditiosn cover situations when exon
-//         // segments are supported by intron only on one side.
-//         //
-//         if( next(e)->first - e->second > 1 &&
-//             !binary_search(paired_bars.begin(), paired_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt)
-//           )
-//         {
-//            if( binary_search(paired_bars.begin(), paired_bars.end(), pair<uint, bool>(e->first-1,true), comp_lt)){
-//               if(e->first - prev(e)->second == 2) dropoff.push_back(e);
-//            }
-//            else{
-//               dropoff.push_back(e);
-//            }
-//            continue;
-//         }
-//
-//         if (e->first - prev(e)->second > 1 &&
-//               !binary_search(paired_bars.begin(), paired_bars.end(), pair<uint, bool>(e->first-1,true), comp_lt)
-//            )
-//         {
-//            if(binary_search(paired_bars.begin(), paired_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt)){
-//               if(next(e)->first - e->second == 2) dropoff.push_back(e);
-//            }
-//            else{
-//               dropoff.push_back(e);
-//            }
-//            continue;
-//         }
-//
-//         if( ( binary_search(paired_bars.begin(), paired_bars.end(), pair<uint, bool>(e->first-1,true), comp_lt) ||
-//               e->first == prev(e)->second+1
-//             ) &&
-//             (
-//               binary_search(paired_bars.begin(), paired_bars.end(), pair<uint, bool>(e->second+1,true), comp_lt) ||
-//               e->second == next(e)->first-1
-//             ));
-//         else{
-//            dropoff.push_back(e);
-//         }
-//      }
-
    }
 
 //#ifdef DEBUG
 //   for(auto i: exon_boundaries)
 //      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
-//   for(auto s: paired_bars)
-//      cout<<"intorn: "<<s.first<<"-"<<s.second<<endl;
-//   cout<<"---------------------"<<endl;
 //#endif
 
    vector<list<pair<uint,uint>>::iterator> drops;
@@ -719,7 +679,8 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
       const vector<vector<Graph::Arc>> &path_cstrs,
       Graph::ArcMap<int> &cost_map,
       Graph::ArcMap<int> &min_flow_map,
-      vector<vector<GenomicFeature>> &transcripts){
+      vector<vector<GenomicFeature>> &transcripts)
+{
 
    // single exon cases
    if(exons.size() == 1){
@@ -814,5 +775,27 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
       }
       transcripts.push_back(tscp);
    }
+
+   filter_short_transcripts(transcripts);
+   if(transcripts.empty()) return false;
+
    return true;
+}
+
+void FlowNetwork::filter_short_transcripts(vector<vector<GenomicFeature>> &transcripts)
+{
+   for(auto it=transcripts.begin(); it != transcripts.end();){
+      int len = 0;
+      for(auto const& gf: *it){
+         if(gf._match_op._code == Match_t::S_MATCH){
+            len += gf._match_op._len;
+         }
+      }
+      if(len < kMinTransLen ){
+         it = transcripts.erase(it);
+      }
+      else{
+         ++it;
+      }
+   }
 }

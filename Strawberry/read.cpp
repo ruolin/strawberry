@@ -58,7 +58,8 @@ const vector<CigarOp>& ReadHit::cigar() const
    return _cigar;
 }
 
-uint ReadHit::read_len() const{
+uint ReadHit::read_len() const
+{
    uint len = 0;
    for(size_t i =0; i< _cigar.size(); ++i){
       switch(_cigar[i]._type)
@@ -73,6 +74,37 @@ uint ReadHit::read_len() const{
       }
    }
    return len;
+}
+
+uint ReadHit::intron_len() const
+{
+   uint len = 0;
+   for(size_t i=0; i< _cigar.size(); ++i){
+      if(_cigar[i]._type == REF_SKIP)
+         len += _cigar[i]._length;
+   }
+   return len;
+}
+
+vector<pair<uint,uint>> ReadHit::intron_coords() const
+  /*
+    *  Only be called if objects contains intron
+    */
+{
+   assert(contains_splice());
+   vector<pair<uint,uint>> coords;
+   uint start = left();
+   uint end = 0;
+   for(size_t i=0; i< _cigar.size(); ++i){
+      if(_cigar[i]._type != REF_SKIP)
+         start += _cigar[i]._length;
+      else{
+         end = start + _cigar[i]._length -1;
+         coords.emplace_back(start,end);
+         start += _cigar[i]._length;
+      }
+   }
+   return coords;
 }
 
 float ReadHit::mass() const{
@@ -195,6 +227,11 @@ InsertSize::InsertSize(const vector<int> frag_lens):_use_emp(true)
    assert(n == _total_reads);
    //cout<<"empirical distribution len: "<<n<<endl;
 #endif
+}
+
+bool InsertSize::empty() const
+{
+   return _emp_dist.empty();
 }
 
 double InsertSize::emp_dist_pdf(uint insert_size) const
@@ -460,9 +497,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          is_spliced_alignment = true;
          read_len += length;
          cigar.push_back(CigarOp(_type, length));
-         if(length > (int) kMaxIntronLength){
-            LOG_ERR("At read ", bam1_qname(hit_buf), " the length of inferred intron is larger than ", kMaxIntronLength);
-            //LOG("At read ", bam1_qname(hit_buf), " length ", length, " is larger than max intron length ", kMaxIntronLength);
+         if(length > kMaxIntronLength || length < kMinIntronLength){
+            LOG_ERR("At read ", bam1_qname(hit_buf), " has unreasonable intron size: ", length);
             return false;
          }
          break;

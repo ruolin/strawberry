@@ -32,7 +32,7 @@
 
 // program and solution types
 
-
+const double Estimation::_kMinTPM = kMinIsoformFrac * 1e6;
 
 uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_2_extend,  SingleOrit_t orit, Contig & inferred_mp){
 /*
@@ -750,22 +750,45 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
 //      cout<<endl;
 //   }
 //#endif
-   EmSolver em(niso, n, alpha);
-   bool success = em.run();
+   bool success;
+   EmSolver em;
+   if(WITH_BIAS_CORRECTION){
+      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> X;
+      X.setRandom(nrow, 3);
+      X = X+Eigen::MatrixXd::Ones(nrow,3);
+      vector<vector<double>> bias(nrow, vector<double>(3,0.0));
+      for(int i=0; i< nrow; ++i)
+         for(int j =0; j< 3; ++j) bias[i][j] = X(i,j);
+
+      success = em.init(niso, n, alpha, bias);
+      if(success) success = em.run();
+   }
+   else{
+      success = em.init(niso, n, alpha);
+      if(success) success = em.run();
+   }
    if(success){
-      vector<double> total_fpkm(niso, 0.0);
+      double sum_fpkm = 0.0;
       for(uint i=0; i< niso; ++i){
          uint id = isoforms[i]._isoform_id;
          double kb = 1e3/iso_2_len_map[id];
          double rpm = 1e6/mass;
          double fpkm = em._theta[i]*rpm*kb;
-         total_fpkm[i] = fpkm;
-         isoforms[i]._FPKM = to_string(fpkm);
+         isoforms[i]._FPKM = fpkm;
+         sum_fpkm += fpkm;
+         isoforms[i]._FPKM_s = to_string(fpkm);
       }
-      double sum_fpkm = accumulate(total_fpkm.begin(), total_fpkm.end(), 0.0);
       for(uint i=0; i< niso; ++i){
-         double tpm = total_fpkm[i]/sum_fpkm;
-         isoforms[i]._TPM = to_string(tpm);
+         double tpm = isoforms[i]._FPKM/sum_fpkm * 1e6;
+         isoforms[i]._TPM = tpm;
+         isoforms[i]._TPM_s = to_string(tpm);
+      }
+
+      for(auto it = isoforms.begin() ; it != isoforms.end();){
+         if(it->_TPM < _kMinTPM || it->_FPKM < _kMinFPKM)
+            it = isoforms.erase(it);
+         else
+            ++it;
       }
    }
 //   else{
@@ -775,84 +798,16 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
 //      }
 //   }
    return success;
-
-      /*
-       * Now using EM algorithm
-       */
-//   if(use_qp){
-//      /*
-//       * Set objective function for CGAL. x'Dx + c'x + c_0
-//       * Quadratic term -> linear term -> constant term
-//       */
-//      Program qp (CGAL::EQUAL, true, 0, false, 0);
-//      matrix D = 2*boost::numeric::ublas::prod(trans(alpha), alpha);
-//      double c_0 = boost::numeric::ublas::inner_prod(b,b);
-//      ublas_vector c = -2 *boost::numeric::ublas::prod(trans(alpha), b);
-//      /*
-//       * Set equaltiy constriant  1'x = 1;
-//       */
-//   //   for(unsigned idx = 0;  idx < ncol; ++idx){
-//   //      qp.set_a(idx, 0, 1);
-//   //   }
-//   //   qp.set_b(0,1);
-//
-//      i = 0;
-//      unsigned j = 0;
-//      for(matrix::iterator1 it1 = D.begin1(); it1 != D.end1(); ++it1){
-//         for(matrix::iterator2 it2 = it1.begin(); it2 != it1.end(); ++it2){
-//            if(j>i) continue;
-//            qp.set_d(i, j, *it2);
-//            ++j;
-//         }
-//         j = 0;
-//         ++i;
-//      }
-//
-//      i = 0;
-//      for(ublas_vector::iterator it = c.begin(); it != c.end(); ++it){
-//         qp.set_c(i, *it);
-//         ++i;
-//      }
-//      qp.set_c0(c_0);
-//
-//      /*
-//       * run solver
-//       */
-//      Solution s = CGAL::solve_nonnegative_quadratic_program(qp, ET());
-//      assert (s.solves_nonnegative_quadratic_program(qp));
-//
-//   #ifdef DEBUG
-//   //      if(s.objective_value() < 0){
-//   //          CGAL::print_nonnegative_quadratic_program
-//   //          (std::cout, qp, "first_nonnegative_qp");
-//   //          cout<<s;
-//   //      }
-//   #endif
-//      // output solution
-//      //cout<<s;
-//         i = 0;
-//      for(auto it = s.variable_values_begin(); it != s.variable_values_end(); ++it){
-//         isoforms[i]._abundance = it->num.to_double()/it->den.to_double();
-//         //std::stringstream ss;
-//         //ss<<*it;
-//         cout<<isoforms[i]._abundance<<endl;
-//         ++i;
-//      }
-//   }
-//
-//   else{
-//   }
 }
 
-EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vector<double>> &model):
-      _num_isoforms(num_iso)
-      //_u(count),
-      //_F(model)
+bool EmSolver::init(const int num_iso,
+                  const vector<int> &count,
+                  const vector<vector<double>> &model)
 {
    int nrow = count.size();
-   int ncol = _num_isoforms;
+   int ncol = num_iso;
    double total_count = accumulate(count.begin(), count.end(), 0.0);
-   _theta = vector<double>(_num_isoforms, total_count/_num_isoforms);
+   _theta = vector<double>(num_iso, total_count/num_iso);
    vector<size_t> erase_pos;
    for(int i= 0; i< nrow; ++i){
       bool remove = true;
@@ -868,13 +823,11 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
       _u.push_back(count[i]);
       _F.push_back(model[i]);
    }
+   if(_u.empty()) return false;
 #ifdef DEBUG
    nrow = _u.size();
    Eigen::VectorXi obs_d(nrow);
-   //ublas_vector obs_d (nrow);
-
    Eigen::MatrixXd F(nrow, ncol);
-   //matrix F(nrow, ncol);
     for(size_t i =0; i < nrow; ++i){
          for(size_t j= 0; j < ncol; ++j){
             F(i,j) = _F[i][j];
@@ -888,14 +841,69 @@ EmSolver::EmSolver(const int num_iso, const vector<int> &count, const vector<vec
     cerr<<F<<endl;
     cerr<<"-------------------"<<endl;
 #endif
+    return true;
+}
+
+bool EmSolver::init( const int num_iso,
+         const vector<int> &count,
+         const vector<vector<double>> &model,
+         const vector<vector<double>> &bias)
+{
+   int nrow = count.size();
+   int ncol = num_iso;
+   double total_count = accumulate(count.begin(), count.end(), 0.0);
+   _theta = vector<double>(num_iso, total_count/num_iso);
+   vector<size_t> erase_pos;
+   for(int i= 0; i< nrow; ++i){
+      bool remove = true;
+      for(int j=0; j < ncol; ++j){
+         if(model[i][j] > 1e-5) remove = false;
+      }
+      if(remove)
+         erase_pos.push_back(i);
+   }
+
+   for(int i=0; i<nrow; ++i){
+      if(binary_search(erase_pos.begin(), erase_pos.end(), i)) continue;
+      _u.push_back(count[i]);
+      _F.push_back(model[i]);
+      _B.push_back(bias[i]);
+   }
+   if(_u.empty()) return false;
+
+#ifdef DEBUG
+   nrow = _u.size();
+   Eigen::MatrixXd B(_B.size(), _B[0].size());
+   Eigen::VectorXi obs_d(nrow);
+   Eigen::MatrixXd F(nrow, ncol);
+
+    for(size_t i =0; i < nrow; ++i){
+         for(size_t j= 0; j < ncol; ++j){
+            F(i,j) = _F[i][j];
+         }
+    }
+    for(size_t i = 0; i < nrow; ++i)
+      obs_d(i) = _u[i];
+    for(size_t i =0; i< _B.size(); ++i){
+       for(size_t j = 0; j< _B[0].size(); ++j)
+          B(i,j) = _B[i][j];
+    }
+    cerr<<"------n_i----------"<<endl;
+    cerr<<obs_d<<endl;
+    cerr<<"------Sampleing Rates---------"<<endl;
+    cerr<<F<<endl;
+    cerr<<"------Bias-------------"<<endl;
+    cerr<<B<<endl;
+    cerr<<"------------------------"<<endl;
+#endif
+    return true;
 }
 
 
 bool EmSolver::run(){
    if (_u.empty()) return false;
    size_t nrow = _u.size();
-   size_t ncol = _num_isoforms;
-
+   size_t ncol = _theta.size();
 
    Eigen::VectorXi obs_d(nrow);
    for(size_t i = 0; i < nrow; ++i)
@@ -916,13 +924,94 @@ bool EmSolver::run(){
    }
    Eigen::VectorXd next_theta(ncol);
    next_theta.setZero(ncol);
+
+   if(!_B.empty() && !_B[0].empty()){
+      Eigen::MatrixXd B(_B.size(), _B[0].size());
+      Eigen::VectorXd bias(_B[0].size());
+      for(size_t i =0; i< _B.size(); ++i){
+         for(size_t j = 0; j< _B[0].size(); ++j)
+            B(i,j) = _B[i][j];
+      }
+      bias = (B.transpose() * B).inverse() * B.transpose() * Eigen::MatrixXd::Ones(_B.size(),1);
+      Eigen::VectorXd next_bias(B.cols());
+      next_bias.setZero(B.cols());
+
+      for(int outer_it_num = 0; outer_it_num != _max_out_it_num; ++outer_it_num){
+
+         for(int bias_it_num = 0; bias_it_num != _max_bias_it_num; ++bias_it_num){
+            Eigen::MatrixXd U(B.rows(), B.cols());
+            for(uint i = 0; i != B.rows(); ++i){
+               double denom = bias.dot(B.row(i));
+               if(denom < TOLERANCE) return false;
+               for(uint j = 0; j != B.cols(); ++j)
+                  U(i,j) = obs_d[i] * B(i,j)*bias[j]/denom;
+            }
+            for(uint j = 0; j != B.cols(); ++j){
+               double numer = U.col(j).sum();
+               double denom = 0.0;
+               for(uint i = 0; i != B.rows(); ++i){
+                  denom += B(i,j)* theta.dot(F.row(i));
+               }
+               if(denom < TOLERANCE) return false;
+               next_bias[j] = numer/denom;
+            }
+            int num_changes = 0;
+            for(uint j = 0; j < B.cols(); ++j){
+               if( fabs( next_bias[j]-bias[j] )/next_bias[j] > _bias_change_limit ){
+                  ++num_changes;
+               }
+               bias[j] = next_bias[j];
+               next_bias[j] = 0.0;
+            }
+            if(num_changes == 0) break;
+         }
+
+         for(int theta_it_num = 0; theta_it_num < _max_theta_it_num; ++ theta_it_num){
+            Eigen::MatrixXd U(nrow, ncol);
+            for(uint i=0; i<nrow; ++i){
+               double denom = theta.dot(F.row(i));
+               if(denom < TOLERANCE) return false;
+               for(uint j=0; j< ncol; ++j)
+                  U(i,j) = obs_d[i] * F(i,j) * theta[j] / denom;
+            }
+            for(uint j=0; j<ncol; ++j){
+               double numer = F.col(j).sum();
+               double denom = 0;
+               for (uint i =0; i< nrow; ++i){
+                  denom = denom + F(i,j)*bias.dot(B.row(i));
+               }
+               if(denom < TOLERANCE) return false;
+               next_theta[j] = numer / denom;
+            }
+            int num_changes = 0;
+            for(uint j= 0; j< ncol; ++j){
+               if( fabs(next_theta[j] - theta[j] )/next_theta[j] > _theta_change_limit )
+                  ++num_changes;
+               theta[j] = next_theta[j];
+               next_theta[j] = 0.0;
+            }
+            if(num_changes == 0) break;
+         }
+
+         int num_changes = 0;
+         for(uint j = 0; j< ncol; ++j){
+            if( fabs(next_theta[j] - theta[j] )/next_theta[j] > _theta_change_limit )
+                  ++num_changes;
+         }
+         for(uint j = 0; j < B.cols(); ++j){
+               if( fabs( next_bias[j]-bias[j] )/next_bias[j] > _bias_change_limit ){
+                  ++num_changes;
+               }
+         }
+         if(num_changes == 0) break;
+      }
+
+      return true;
+   }// end if
+
+
    for(int it_num = 0; it_num < _max_iter_num; ++it_num){
-      /*
-       * E-step
-       * */
-      //matrix F(nrow, ncol, 0.0);
-      //ublas_vector F_row_sum(nrow, 0.0);
-      //matrix U (nrow, ncol, 0.0);
+      /*E-step*/
 
       Eigen::MatrixXd U(nrow, ncol);
       U.setZero(nrow, ncol);
@@ -935,28 +1024,20 @@ bool EmSolver::run(){
             U(i,j) = num/denom;
          }
       }
-      /*
-       * M-step
-       */
-      //double normalized_count = 0.0;
+
+      /*M-step*/
       for(int j = 0; j< U.cols(); ++j){
-         double den = F.col(j).sum();
-         if(den < TOLERANCE) return false;
-         next_theta[j] = U.col(j).sum() / den;
+         //double den = F.col(j).sum();
+         //if(den < TOLERANCE) return false;
+         next_theta[j] = U.col(j).sum();
          //normalized_count += next_theta[j];
       }
-
-      /* Normalizing next_theta */
-//      for(size_t j = 0; j< ncol; ++j){
-//         next_theta[j] /= normalized_count;
-//      }
 
       int num_changed = 0;
       for(size_t j=0; j<ncol; ++j){
          if((fabs(next_theta[j]-theta[j])/next_theta[j]) > _theta_change_limit)
             num_changed++;
          theta[j] = next_theta[j];
-         if(theta[j]< _theta_limit) return false;
          next_theta[j] = 0.0;
       }
 
@@ -973,7 +1054,6 @@ bool EmSolver::run(){
 
    return true;
 }
-
 
 
 

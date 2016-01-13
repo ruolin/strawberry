@@ -16,31 +16,242 @@
     along with Strawberry.  If not, see <http://www.gnu.org/licenses/>.
 <HEADER
 */
+#ifdef DEBUG
+   #include <iostream>
+#endif
 
-#include <iostream>
 #include <algorithm>
+#include <getopt.h>
+#include <chrono>
+
 #include "fasta.h"
 #include "gff.h"
 #include "alignments.h"
 #include "logger.hpp"
+#include "StrawberryConfig.hpp"
 //#include "qp.h"
-#include <chrono>
+
+
+#define OPT_MIN_DEPTH_4_ASSEMBLY 260
+#define OPT_MIN_DEPTH_4_QUAN     261
+#define OPT_MIN_SUPPORT_4_INTRON   262
+
 using namespace std;
 
 
-int main(){
-   const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
-   const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
+static struct option long_options[] = {
+      {"output-dir",                      required_argument,      0,       'o'},
+      {"verbose",                         no_argument,            0,       'v'},
+      {"max-insert-size",                 required_argument,      0,       'I'},
+      {"max-junction-splice-size",        required_argument,      0,       'J'},
+      {"min-junction-splice-size",        required_argument,      0,       'j'},
+      {"num-reads-4-prerun",              required_argument,      0,       'n'},
+//assembly
+      {"GTF",                             required_argument,      0,       'g'},
+      {"enforce-ref-model",               no_argument,            0,       'G'},
+      {"min-transcript-size",             required_argument,      0,       't'},
+      {"max-overlap-distance",            required_argument,      0,       'd'},
+      {"small-anchor-size",               required_argument,      0,       's'},
+      {"small-anchor-alpha",              required_argument,      0,       'a'},
+      {"min-support-4-intron",            required_argument,      0,       OPT_MIN_SUPPORT_4_INTRON},
+      {"min-depth-4-assembly",            required_argument,      0,       OPT_MIN_DEPTH_4_ASSEMBLY},
+      {"combine-short-transfrag",          no_argument,            0,       'c'},
+//quantification
+      {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
+      {"bias-correction",                 required_argument,      0,       'b'},
+      {"min-depth-4-quant",               required_argument,      0,       OPT_MIN_DEPTH_4_QUAN},
+      {"infer-missing-end",               no_argument,            0,       'm'},
+};
+
+const char *short_options = "o:i:I:j:J:n:g:t:d:s:a:c:b:vGcm";
+
+void print_help()
+{
+   fprintf(stderr, "\n\nstrawberry v%s\n", strawberry::version);
+   fprintf(stderr, "--------------------------------------\n");
+   fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
+   fprintf(stderr, "General Options:\n");
+   fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                      [default:     ./out ]\n");
+   fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                 [default:     false]\n");
+   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                    [default:     50000]\n");
+   fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                               [default:     50]\n");
+   fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.    [default:     50000]");
+
+   fprintf(stderr, "\n Assembly Options:\n");
+   fprintf(stderr, "   -g/--GTF                              Use reference transcripts annotation to guide assembly.                      [default:     NULL]\n");
+   fprintf(stderr, "   -G/--enforce-ref-model                Omit assembled transcripts that are not in the reference.                    [default:     false]\n");
+   fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                     [default:     200]\n");
+   fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                         [default:     30]\n");
+   fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.              [default:     4]\n");
+   fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                           [default:     0]\n");
+   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.         [default:     1] \n");
+   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                              [default:     0.1]\n");
+   fprintf(stderr, "   -c/--combine-short-transfrag          Disable merging non-overlap short transfrags .                               [default:     true]\n");
+
+   fprintf(stderr, "\n Quantification Options:\n");
+   fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.\n");
+   fprintf(stderr, "                                         This will disable empirical insert distribution learning.                    [default:     NULL]\n");
+   fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                         [default:     false]\n");
+   fprintf(stderr, "   --min-depth-4-quant                   Minimum read depth for a locus to be quantified.                             [default:     1.0]\n");
+   fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                        [default:     true]\n" );
+}
+
+int parse_options(int argc, char** argv)
+{
+   int option_index = 0;
+   int next_option;
+   do {
+      next_option = getopt_long(argc, argv, short_options, long_options, &option_index);
+      switch(next_option)
+            {
+               case  -1:
+                        break;
+               case 'o':
+                        output_dir = optarg;
+                        break;
+
+               case 'v':
+                        verbose = true;
+                        break;
+               case 'J':
+                        kMaxIntronLength = parseInt(optarg, 1, "-J/--max-intron-size must be at least 1", print_help);
+                        break;
+               case 'j':
+                        kMinIntronLength = parseInt(optarg, 1, "-j/--min-intron-size must be at least 1", print_help);
+                        break;
+               case 'n':
+                        kMaxReadNum4FD = parseInt(optarg, 5000, "-n/--num-read-4-prerun is suggested to be at least 5000", print_help);
+                        break;
+               case 'g':
+                        ref_gtf_filename = optarg;
+                        break;
+               case 'G':
+                        enforce_ref_models = true;
+                        break;
+               case 't':
+                        kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);
+                        break;
+               case 'd':
+                        kMaxOlapDist = parseInt(optarg, 1, "-d/--max-overlap-distance must be at least 1", print_help);
+                        break;
+               case 's':
+                        kMaxSmallAnchor = parseInt(optarg, 1, "-s/--small-anchor-size must be at least 1", print_help);
+                        break;
+               case 'a':
+                        kBinomialOverHangAlpha = parseFloat(optarg, 0, 1.0, "-a/--small-anchor-alpha must be between 0-1.0", print_help);
+                        break;
+               case OPT_MIN_SUPPORT_4_INTRON:
+                        kMinJuncSupport = parseInt(optarg, 1, "--min-support-4-intron must be at least 1", print_help);
+                        break;
+               case OPT_MIN_DEPTH_4_ASSEMBLY:
+                        kMinDepth4Locus = parseFloat(optarg, 0, 999999.0, "--min-depth-4-assembly must be at least 0", print_help);
+                        break;
+               case OPT_MIN_DEPTH_4_QUAN:
+                        kMinDepth4Quantify = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
+                        break;
+               case '-c':
+                        kCombineShrotTransfrag = false;
+                        break;
+               case '-m':
+                        infer_the_other_end = false;
+                        break;
+               case '-b':
+                        ref_fasta_file = optarg;
+                        break;
+               case '-i':
+                       {
+                          vector<string> mean_and_sd;
+                          split(optarg, "/", mean_and_sd);
+                          if(mean_and_sd.size() != 2 ) {
+                             cerr<<"Wrong format for specifying insert size mean and sd!"<<endl;
+                             print_help();
+                             exit(1);
+                          }
+                          kInsertSizeMean = (double) parseInt(mean_and_sd[0].c_str(), 1, "minimun insert size mean must be at least 1", print_help);
+                          kInsertSizeSD = (double) parseInt(mean_and_sd[1].c_str(), 1, "minimun insert size sd must be at least 1", print_help);
+                          break;
+                       }
+               default:
+                        print_help();
+                        return 1;
+            }
+   }while(next_option != -1);
+
+   return 0;
+}
+
+
+int main(int argc, char** argv){
+   auto start = chrono::steady_clock::now();
+   string cmdline;
+   for(int i=0; i<argc; i++){
+      cmdline += argv[i];
+      cmdline+=" ";
+   }
+   int parse_ret = parse_options(argc, argv);
+   if(parse_ret) return 1;
+   if(optind >= argc){
+      print_help();
+      return 1;
+   }
+
+   char* bam_file = argv[optind++];
+   ReadTable read_table;
+   RefSeqTable ref_seq_table(true);
+   unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
+   hf->inspect_header();
+   Sample read_sample(move(hf));
+
+   GffReader* greader= NULL;
+   if(ref_gtf_filename != ""){
+      FILE* gff = fopen(ref_gtf_filename.c_str(), "r");
+      if(gff == NULL){
+         fprintf(stderr, "Error: cannot open refernce gtf file %s for reading\n", ref_gtf_filename.c_str());
+         exit(1);
+      }
+      greader = new GffReader(ref_gtf_filename.c_str(), gff);
+      greader->readAll();
+      greader->reverseExonOrderInMinusStrand();
+   }
+
+   FaInterface fa_api;
+   FaSeqGetter fsg;
+   if(ref_fasta_file != "") {
+      read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
+   }
+   read_sample.inspectSample();
+   if(verbose){
+      cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
+   }
+   string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
+   assembled_file += string("/assembled_transcripts.gft");
+   FILE *pFile = fopen(assembled_file.c_str(), "w");
+   if(kInsertSizeMean !=0 && kInsertSizeSD != 0){
+      if(verbose){
+         cerr<<"Using user specified insert size mean: "<<kInsertSizeMean<<" and standard deviation: "<<kInsertSizeSD<<endl;
+      }
+      unique_ptr<InsertSize> insert_size(new InsertSize(kInsertSizeMean, kInsertSizeSD));
+      read_sample._insert_size_dist = move(insert_size);
+   }
+   else{
+      if(verbose){
+         cerr<<"Learning empirical insert size distribution... "<<endl;
+      }
+      const vector<int> & fd = read_sample._hit_factory->_reads_table._frag_dist;
+      unique_ptr<InsertSize> insert_size(new InsertSize(fd));
+      read_sample._insert_size_dist = move(insert_size);
+   }
+
+   read_sample.procSample(pFile);
+   fclose(pFile);
+   //const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
+   //const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
-   //char *bam_file = "/home/ruolin/git/Strawberry/RD100.control_r1.concordant_uniq.sort.bam";
-   char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/accepted_hits.bam";
-   const char* bam_dir = stripFileName(bam_file);
-   size_t len1 = strlen(bam_dir);
-   char *output = (char*) malloc(len1+27);// assembled_transcripts.gtf 25 characters
-   char *suffix = "/assembled_transcripts.gtf";
-   strcpy(output, bam_dir);
-   strcat(output, suffix);
+   //char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/RD100.control_r1.concordant_uniq.sort.bam";
+   //char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/accepted_hits.bam";
+   //const char* bam_dir = stripFileName(bam_file);
+   //size_t len1 = strlen(bam_dir);
 
    //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
 
@@ -49,32 +260,23 @@ int main(){
    //fa_api.load2FaSeqGetter(fsg, "mitochondria");
    //cout<<"success\t"<<fsg.loadSeq()<<endl;
    //cout<<fsg.fetchSeq(80,4)<<endl;
-   auto start = chrono::steady_clock::now();
-   GffReader greader(ara_gtf);
-   greader.readAll();
-   greader.reverseExonOrderInMinusStrand();
-   ReadTable read_table;
-   RefSeqTable ref_seq_table(true);
-   unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
-   hf->inspect_header();
-   ClusterFactory read_clusters(move(hf));
-   read_clusters.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-   FILE *pFile;
-   pFile = fopen(output, "w");
+   //GffReader greader(ara_gtf);
+   //greader.readAll();
+   //greader.reverseExonOrderInMinusStrand();
+   //ReadTable read_table;
+   //RefSeqTable ref_seq_table(true);
+   //unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
+   //hf->inspect_header();
+   //Sample read_sample(move(hf));
+   //read_sample.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
+
    //QpSolver qps;
 
-   read_clusters.inspectCluster();
-   double mean, sd;
-   const vector<int> & fd = read_clusters._hit_factory->_reads_table._frag_dist;
-   unique_ptr<InsertSize> insert_size(new InsertSize(fd));
-   //unique_ptr<InsertSize> insert_size(new InsertSize(300.0, 70.0));
-   read_clusters._insert_size_dist = move(insert_size);
-   cout<<"Total number of mapped reads is: "<<read_clusters.total_mapped_reads()<<endl;
-   read_clusters.parseClusters(pFile);
+   //read_sample.inspectSample();
+   //double mean, sd;
 
-
-   fclose(pFile);
-
+   delete greader;
+   greader = NULL;
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;

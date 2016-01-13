@@ -354,7 +354,8 @@ class GffReader: public SlineReader{
 public:
    vector<unique_ptr<GffSeqData> >  _g_seqs;
    LinePtr _gfline;
-   explicit GffReader(const char* f=NULL);
+   GffReader(const char* fname, FILE* stream=NULL);
+   void load_gff(const char* f=NULL);
    bool nextGffLine();
    void readAll();
    void addGseq(unique_ptr<GffSeqData> gseq){

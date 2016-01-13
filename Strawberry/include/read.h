@@ -1,8 +1,5 @@
 /*
- * read.h
- *
- *  Created on: Nov 3, 2014
- *      Author: RUOLIN
+ * This file is the interface that reads BAM/SAM files.
  */
 
 #ifndef STRAWB_READ_H_
@@ -73,6 +70,8 @@ public:
          );
 
    uint read_len() const;
+   uint intron_len() const; /*Return intron len, otherwise return 0*/
+   std::vector<std::pair<uint,uint>> intron_coords() const;
    ReadID read_id() const;
    bool contains_splice() const;
    GenomicInterval interval() const;
@@ -121,6 +120,7 @@ private:
 
 class InsertSize{
 public:
+
    double _total_reads;
    vector<double> _emp_dist;
    double _mean;
@@ -132,6 +132,7 @@ public:
    InsertSize(double mean, double sd);
    InsertSize(const vector<int> frag_lens);
    double emp_dist_pdf(uint insert_size) const;
+   bool empty() const;
    //double truncated_normal_pdf(uint insert_size) const;
 };
 
@@ -189,7 +190,6 @@ public:
    virtual bool parse_header_line(const string& hline);
    virtual bool inspect_header() = 0;
    virtual void reset() = 0;
-   virtual const AssayProperties& assay_properties();
 };
 
 class BAMHitFactory : public HitFactory

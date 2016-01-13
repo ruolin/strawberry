@@ -19,29 +19,35 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
-const static int kMaxInnerDist = 5000;
-//const static int kMinTransLen =
-const static int kMaxIntronLength = 3000;
-const static double kSmallOverHangProp = 3/100.0;
-const static double kMinIsoformFrac = 0.05;
-const static double kBinomialOverHangAlpha = 0.0;
-const static bool enforce_ref_models = false;
-const static float kMinJuncSupport = 2; // min number of spliced aligned reads for a valid intron
-const static int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
+extern bool WITH_BIAS_CORRECTION;
+extern int kMaxInnerDist;
+extern int kMaxIntronLength; // max-junction-splice-distance
+extern int kMinIntronLength; // min-junction-splice-distance
+extern int kMaxIntronLen4ExtCluster; /*Do not extend the cluster if intron length large than this*/
+extern int kMinTransLen; //ignore isoforms if its length is too short.
+extern int kMaxOlapDist; // merge cluster if within this distance.
+extern double kMaxSmallAnchor;  // smallAnchor 4bp;
+extern double kMinIsoformFrac;
+extern double kBinomialOverHangAlpha;
+extern bool enforce_ref_models;
+extern float kMinJuncSupport; // min number of spliced aligned reads for a valid intron
+extern int kMinDist4ExonEdge; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
-const static double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
+extern double kMinDepth4Locus; //used in ClusterFactory::finalizeCluster() to
                                            //select locus have enough reads covered.
-const static double kMinDepth4Quantify = 1;
-const static int kMaxCoverGap1 = 200;
-const static int kMaxCoverGap2 = 50;
-const static int kMaxReadNum4FD = 50000;
-const static double kInsertSizeMean = 200;
-const static double kInsertSizeSD = 80;
-const static bool infer_the_other_end = true;
-const static bool verbose = true;
-const static double kSimDepthCorrect = 1;
-const static bool kCombineShrotTransfrag = true;
-//const static int kMinExonLen = 5;
+extern double kMinDepth4Quantify;
+extern int kMaxCoverGap1;
+extern int kMaxCoverGap2;
+extern int kMaxReadNum4FD;
+extern double kInsertSizeMean;
+extern double kInsertSizeSD;
+extern bool infer_the_other_end;
+extern bool verbose;
+extern double kSimDepthCorrect;
+extern bool kCombineShrotTransfrag;
+extern std::string output_dir;
+extern std::string ref_gtf_filename;
+extern std::string ref_fasta_file;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 double standard_normal_cdf(double x);
@@ -120,6 +126,17 @@ inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint 
 {
    return lhs_left <= rhs_right && rhs_left <= lhs_right;
 }
+
+int parseInt(const char* optarg,
+          int lower,
+          const char *errmsg,
+          void (*print_help)());
+
+float parseFloat(const char* optarg,
+             float lower,
+             float upper,
+             const char *errmsg,
+             void (*print_help)());
 
 
 //--------------------------------------------------------
