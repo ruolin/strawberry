@@ -8,6 +8,7 @@
 #include <cmath>
 #include <algorithm>
 #include <iostream>
+#include <errno.h>
 #include "common.h"
 bool WITH_BIAS_CORRECTION = false;
 int kMaxInnerDist = 5000;
@@ -37,6 +38,7 @@ std::string output_dir = "./";
 std::string ref_gtf_filename = "";
 std::string ref_fasta_file = "";
 bool enforce_ref_models = false;
+bool utilize_ref_models = false;
 
 
 double standard_normal_cdf(double x)
@@ -212,6 +214,49 @@ float parseFloat(const char* optarg, float lower, float upper, const char *errms
     print_help();
     exit(1);
     return -1;
+}
+
+int mkpath(const char *s, mode_t mode)
+{
+   /*
+    *  return code
+    *  1: success
+    *  0: already exist
+    *  -1: cannot create
+    */
+    char *q, *r = NULL, *path = NULL, *up = NULL;
+    int rv;
+
+    rv = -1;
+    if (strcmp(s, ".") == 0 || strcmp(s, "/") == 0)
+        return (0);
+
+    if ((path = strdup(s)) == NULL)
+        exit(1);
+
+    if ((q = strdup(s)) == NULL)
+        exit(1);
+
+    if ((r = dirname(q)) == NULL)
+        goto out;
+
+    if ((up = strdup(r)) == NULL)
+        exit(1);
+
+    if ((mkpath(up, mode) == -1) && (errno != EEXIST))
+        goto out;
+
+    if ((mkdir(path, mode) == -1) && (errno != EEXIST))
+        rv = -1;
+    else
+        rv = 0;
+
+out:
+    if (up != NULL)
+        free(up);
+    free(q);
+    free(path);
+    return (rv);
 }
 
 // Implementation of itoa()

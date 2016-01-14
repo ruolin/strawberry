@@ -252,6 +252,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
    if(paired_bars.size() == 0){
       uint l = exon_boundaries.front().first;
       uint r = exon_boundaries.back().second;
+      //cout<<exon_boundaries.size()<<endl;
       exons.push_back(GenomicFeature(Match_t::S_MATCH, l, r-l+1));
       return;
    }

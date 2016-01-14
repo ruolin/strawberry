@@ -51,7 +51,7 @@ int FaIndex::loadIndex(){
    char* line = nullptr;
    while( (line = fl.nextLine()) != nullptr ){
       if(*line == '#') continue;
-      size_t idx = strcspn(line, " \t");
+      size_t idx = strcspn(line, " \t"); // first occurrence of space or tab delimiter
       if(idx == strlen(line)) {
          LOG_ERR("Error parsing fasta index line: ",line);
          exit(1);
@@ -192,17 +192,19 @@ void FaInterface::initiate(const char* fpath){
    pair<ItFaidx, bool> ret;
    switch(fileExists(fpath)){
    case 0:
+   {
       cerr<<"File or directory "<<fpath<<" does not exist!"<<endl;
       exit(1);
+   }
    case 2: // is a file. One file multiple chromosomes.
-
+   {
       if(endsWith(_fa_path,".fai") ){ // if .fai file is given instead of .fa
-         string fa_name = _fa_path.substr(0, _fa_path.length()-4);
-         if(!fileExists(fa_name.c_str() )  ){
+         string fa_file_name = _fa_path.substr(0, _fa_path.length()-4);
+         if(!fileExists(fa_file_name.c_str() )  ){
             cerr<<"Cannot find fasta file for index file "<<fpath<<endl;
             exit(1);
          }else{
-            ret = _fa_indexes.insert(make_pair(fa_name, unique_ptr<FaIndex> (new FaIndex(fa_name.c_str(), fpath) ) ) );
+            ret = _fa_indexes.insert(make_pair(fa_file_name, unique_ptr<FaIndex> (new FaIndex(fa_file_name.c_str(), fpath) ) ) );
             assert(ret.second);
          }
       } else if(endsWith(_fa_path, ".fa") || endsWith(_fa_path, ".fasta")){
@@ -216,16 +218,20 @@ void FaInterface::initiate(const char* fpath){
       }
 
       // this for loop initialize _seqname_2_fafile object
-      for(auto it_rec = ret.first->second->_records.begin(); it_rec != ret.first->second->_records.end(); ++it_rec){
+      unique_ptr<FaIndex> &faidx_ptr = ret.first->second;
+      const string &fasta_file_name  = ret.first->first;
+      for(auto record = faidx_ptr->_records.begin(); record != faidx_ptr->_records.end(); ++record){
          pair<unordered_map<string, string>::iterator, bool> ret_it;
-         ret_it = _seqname_2_fafile.insert(make_pair(it_rec->first, ret.first->first));
+         ret_it = _seqname_2_fafile.insert(make_pair(record->first,fasta_file_name));
          if(!ret_it.second){
-            LOG_ERR("Please checking fasta file ", ret.first->first,  "for possible duplicated sequence names" );
+            LOG_ERR("Please checking fasta file ", fasta_file_name,  "for possible duplicated sequence names" );
          }
       }//end for loop
 
       break;
+   }
    case 1:  // is a directory. one file one chromosome.
+   {
       DIR *dir;
       struct dirent *ent;
       dir = opendir(fpath);
@@ -236,7 +242,7 @@ void FaInterface::initiate(const char* fpath){
             strcat(fai_name, fpath);
             if(!endsWith(fpath, "/")) strcat(fai_name,"/");
             strcat(fai_name, ent->d_name);
-            string fa_name(fai_name);
+            string fa_file_name(fai_name);
             strcat(fai_name, ".fai");
             if(strlen(fai_name) > 199) {
                cerr<<"file name is too long "<<fai_name<<endl;
@@ -244,24 +250,27 @@ void FaInterface::initiate(const char* fpath){
             }
             // if index file exists
             if( fileExists(fai_name) ==2 ) {
-               ret = _fa_indexes.insert(make_pair(fa_name, unique_ptr<FaIndex>(new FaIndex(fa_name.c_str(), fai_name) ) )  );
+               ret = _fa_indexes.insert(make_pair(fa_file_name, unique_ptr<FaIndex>(new FaIndex(fa_file_name.c_str(), fai_name) ) )  );
                assert(ret.second);
                // this for loop initialize _seqname_2_fafile object
-               for(auto it_rec = ret.first->second->_records.begin(); it_rec != ret.first->second->_records.end(); ++it_rec){
+               unique_ptr<FaIndex> &faidx_ptr = ret.first->second;
+               const string &fasta_file_name  = ret.first->first;
+               for(auto record = faidx_ptr->_records.begin(); record != faidx_ptr->_records.end(); ++record){
                   pair<unordered_map<string, string>::iterator, bool> ret_it;
-                  ret_it = _seqname_2_fafile.insert(make_pair(it_rec->first, ret.first->first));
+                  ret_it = _seqname_2_fafile.insert(make_pair(record->first, fasta_file_name));
                   if(!ret_it.second){
-                     LOG_ERR("Please checking fasta file ", ret.first->first,  "for possible duplicated sequence names" );
+                     LOG_ERR("Please checking fasta file ", fasta_file_name,  "for possible duplicated sequence names" );
                   }
                }//end for loop
             }
             else{
-               cerr<<"Error: fasta file "<<fa_name<<" lack index file!"<<endl;
+               cerr<<"Error: fasta file "<<fa_file_name<<" lack index file!"<<endl;
             }
          }
       }
       closedir(dir);
       break;
+   }
    default:
       cerr<<"Error: not a valid file or directory "<<fpath<<endl;;
       break;
@@ -270,16 +279,16 @@ void FaInterface::initiate(const char* fpath){
 }
 
 void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){
-   auto it_fa_name = _seqname_2_fafile.find(seqname);
-   if(it_fa_name == _seqname_2_fafile.end()){
+   auto it_fa_file_name = _seqname_2_fafile.find(seqname);
+   if(it_fa_file_name == _seqname_2_fafile.end()){
       LOG_ERR("Reference sequence name ",seqname, " cannot be found in fasta file. Please check fasta file header line.");
    }
-   string fa_name = it_fa_name->second;
-   auto it_faidx = _fa_indexes.find(fa_name);
+   string fa_file_name = it_fa_file_name->second;
+   auto it_faidx = _fa_indexes.find(fa_file_name);
    assert(it_faidx != _fa_indexes.end());
    FaRecord rec;
    if(it_faidx->second->getRecord(seqname, rec))
-      getter.initial(fa_name, rec);
+      getter.initial(fa_file_name, rec);
    else
       LOG_ERR("Fetching seq name ", seqname, " failed");
 }

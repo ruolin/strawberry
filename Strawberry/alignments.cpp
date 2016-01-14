@@ -257,11 +257,11 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
 //      }
 //   } //end if
 //   else{
-      if(extend_by_hit && hit->intron_len() < kMaxIntronLen4ExtCluster){
+      if(extend_by_hit){
          _leftmost = min(_leftmost, hit_left);
          _rightmost = max(_rightmost, hit_right);
       }
-      if(extend_by_partner && hit_partner_pos != 0 && hit->intron_len() > kMaxIntronLen4ExtCluster){
+      if(extend_by_partner && hit_partner_pos != 0){
          if((int)hit_partner_pos - (int)hit_left > max_inner_d){
             LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
             return false;
@@ -548,13 +548,13 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt
                return lhs->get_gseq_id() < rhs->get_gseq_id();
       });
    }
-   FaInterface fa_api;
-   FaSeqGetter *fsg = NULL;
+//   FaInterface fa_api;
+//   FaSeqGetter *fsg = NULL;
 
-   // load sequencing if required
-   if(seqFile != NULL){
-      fa_api.initiate(seqFile);
-   }
+// load sequencing if required
+//   if(seqFile != NULL){
+//      fa_api.initiate(seqFile);
+//   }
    for(uint i = 0; i<gseqs.size(); ++i){// for loop for each chromosome
       GffSeqData * gseq = &(*gseqs[i]);
       int f = 0;
@@ -563,16 +563,16 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt
       RefID ref_id = rt.get_id(gseqs[i]->_g_seq_name);
       GffmRNA *mrna = NULL;
       vector<Contig> ref_mrna_for_chr;
-      if(fa_api.hasLoad()){
-         delete fsg;
-         fsg = NULL;
-         fsg = new FaSeqGetter();
-         fa_api.load2FaSeqGetter(*fsg,gseqs[i]->_g_seq_name);
-         if(fsg == NULL){
-            cerr<<"Reference sequence "<<gseqs[i]->_g_seq_name<<" can not be load!"<<endl;
-            cerr<<"Please check if the names of sequences in fasta file match the names in BAM/SAM file"<<endl;
-         }
-      }
+//      if(fa_api.hasLoad()){
+//         delete fsg;
+//         fsg = NULL;
+//         fsg = new FaSeqGetter();
+//         fa_api.load2FaSeqGetter(*fsg,gseqs[i]->_g_seq_name);
+//         if(fsg == NULL){
+//            cerr<<"Reference sequence "<<gseqs[i]->_g_seq_name<<" can not be load!"<<endl;
+//            cerr<<"Please check if the names of sequences in fasta file match the names in BAM/SAM file"<<endl;
+//         }
+//      }
       int f_total = gseqs[i]->_forward_rnas.size();
       int r_total = gseqs[i]->_reverse_rnas.size();
       int u_total = gseqs[i]->_unstranded_rnas.size();
@@ -610,8 +610,9 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt
       _ref_mRNAs.insert(_ref_mRNAs.end(), ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
       ref_mrna_for_chr.clear();
    }//end for loop
-   delete fsg;
-   fsg = NULL;
+
+   //delete fsg;
+   //fsg = NULL;
    return true;
 }
 
@@ -906,17 +907,20 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
       sort(hits.begin(), hits.end());
       size_t s = cluster.right() - cluster.left() + 1;
       exon_doc.resize(s,0);
-      compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
-      if(enforce_ref_models && cluster.hasRefmRNAs()){
-         vector<Contig> hits;
+
+      if(cluster.hasRefmRNAs() && utilize_ref_models){
+         vector<Contig> hits_with_refs;
          for(auto i: cluster._ref_mRNAs){
-            hits.push_back(*i);
+            hits_with_refs.push_back(*i);
          }
+         compute_doc(cluster.left(), cluster.right(), hits_with_refs, exon_doc, intron_counter, kMaxSmallAnchor);
+      }
+
+      else{
          compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
       }
 
-      //if(!calculateFD)
-         filter_intron(cluster.left(), exon_doc, intron_counter);
+      filter_intron(cluster.left(), exon_doc, intron_counter);
 
       FlowNetwork flow_network;
       Graph::NodeMap<const GenomicFeature*> node_map(flow_network._g);
@@ -924,6 +928,13 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
       Graph::ArcMap<int> min_flow_map(flow_network._g);
       vector<vector<Graph::Arc>> path_cstrs;
       vector<vector<GenomicFeature>> assembled_feats;
+//#ifdef DEBUG
+//      cout<<"cluster starts at: "<<cluster.left()<<endl;
+//      cout<<"exon coverage:"<<endl;
+//      for(auto i : exon_doc)
+//         cout<<i;
+//      cout<<endl;
+//#endif
       flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, exons);
       vector<vector<size_t>> constraints;
       constraints = flow_network.findConstraints(exons, hits);
@@ -1163,7 +1174,10 @@ void Sample::procSample(FILE *pfile)
 void Sample::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
       vector<float> &exon_doc,  IntronMap &intron_counter, uint smallOverHang)
 {
-
+   if(right < left){
+      cout<<left<<"-"<<right<<endl;
+      cout<<"read: "<<hits[0].left()<<endl;
+   }
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
       const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;

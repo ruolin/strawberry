@@ -30,6 +30,7 @@ extern double kMaxSmallAnchor;  // smallAnchor 4bp;
 extern double kMinIsoformFrac;
 extern double kBinomialOverHangAlpha;
 extern bool enforce_ref_models;
+extern bool utilize_ref_models;
 extern float kMinJuncSupport; // min number of spliced aligned reads for a valid intron
 extern int kMinDist4ExonEdge; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
@@ -137,7 +138,7 @@ float parseFloat(const char* optarg,
              float upper,
              const char *errmsg,
              void (*print_help)());
-
+int mkpath(const char *s, mode_t mode);
 
 //--------------------------------------------------------
 // ************** simple line reading class for text files

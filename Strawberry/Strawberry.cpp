@@ -48,7 +48,7 @@ static struct option long_options[] = {
       {"num-reads-4-prerun",              required_argument,      0,       'n'},
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
-      {"enforce-ref-model",               no_argument,            0,       'G'},
+//      {"enforce-ref-model",               no_argument,            0,       'G'},
       {"min-transcript-size",             required_argument,      0,       't'},
       {"max-overlap-distance",            required_argument,      0,       'd'},
       {"small-anchor-size",               required_argument,      0,       's'},
@@ -124,10 +124,11 @@ int parse_options(int argc, char** argv)
                         break;
                case 'g':
                         ref_gtf_filename = optarg;
+                        utilize_ref_models = true;
                         break;
-               case 'G':
-                        enforce_ref_models = true;
-                        break;
+//               case 'G':
+//                        enforce_ref_models = true;
+//                        break;
                case 't':
                         kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);
                         break;
@@ -195,6 +196,22 @@ int main(int argc, char** argv){
       return 1;
    }
 
+   if(output_dir != "./"){
+      int ret = mkpath(output_dir.c_str(), 0777);
+      if(ret == -1){
+         if(errno != EEXIST){
+            fprintf(stderr, "ERROR: cannot create directory %s\n", output_dir.c_str());
+            exit(1);
+         }
+      }
+   }
+   string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
+   assembled_file += string("/assembled_transcripts.gtf");
+   if(verbose){
+      fprintf(stderr, "OUTPUT gtf file: \n%s\n\n", assembled_file.c_str());
+   }
+   FILE *pFile = fopen(assembled_file.c_str(), "w");
+
    char* bam_file = argv[optind++];
    ReadTable read_table;
    RefSeqTable ref_seq_table(true);
@@ -212,10 +229,10 @@ int main(int argc, char** argv){
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
       greader->reverseExonOrderInMinusStrand();
+      read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
 
-   FaInterface fa_api;
-   FaSeqGetter fsg;
+
    if(ref_fasta_file != "") {
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
    }
@@ -223,9 +240,7 @@ int main(int argc, char** argv){
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
    }
-   string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
-   assembled_file += string("/assembled_transcripts.gft");
-   FILE *pFile = fopen(assembled_file.c_str(), "w");
+
    if(kInsertSizeMean !=0 && kInsertSizeSD != 0){
       if(verbose){
          cerr<<"Using user specified insert size mean: "<<kInsertSizeMean<<" and standard deviation: "<<kInsertSizeSD<<endl;
