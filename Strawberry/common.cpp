@@ -30,16 +30,18 @@ int kMaxCoverGap1 = 200; // cover gap due the read depth.
 int kMaxCoverGap2 = 50;
 int kMaxReadNum4FD = 50000;
 double kInsertSizeMean = 0;
+double bothStrandCutoff = 0.1; // ratio of reads from different strands. If larger than this value, it
+                              // possibly indicates genes on different strands overlap.
 double kInsertSizeSD = 0;
 bool infer_the_other_end = true;
 bool verbose = true;
 bool kCombineShrotTransfrag = true;
-std::string output_dir = "./";
+std::string output_dir = ".";
 std::string ref_gtf_filename = "";
 std::string ref_fasta_file = "";
 bool enforce_ref_models = false;
 bool utilize_ref_models = false;
-
+std::string tracking_log = "/tracking.log";
 
 double standard_normal_cdf(double x)
 /*

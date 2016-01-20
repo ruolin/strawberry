@@ -19,8 +19,8 @@ class HitCluster{
    friend Sample;
    uint _leftmost;
    uint _rightmost;
-   int _hit_for_plus_strand;
-   int _hit_for_minus_strand;
+   int _plus_strand_num_hits;
+   int _minus_strand_num_hits;
    Strand_t _first_encounter_strand;
    int _id;
    RefID _ref_id;
@@ -79,6 +79,21 @@ public:
    //void count_current_intron(const ReadHit & hit);
    //bool current_intron_is_reliable() const;
    bool see_both_strands();
+
+   void reset(uint old_left,
+              uint old_right,
+              RefID old_ref_id,
+              int old_plus_hit,
+              int old_minus_hit,
+              Strand_t old_strand,
+              double old_mass
+              );
+
+   void reset(uint old_left,
+              uint old_right,
+              RefID old_ref_id
+              );
+
 };
 
 class Sample{
@@ -128,8 +143,8 @@ public:
                               //map<pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
 
    void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
-   void procSample(FILE *f);
-   void inspectSample();
+   void procSample(FILE *f, FILE *log);
+   void inspectSample(FILE *log);
    void finalizeAndAssemble(HitCluster & cluster, FILE *f);
 };
 

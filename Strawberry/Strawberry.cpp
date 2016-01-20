@@ -79,7 +79,7 @@ void print_help()
 
    fprintf(stderr, "\n Assembly Options:\n");
    fprintf(stderr, "   -g/--GTF                              Use reference transcripts annotation to guide assembly.                      [default:     NULL]\n");
-   fprintf(stderr, "   -G/--enforce-ref-model                Omit assembled transcripts that are not in the reference.                    [default:     false]\n");
+//   fprintf(stderr, "   -G/--enforce-ref-model                Omit assembled transcripts that are not in the reference.                    [default:     false]\n");
    fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                     [default:     200]\n");
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                         [default:     30]\n");
    fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.              [default:     4]\n");
@@ -207,11 +207,13 @@ int main(int argc, char** argv){
    }
    string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
    assembled_file += string("/assembled_transcripts.gtf");
+   string tracker = output_dir + tracking_log;
    if(verbose){
-      fprintf(stderr, "OUTPUT gtf file: \n%s\n\n", assembled_file.c_str());
+      fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
+      fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
    }
    FILE *pFile = fopen(assembled_file.c_str(), "w");
-
+   FILE *plogfile = fopen(tracker.c_str(), "w");
    char* bam_file = argv[optind++];
    ReadTable read_table;
    RefSeqTable ref_seq_table(true);
@@ -236,7 +238,7 @@ int main(int argc, char** argv){
    if(ref_fasta_file != "") {
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
    }
-   read_sample.inspectSample();
+   read_sample.inspectSample(plogfile);
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
    }
@@ -257,8 +259,8 @@ int main(int argc, char** argv){
       read_sample._insert_size_dist = move(insert_size);
    }
 
-   read_sample.procSample(pFile);
-   fclose(pFile);
+   read_sample.procSample(pFile, plogfile );
+
    //const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
    //const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
    //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
@@ -290,6 +292,10 @@ int main(int argc, char** argv){
    //read_sample.inspectSample();
    //double mean, sd;
 
+   fclose(pFile);
+   fclose(plogfile);
+   pFile = NULL;
+   plogfile = NULL;
    delete greader;
    greader = NULL;
    auto end = chrono::steady_clock::now();

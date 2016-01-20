@@ -1045,7 +1045,7 @@ bool EmSolver::run(){
          for(size_t j = 0; j< ncol; ++j){
          _theta[j] = theta[j];
 #ifdef DEBUG
-         cerr<<"isoform "<<j+1<<"'s theta: "<<_theta[j]<<endl;
+         cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
 #endif
          }
          break;

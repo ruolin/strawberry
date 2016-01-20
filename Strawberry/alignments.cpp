@@ -77,8 +77,8 @@ bool hit_complete_within_cluster(const PairedHit& hit, const HitCluster& cluster
 HitCluster::HitCluster():
    _leftmost(UINT_MAX),
    _rightmost(0),
-   _hit_for_plus_strand(0),
-   _hit_for_minus_strand(0),
+   _plus_strand_num_hits(0),
+   _minus_strand_num_hits(0),
    _first_encounter_strand(Strand_t::StrandUnknown),
    _ref_id(-1),
    _final(false),
@@ -150,20 +150,46 @@ Strand_t HitCluster::guessStrand() const{
       return Strand_t::StrandUnknown;
    }
    if(_first_encounter_strand == Strand_t::StrandPlus){
-      if(_hit_for_plus_strand >=3 ) return Strand_t::StrandPlus;
+      if(_plus_strand_num_hits >=3 ) return Strand_t::StrandPlus;
       else{
-         if(_hit_for_plus_strand >= _hit_for_minus_strand) return Strand_t::StrandPlus;
+         if(_plus_strand_num_hits >= _minus_strand_num_hits) return Strand_t::StrandPlus;
          else return Strand_t::StrandMinus;
       }
    }
    else{
-      if(_hit_for_minus_strand >=3) return Strand_t::StrandMinus;
+      if(_minus_strand_num_hits >=3) return Strand_t::StrandMinus;
       else{
-         if(_hit_for_minus_strand >= _hit_for_plus_strand) return Strand_t::StrandMinus;
+         if(_minus_strand_num_hits >= _plus_strand_num_hits) return Strand_t::StrandMinus;
          else return Strand_t::StrandPlus;
       }
    }
 }
+
+void HitCluster::reset(uint old_left,
+                       uint old_right,
+                       RefID old_ref_id,
+                       int old_plus_hit,
+                       int old_minus_hit,
+                       Strand_t old_strand,
+                       double old_mass){
+   _leftmost = old_left;
+   _rightmost = old_right;
+   _ref_id = old_ref_id;
+   _plus_strand_num_hits = old_plus_hit;
+   _minus_strand_num_hits = old_minus_hit;
+   _first_encounter_strand = old_strand;
+   _raw_mass = old_mass;
+}
+
+void HitCluster::reset(uint old_left,
+                       uint old_right,
+                       RefID old_ref_id
+                       ){
+   _leftmost = old_left;
+   _rightmost = old_right;
+   _ref_id = old_ref_id;
+}
+
 
 bool HitCluster::addHit(const PairedHit &hit){
 
@@ -173,16 +199,16 @@ bool HitCluster::addHit(const PairedHit &hit){
    assert(_ref_id == hit.ref_id());
    if(hit.contains_splice()){
       if(hit.strand() == Strand_t::StrandPlus){
-         if(_hit_for_minus_strand == 0 && _hit_for_plus_strand == 0){
+         if(_minus_strand_num_hits == 0 && _plus_strand_num_hits == 0){
             _first_encounter_strand = Strand_t::StrandPlus;
          }
-         ++_hit_for_plus_strand;
+         ++_plus_strand_num_hits;
       }
       else if(hit.strand() == Strand_t::StrandMinus){
-         if(_hit_for_minus_strand == 0 && _hit_for_plus_strand == 0){
+         if(_minus_strand_num_hits == 0 && _plus_strand_num_hits == 0){
             _first_encounter_strand = Strand_t::StrandMinus;
          }
-         ++_hit_for_minus_strand;
+         ++_minus_strand_num_hits;
       }
       else{
          assert(false);
@@ -233,6 +259,7 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
 {
    uint orig_left = _leftmost;
    uint orig_right = _rightmost;
+   RefID orig_ref_id = _ref_id;
    uint hit_left = hit->left();
    uint hit_right = hit->right();
    Strand_t hit_strand = hit->strand();
@@ -261,9 +288,10 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
          _leftmost = min(_leftmost, hit_left);
          _rightmost = max(_rightmost, hit_right);
       }
-      if(extend_by_partner && hit_partner_pos != 0){
+      if(extend_by_partner && hit_partner_pos != 0 && hit->partner_ref_id() == _ref_id){
          if((int)hit_partner_pos - (int)hit_left > max_inner_d){
             LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
+            reset(orig_left, orig_right, orig_ref_id);
             return false;
          }
          _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
@@ -273,14 +301,12 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
 
    // Double check. This is only useful when called in Sample::mergeCluster()
    if(hit_lt_cluster(*hit, *this, kMaxOlapDist)){
-      _leftmost = orig_left;
-      _rightmost = orig_right;
+      reset(orig_left, orig_right, orig_ref_id);
       return false;
    }
 
    if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
-      _leftmost = orig_left;
-      _rightmost = orig_right;
+      reset(orig_left, orig_right, orig_ref_id);
       LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
       return false;
    }
@@ -289,10 +315,15 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
       if(hit_ref_id != -1)
          _ref_id = hit_ref_id;
    } else{
+      if(_ref_id != hit_ref_id){
+         cout<<"chr: "<<this->_ref_id<<endl;
+         cout<<"cluster: "<<this->left()<<"-"<<this->right()<<endl;
+         cout<<this->size()<<endl;
+      }
       assert(_ref_id == hit_ref_id);
    }
 
-   if(hit->is_singleton()){
+   if(hit->is_singleton() || hit->partner_ref_id() != _ref_id){
       if(hit->reverseCompl()){
          PairedHit ph(nullptr, hit);
          addHit(ph);
@@ -336,8 +367,7 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
             assert(status);
          }
          else{
-            _leftmost = orig_left;
-            _rightmost = orig_right;
+            reset(orig_left, orig_right, orig_ref_id);
             LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
             return false;
          }
@@ -399,8 +429,7 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
             iter_open->second.push_back(open_hit);
          }
          else{
-            _leftmost = orig_left;
-            _rightmost = orig_right;
+            reset(orig_left, orig_right, orig_ref_id);
             LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
             return false;
          }
@@ -511,6 +540,15 @@ bool HitCluster::see_both_strands(){
       }
    }
    return see_plus && see_minus;
+//   if(_plus_strand_num_hits == 0) return false;
+//   if(_minus_strand_num_hits == 0) return false;
+//   if(_minus_strand_num_hits < _plus_strand_num_hits &&
+//      _minus_strand_num_hits/(double) _plus_strand_num_hits > bothStrandCutoff)
+//      return true;
+//   if(_plus_strand_num_hits < _minus_strand_num_hits &&
+//      _plus_strand_num_hits/(double) _minus_strand_num_hits > bothStrandCutoff)
+//      return true;
+//   return false;
 }
 
 int Sample::max_inner_dist() const
@@ -718,13 +756,15 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
          return clusterOut.size();
       }
 
+
       if(new_hit->ref_id() > next_ref_start_ref ||
         (new_hit->ref_id() == next_ref_start_ref && new_hit->right() >= next_ref_start_pos)){
          rewindHit(*new_hit);
          return clusterOut.size();
       }
 
-      if(clusterOut.size() == 0){ // add first hit
+      if(clusterOut.ref_id() == -1){ // add first hit
+
          clusterOut.addOpenHit( max_inner_dist(), new_hit, true, true);
          clusterOut.addRawMass(mass);
 
@@ -1050,7 +1090,7 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
    }// if cutoff > kMinDepth4Locus
 }
 
-void Sample::inspectSample()
+void Sample::inspectSample(FILE *plogfile)
 /*
  *  First run-through to calculate fragment distribution FD
  * */
@@ -1089,12 +1129,16 @@ void Sample::inspectSample()
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, NULL);
       _total_mapped_reads += last_cluster->collapse_mass();
-      cout<<"inspect gene: "<<last_cluster->ref_id()<<": "<<last_cluster->left()<<"-"<<last_cluster->right()<<endl;
-      cout<<"total reads: "<<_total_mapped_reads<<endl;
+      fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
+      //cout<<"Inspect gene: "<<ref_t.ref_name(last_cluster->ref_id())<<": "<<last_cluster->left()<<"-"<<last_cluster->right()<<endl;
+      //cout<<"Total reads: "<<_total_mapped_reads<<endl;
       last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, NULL);
+   fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+   fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
    _total_mapped_reads += (int)last_cluster->collapse_mass();
    _hit_factory->reset();
    _is_inspecting = false;
@@ -1106,7 +1150,7 @@ int Sample::total_mapped_reads() const
    return _total_mapped_reads;
 }
 
-void Sample::procSample(FILE *pfile)
+void Sample::procSample(FILE *pfile, FILE *plogfile)
 {
 /*
  * The major function which calls nextCluster() and finalizes cluster and
@@ -1152,15 +1196,18 @@ void Sample::procSample(FILE *pfile)
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, pfile);
+      fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
+      fprintf(plogfile, "Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
 #ifdef DEBUG
      //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
 //           for(auto &h: last_cluster->_hits){
 //              cout<<"spliced read on strand"<<h.strand()<<"\t"<< h.left_pos()<<"-"<<h.right_pos()<<endl;
 //           }
-            cerr<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
-                  <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
-            cerr<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
+//            cerr<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
+//                  <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
+//            cerr<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
          //}
 #endif
      last_cluster = move(cur_cluster);
@@ -1168,16 +1215,15 @@ void Sample::procSample(FILE *pfile)
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, pfile);
+   fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+   fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
+   fprintf(plogfile ,"Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
 }
 
 
 void Sample::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
       vector<float> &exon_doc,  IntronMap &intron_counter, uint smallOverHang)
 {
-   if(right < left){
-      cout<<left<<"-"<<right<<endl;
-      cout<<"read: "<<hits[0].left()<<endl;
-   }
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
       const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;

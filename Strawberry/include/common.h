@@ -46,9 +46,11 @@ extern bool infer_the_other_end;
 extern bool verbose;
 extern double kSimDepthCorrect;
 extern bool kCombineShrotTransfrag;
+extern double bothStrandCutoff;
 extern std::string output_dir;
 extern std::string ref_gtf_filename;
 extern std::string ref_fasta_file;
+extern std::string tracking_log;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 double standard_normal_cdf(double x);
