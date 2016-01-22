@@ -74,7 +74,7 @@ class Estimation {
    static constexpr double _kMinFPKM = 1e-2;
    shared_ptr<InsertSize> _insert_size_dist;
    int _read_len;
-
+   FILE* _p_log_file;
    void set_maps(const int& iso_id, const int& fg_len,
                 const float& mass,
                 const Contig& read,
@@ -83,7 +83,7 @@ class Estimation {
                 map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map);
 
 public:
-   Estimation(shared_ptr<InsertSize> insert_size, int read_len);
+   Estimation(shared_ptr<InsertSize> insert_size, int read_len, FILE* tracker);
    void test();
    void overlap_exons(const vector<GenomicFeature>& exons,
                      const Contig& read,

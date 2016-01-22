@@ -460,8 +460,10 @@ Isoform::Isoform(const vector<GenomicFeature>& exons, Contig contig, int gene, i
    _bais_factor = 0.0;
 }
 
-Estimation::Estimation(shared_ptr<InsertSize> insert_size, int read_len):
-   _insert_size_dist(insert_size), _read_len(read_len) {}
+Estimation::Estimation(shared_ptr<InsertSize> insert_size,
+                       int read_len,
+                       FILE* tracker):
+   _insert_size_dist(insert_size), _read_len(read_len), _p_log_file(tracker) {}
 
 void Estimation::set_maps(
              const int& iso_id,
@@ -768,10 +770,24 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
       if(success) success = em.run();
    }
    if(success){
+      for(uint i=0; i<niso; ++i){
+         fprintf(_p_log_file, "isoform %d has %d raw read count.\n", i+1, em._theta[i]);
+      }
       double sum_fpkm = 0.0;
       for(uint i=0; i< niso; ++i){
          uint id = isoforms[i]._isoform_id;
-         double kb = 1e3/iso_2_len_map[id];
+         double kb = 0.0;
+         if(effective_len_norm){
+            kb = iso_2_len_map[id] - _insert_size_dist->_mean;
+            if (kb < 0){
+               isoforms[i]._FPKM_s = "nan";
+               continue;
+            }
+            kb =1e3/kb;
+         }
+         else{
+            kb = 1e3/iso_2_len_map[id];
+         }
          double rpm = 1e6/mass;
          double fpkm = em._theta[i]*rpm*kb;
          isoforms[i]._FPKM = fpkm;
@@ -779,6 +795,10 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
          isoforms[i]._FPKM_s = to_string(fpkm);
       }
       for(uint i=0; i< niso; ++i){
+         if(isoforms[i]._FPKM_s == "nan"){
+            isoforms[i]._TPM_s = "nan";
+            continue;
+         }
          double tpm = isoforms[i]._FPKM/sum_fpkm * 1e6;
          isoforms[i]._TPM = tpm;
          isoforms[i]._TPM_s = to_string(tpm);
@@ -824,23 +844,23 @@ bool EmSolver::init(const int num_iso,
       _F.push_back(model[i]);
    }
    if(_u.empty()) return false;
-#ifdef DEBUG
-   nrow = _u.size();
-   Eigen::VectorXi obs_d(nrow);
-   Eigen::MatrixXd F(nrow, ncol);
-    for(size_t i =0; i < nrow; ++i){
-         for(size_t j= 0; j < ncol; ++j){
-            F(i,j) = _F[i][j];
-         }
-    }
-    for(size_t i = 0; i < nrow; ++i)
-      obs_d(i) = _u[i];
-    cerr<<"------n_i----------"<<endl;
-    cerr<<obs_d<<endl;
-    cerr<<"------Bias---------"<<endl;
-    cerr<<F<<endl;
-    cerr<<"-------------------"<<endl;
-#endif
+//#ifdef DEBUG
+//   nrow = _u.size();
+//   Eigen::VectorXi obs_d(nrow);
+//   Eigen::MatrixXd F(nrow, ncol);
+//    for(size_t i =0; i < nrow; ++i){
+//         for(size_t j= 0; j < ncol; ++j){
+//            F(i,j) = _F[i][j];
+//         }
+//    }
+//    for(size_t i = 0; i < nrow; ++i)
+//      obs_d(i) = _u[i];
+//    cerr<<"------n_i----------"<<endl;
+//    cerr<<obs_d<<endl;
+//    cerr<<"------Bias---------"<<endl;
+//    cerr<<F<<endl;
+//    cerr<<"-------------------"<<endl;
+//#endif
     return true;
 }
 
@@ -1044,9 +1064,7 @@ bool EmSolver::run(){
       if(num_changed == 0) {
          for(size_t j = 0; j< ncol; ++j){
          _theta[j] = theta[j];
-#ifdef DEBUG
-         cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
-#endif
+         //cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
          }
          break;
       }

@@ -11,8 +11,8 @@
 #include <errno.h>
 #include "common.h"
 bool WITH_BIAS_CORRECTION = false;
-int kMaxInnerDist = 5000;
-int kMaxIntronLength = 5000; // max-junction-splice-distance
+int kMaxInnerDist = 50000;
+int kMaxIntronLength = 50000; // max-junction-splice-distance
 int kMinIntronLength = 50; // min-junction-splice-distance
 int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
@@ -42,7 +42,7 @@ std::string ref_fasta_file = "";
 bool enforce_ref_models = false;
 bool utilize_ref_models = false;
 std::string tracking_log = "/tracking.log";
-
+bool effective_len_norm = false;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

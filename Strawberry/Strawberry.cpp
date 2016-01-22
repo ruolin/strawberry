@@ -251,11 +251,13 @@ int main(int argc, char** argv){
       read_sample._insert_size_dist = move(insert_size);
    }
    else{
-      if(verbose){
-         cerr<<"Learning empirical insert size distribution... "<<endl;
-      }
       const vector<int> & fd = read_sample._hit_factory->_reads_table._frag_dist;
       unique_ptr<InsertSize> insert_size(new InsertSize(fd));
+      if(verbose){
+         cerr<<"Using empirical insert size distribution "<<endl;
+         //cerr<<"Mean insert size mean: "<<insert_size->_mean<<endl;
+         //cerr<<"Mean insert size standard deviation: "<<insert_size->_sd<<endl;
+      }
       read_sample._insert_size_dist = move(insert_size);
    }
 

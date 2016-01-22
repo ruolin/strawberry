@@ -106,7 +106,7 @@ class Sample{
    bool _has_load_all_refs;
    string _current_chrom;
    int _total_mapped_reads = 0;
-   void compute_doc(const uint left,
+   double compute_doc(const uint left,
                      const uint right,
                      const vector<Contig> & hits,
                      vector<float> &exon_doc,
@@ -145,7 +145,7 @@ public:
    void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
    void procSample(FILE *f, FILE *log);
    void inspectSample(FILE *log);
-   void finalizeAndAssemble(HitCluster & cluster, FILE *f);
+   void finalizeAndAssemble(HitCluster & cluster, FILE *f, FILE *plogfile);
 };
 
 

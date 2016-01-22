@@ -315,11 +315,6 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
       if(hit_ref_id != -1)
          _ref_id = hit_ref_id;
    } else{
-      if(_ref_id != hit_ref_id){
-         cout<<"chr: "<<this->_ref_id<<endl;
-         cout<<"cluster: "<<this->left()<<"-"<<this->right()<<endl;
-         cout<<this->size()<<endl;
-      }
       assert(_ref_id == hit_ref_id);
    }
 
@@ -910,7 +905,7 @@ void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
 }
 
 
-void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
+void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfile){
    /*
     * Isoform id is integer from 1. The index
     * for each isoform in vector<Isoform> is id+1.
@@ -924,50 +919,54 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
       _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD)
       return;
 
-   double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
-   cutoff /= (double)cluster.len();
-   if(cutoff > kMinDepth4Locus){
-      cluster.setBoundaries(); // set boundaries if reference exist.
-      vector<float> exon_doc;
-      IntronMap intron_counter;
-      vector<GenomicFeature> exons;
-      vector<Contig> hits;
-      cluster._strand = cluster.guessStrand();
+   //double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
+   //cutoff /= (double)cluster.len();
+   //if(cutoff > kMinDepth4Locus){
+   cluster.setBoundaries(); // set boundaries if reference exist.
+   vector<float> exon_doc;
+   IntronMap intron_counter;
+   vector<GenomicFeature> exons;
+   vector<Contig> hits;
+   cluster._strand = cluster.guessStrand();
 
 
-      for(auto r = cluster._uniq_hits.cbegin(); r< cluster._uniq_hits.cend(); ++r){
+   for(auto r = cluster._uniq_hits.cbegin(); r< cluster._uniq_hits.cend(); ++r){
 //#ifdef DEBUG
 //         if(r->_left_read && r->_right_read)
 //            cout<<"read: "<<r->left_read_obj().left()<<"-"<<r->left_read_obj().right()<<"===="<<
 //               r->right_read_obj().left()<<"-"<<r->right_read_obj().right()<<endl;
 //#endif
-         Contig hit(*r);
-         hits.push_back(hit);
+      Contig hit(*r);
+      hits.push_back(hit);
+   }
+   sort(hits.begin(), hits.end());
+   size_t s = cluster.right() - cluster.left() + 1;
+   exon_doc.resize(s,0);
+
+   double avg_dep = 0.0;
+   if(cluster.hasRefmRNAs() && utilize_ref_models){
+      vector<Contig> hits_with_refs;
+      for(auto i: cluster._ref_mRNAs){
+         hits_with_refs.push_back(*i);
       }
-      sort(hits.begin(), hits.end());
-      size_t s = cluster.right() - cluster.left() + 1;
-      exon_doc.resize(s,0);
+      avg_dep = compute_doc(cluster.left(), cluster.right(), hits_with_refs, exon_doc, intron_counter, kMaxSmallAnchor);
+   }
 
-      if(cluster.hasRefmRNAs() && utilize_ref_models){
-         vector<Contig> hits_with_refs;
-         for(auto i: cluster._ref_mRNAs){
-            hits_with_refs.push_back(*i);
-         }
-         compute_doc(cluster.left(), cluster.right(), hits_with_refs, exon_doc, intron_counter, kMaxSmallAnchor);
-      }
+   else{
+      avg_dep= compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
+   }
 
-      else{
-         compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
-      }
+   if(avg_dep < kMinDepth4Locus)
+      return;
 
-      filter_intron(cluster.left(), exon_doc, intron_counter);
+   filter_intron(cluster.left(), exon_doc, intron_counter);
 
-      FlowNetwork flow_network;
-      Graph::NodeMap<const GenomicFeature*> node_map(flow_network._g);
-      Graph::ArcMap<int> cost_map(flow_network._g);
-      Graph::ArcMap<int> min_flow_map(flow_network._g);
-      vector<vector<Graph::Arc>> path_cstrs;
-      vector<vector<GenomicFeature>> assembled_feats;
+   FlowNetwork flow_network;
+   Graph::NodeMap<const GenomicFeature*> node_map(flow_network._g);
+   Graph::ArcMap<int> cost_map(flow_network._g);
+   Graph::ArcMap<int> min_flow_map(flow_network._g);
+   vector<vector<Graph::Arc>> path_cstrs;
+   vector<vector<GenomicFeature>> assembled_feats;
 //#ifdef DEBUG
 //      cout<<"cluster starts at: "<<cluster.left()<<endl;
 //      cout<<"exon coverage:"<<endl;
@@ -975,119 +974,121 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile){
 //         cout<<i;
 //      cout<<endl;
 //#endif
-      flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, exons);
-      vector<vector<size_t>> constraints;
-      constraints = flow_network.findConstraints(exons, hits);
+   flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, exons);
+   vector<vector<size_t>> constraints;
+   constraints = flow_network.findConstraints(exons, hits);
 
-      bool stat = flow_network.createNetwork(hits, exons, intron_counter,
-            constraints, node_map, cost_map, min_flow_map, path_cstrs);
-      if(!stat)return;
+   bool stat = flow_network.createNetwork(hits, exons, intron_counter,
+         constraints, node_map, cost_map, min_flow_map, path_cstrs);
+   if(!stat)return;
 
-      bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs,cost_map, min_flow_map,assembled_feats);
-      if(!stat2)return;
+   bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs,cost_map, min_flow_map,assembled_feats);
+   if(!stat2)return;
 
 
-      if(_is_inspecting){ // just calculated the fragment length distribution
-         if(assembled_feats.size() == 1){
-            vector<GenomicFeature> merged_feats;
-            GenomicFeature::mergeFeatures(assembled_feats[0], merged_feats);
-            Contig assembled_transcript(cluster._ref_id, cluster.strand(), -1, merged_feats, false);
+   if(_is_inspecting){ // just calculated the fragment length distribution
+      if(assembled_feats.size() == 1){
+         vector<GenomicFeature> merged_feats;
+         GenomicFeature::mergeFeatures(assembled_feats[0], merged_feats);
+         Contig assembled_transcript(cluster._ref_id, cluster.strand(), -1, merged_feats, false);
 
-            for(size_t h = 0; h< hits.size(); ++h){
-               if(hits[h].is_single_read()) continue;
-               if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
-               double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
+         for(size_t h = 0; h< hits.size(); ++h){
+            if(hits[h].is_single_read()) continue;
+            if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
+            double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
 //#ifdef DEBUG
 //                  cout<<"frag_len: "<<frag_len<<endl;
 //                  cout<<"frag location>> "<<hits[h].ref_id()<<":"<<hits[h].left()<<"-"<<hits[h].right()<<endl;
 //#endif
-                     _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-            }
-         }// end if
-      }//end if
+                  _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+         }
+      }// end if
+   }//end if
 
-      else{
-         vector<Isoform> isoforms;
-         vector<Contig> assembled_transcripts;
-         map<set<pair<uint,uint>>, ExonBin>  exon_bin_map;
-         map<int, set<set<pair<uint,uint>>>> iso_2_bins_map;
-         map<int, int> iso_2_len_map;
+   else{
+      vector<Isoform> isoforms;
+      vector<Contig> assembled_transcripts;
+      map<set<pair<uint,uint>>, ExonBin>  exon_bin_map;
+      map<int, set<set<pair<uint,uint>>>> iso_2_bins_map;
+      map<int, int> iso_2_len_map;
 
-         /* Merge transfrags if they
-          *  do not overlaps.
-          *  Begin*/
-         assemble_2_contigs(assembled_feats,cluster.ref_id(), cluster.strand(), assembled_transcripts);
-         if(kCombineShrotTransfrag){
-            vector<pair<uint,uint>> to_merge;
-            vector<Contig> merged_transcripts;
-            for(uint i=0; i< assembled_transcripts.size()-1; ++i){
-               for(uint j = i+1; j< assembled_transcripts.size(); ++j){
-                  if(!Contig::overlaps_directional(assembled_transcripts[i], assembled_transcripts[j])){
-                     to_merge.emplace_back(i,j);
-                  }
+      /* Merge transfrags if they
+       *  do not overlaps.
+       *  Begin*/
+      assemble_2_contigs(assembled_feats,cluster.ref_id(), cluster.strand(), assembled_transcripts);
+      if(kCombineShrotTransfrag){
+         vector<pair<uint,uint>> to_merge;
+         vector<Contig> merged_transcripts;
+         for(uint i=0; i< assembled_transcripts.size()-1; ++i){
+            for(uint j = i+1; j< assembled_transcripts.size(); ++j){
+               if(!Contig::overlaps_directional(assembled_transcripts[i], assembled_transcripts[j])){
+                  to_merge.emplace_back(i,j);
                }
             }
-            if(!to_merge.empty()){
-               vector<bool> flags(assembled_transcripts.size(), false);
-               for(auto iso_pair: to_merge){
-                  uint i = iso_pair.first;
-                  uint j = iso_pair.second;
-                  flags[i] = true;
-                  flags[j] = true;
-                  Contig new_contig;
-                  if(assembled_transcripts[i] < assembled_transcripts[j]){
-                     new_contig = assembled_transcripts[i];
-                     GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
-                           assembled_transcripts[j].left()-new_contig.right()-1);
-                     new_contig._genomic_feats.push_back(intron);
-                     new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
-                                                      assembled_transcripts[j]._genomic_feats.begin(), \
-                                                      assembled_transcripts[j]._genomic_feats.end());
-                  }
-                  else{
-                     new_contig = assembled_transcripts[j];
-                     GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
-                           assembled_transcripts[i].left()-new_contig.right()-1);
-                     new_contig._genomic_feats.push_back(intron);
-                     new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
-                                                      assembled_transcripts[i]._genomic_feats.begin(), \
-                                                      assembled_transcripts[i]._genomic_feats.end());
-                  }
-                  merged_transcripts.push_back(new_contig);
-               } // end for
-
-               for(uint i = 0; i < assembled_transcripts.size(); ++i){
-                  if (flags[i]) continue;
-                  merged_transcripts.push_back(assembled_transcripts[i]);
+         }
+         if(!to_merge.empty()){
+            vector<bool> flags(assembled_transcripts.size(), false);
+            for(auto iso_pair: to_merge){
+               uint i = iso_pair.first;
+               uint j = iso_pair.second;
+               flags[i] = true;
+               flags[j] = true;
+               Contig new_contig;
+               if(assembled_transcripts[i] < assembled_transcripts[j]){
+                  new_contig = assembled_transcripts[i];
+                  GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
+                        assembled_transcripts[j].left()-new_contig.right()-1);
+                  new_contig._genomic_feats.push_back(intron);
+                  new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
+                                                   assembled_transcripts[j]._genomic_feats.begin(), \
+                                                   assembled_transcripts[j]._genomic_feats.end());
                }
-               assembled_transcripts = merged_transcripts;
-            } // end if(!to_merge.empty())
-         }  //end if(kCombineShrotTransfrag)
-         /* Merge transfrags if they
-          *  do not overlaps.
-          *  End*/
+               else{
+                  new_contig = assembled_transcripts[j];
+                  GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
+                        assembled_transcripts[i].left()-new_contig.right()-1);
+                  new_contig._genomic_feats.push_back(intron);
+                  new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
+                                                   assembled_transcripts[i]._genomic_feats.begin(), \
+                                                   assembled_transcripts[i]._genomic_feats.end());
+               }
+               merged_transcripts.push_back(new_contig);
+            } // end for
 
-         int tscp_id = 0;
-         for(auto t: assembled_transcripts){
-            ++tscp_id;
-            Isoform iso(exons, t, cluster._id, tscp_id);
-            iso_2_len_map[tscp_id] = t.exonic_length();
-            isoforms.push_back(iso);
-         }
-         if(cutoff > kMinDepth4Quantify){
-            Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs);
-            est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
-            //est.empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
-            est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
-            //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-            bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
-                                                   iso_2_len_map, isoforms, false);
-         }
+            for(uint i = 0; i < assembled_transcripts.size(); ++i){
+               if (flags[i]) continue;
+               merged_transcripts.push_back(assembled_transcripts[i]);
+            }
+            assembled_transcripts = merged_transcripts;
+         } // end if(!to_merge.empty())
+      }  //end if(kCombineShrotTransfrag)
+      /* Merge transfrags if they
+       *  do not overlaps.
+       *  End*/
+
+      int tscp_id = 0;
+      for(auto t: assembled_transcripts){
+         ++tscp_id;
+         Isoform iso(exons, t, cluster._id, tscp_id);
+         iso_2_len_map[tscp_id] = t.exonic_length();
+         isoforms.push_back(iso);
+      }
+      //if(cutoff > kMinDepth4Quantify){
+      Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs, plogfile);
+      est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
+      //est.empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
+      est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
+      //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
+      bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
+                                             iso_2_len_map, isoforms, false);
+      //}
+      if(success){
          for(auto & iso: isoforms){
             iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
          }
       }
-   }// if cutoff > kMinDepth4Locus
+   }
+   //}// if cutoff > kMinDepth4Locus
 }
 
 void Sample::inspectSample(FILE *plogfile)
@@ -1127,18 +1128,16 @@ void Sample::inspectSample(FILE *plogfile)
          _current_chrom = ref_t.ref_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
-      finalizeAndAssemble(*last_cluster, NULL);
+      finalizeAndAssemble(*last_cluster, NULL, NULL);
       _total_mapped_reads += last_cluster->collapse_mass();
-      fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
-      fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
-      //cout<<"Inspect gene: "<<ref_t.ref_name(last_cluster->ref_id())<<": "<<last_cluster->left()<<"-"<<last_cluster->right()<<endl;
-      //cout<<"Total reads: "<<_total_mapped_reads<<endl;
+      //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
       last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(*last_cluster, NULL);
-   fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
-   fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
+   finalizeAndAssemble(*last_cluster, NULL, NULL);
+   //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+   //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
    _total_mapped_reads += (int)last_cluster->collapse_mass();
    _hit_factory->reset();
    _is_inspecting = false;
@@ -1195,10 +1194,10 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
          _current_chrom = ref_t.ref_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
-      finalizeAndAssemble(*last_cluster, pfile);
-      fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      finalizeAndAssemble(*last_cluster, pfile, plogfile);
+      fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
       fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
-      fprintf(plogfile, "Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
+      fprintf(plogfile, "Number of total unique hits: %d\n\n", last_cluster->_uniq_hits.size());
 #ifdef DEBUG
      //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
@@ -1214,16 +1213,17 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
      //if(last_cluster->ref_id() == 4 && last_cluster->left() > 10,027,601) exit(0);
    }
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(*last_cluster, pfile);
+   finalizeAndAssemble(*last_cluster, pfile, plogfile);
    fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
    fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
    fprintf(plogfile ,"Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
 }
 
 
-void Sample::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
+double Sample::compute_doc(const uint left, const uint right, const vector<Contig> & hits,
       vector<float> &exon_doc,  IntronMap &intron_counter, uint smallOverHang)
 {
+
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
       const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;
@@ -1269,7 +1269,13 @@ void Sample::compute_doc(const uint left, const uint right, const vector<Contig>
          }
       }
    }
-
+   int num_nt = 0;
+   for(uint i=0; i != exon_doc.size(); ++i){
+      if(exon_doc[i] > 0) ++num_nt;
+   }
+   if(num_nt == 0) return 0.0;
+   double total_depth = accumulate(exon_doc.begin(), exon_doc.end(), 0.0);
+   return total_depth/num_nt;
 }
 
 void Sample::filter_intron(uint cluster_left,

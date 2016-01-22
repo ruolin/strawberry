@@ -467,15 +467,11 @@ bool FlowNetwork::createNetwork(
       bool is_valid = false;
       for(size_t idx = 1; idx<c.size()-1; ++idx){
          const Graph::Node &n = feat2node[&exons[c[idx]]];
-//         if(exons[c[idx]]._genomic_offset == 7384){
-//            cout<<"haha"<<inDeg[n]<<"\t"<<outDeg[n]<<endl;
-//         }
-
          if(inDeg[n] > 1 && outDeg[n] > 1)
             is_valid = true;
       }
 
-      if(ArcLookUp<ListDigraph>(_g)(s,t) == INVALID && is_valid){
+      if(ArcLookUp<ListDigraph>(_g)(s,t) == INVALID && is_valid){ // no existing edge and valid constraint
 
          LOG("Path Constraints:\t");
          for(size_t i = 0; i< c.size()-1; ++i){
@@ -494,10 +490,10 @@ bool FlowNetwork::createNetwork(
                LOG_ERR("No intron connects exon ", hits[0].ref_id(), ":",node2feat[sec]->left(), "-", node2feat[sec]->right());
                continue;
             }
-
             path_cstr.push_back(arc_found);
          }
-         path_cstrs.push_back(path_cstr);
+         if(!path_cstr.empty())
+            path_cstrs.push_back(path_cstr);
       }
    }
 
@@ -508,6 +504,11 @@ bool FlowNetwork::createNetwork(
       return true;
    }
 
+
+   /*
+    * Convert edges to path constraints while avoiding
+    * duplications ( path constraints already contains edges)
+    */
    vector<Graph::Arc> one_d_path_cstrs;
    for(auto p: path_cstrs){
      for(auto e: p)
