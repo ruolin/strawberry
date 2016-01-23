@@ -89,6 +89,7 @@ GenomicFeature::GenomicFeature(const Match_t& code, uint offset, int len):
    assert(len >= 0);
 }
 
+
 int GenomicFeature::len() const
 {
    return _match_op._len;
@@ -166,6 +167,17 @@ bool GenomicFeature::properly_contains(const GenomicFeature& other) const
       return true;
    return false;
 }
+
+bool GenomicFeature::compatible_2_read(const Contig& read) const
+{
+   if( _match_op._code != Match_t::S_MATCH) return false;
+   for(auto it = read._genomic_feats.cbegin(); it != read._genomic_feats.cend(); ++it){
+      if(it->_match_op._code == Match_t::S_INTRON) return false;
+      if(!this->contains(*it)) return false;
+   }
+   return true;
+}
+
 
 int match_length(const GenomicFeature &op, int left, int right)
 {
@@ -245,6 +257,7 @@ Contig::Contig(
       assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
       assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
    }
+
 
 Contig::Contig(const PairedHit& ph):
       _is_ref(false),
@@ -563,6 +576,20 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
       }
    }
    return true;
+}
+
+double Contig::avg_doc() const
+{
+   int n = 0;
+   double doc = 0.0;
+   for(size_t i = 0; i<_genomic_feats.size(); ++i){
+      if(_genomic_feats[i]._match_op._code == S_MATCH){
+         doc += _genomic_feats[i].avg_doc();
+         ++n;
+      }
+   }
+   assert(n > 0);
+   return doc/n;
 }
 
 bool Contig::is_compatible(const Contig &isoform, const GenomicFeature &feat)

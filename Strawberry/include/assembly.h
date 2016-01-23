@@ -53,12 +53,12 @@ public:
    Graph _g;
    Graph::Node _source;
    Graph::Node _sink;
-   void initGraph(const int &left,
-           const std::vector<float> &exon_doc,
-           const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
-           const std::vector<size_t> &bad_introns,
-           std::vector<GenomicFeature> &exons,
-           Graph::NodeMap<const GenomicFeature*> &node2feat);
+//   void initGraph(const int &left,
+//           const std::vector<float> &exon_doc,
+//           const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
+//           const std::vector<size_t> &bad_introns,
+//           std::vector<GenomicFeature> &exons,
+//           Graph::NodeMap<const GenomicFeature*> &node2feat);
 
    void splicingGraph(const int &left, const std::vector<float> &exon_doc,
          const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
@@ -99,4 +99,5 @@ void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assemble
                         const Strand_t & strand,
                         std::vector<Contig>& transcript);
 
+void compute_exon_doc(const int left, const std::vector<float> exon_doc, std::vector<GenomicFeature>& exons);
 #endif /* ASSEMBLY_H_ */

@@ -56,7 +56,7 @@ public:
    void count_current_intron(const std::vector<std::pair<uint,uint>>& cur_intron);
    void setBoundaries();
    void clearOpenMates();
-   bool addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
+   bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
    int collapseHits();
    bool overlaps(const HitCluster& rhs) const;
    bool hasRefmRNAs() const {
@@ -121,7 +121,7 @@ public:
       _has_load_all_refs(false),
       _hit_factory(move(hit_fac))
    {}
-   int max_inner_dist() const;
+   //int max_inner_dist() const;
    int total_mapped_reads() const;
    bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
    bool hasLoadRefmRNAs() const {

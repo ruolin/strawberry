@@ -20,7 +20,7 @@ typedef uint64_t ReadID;
 typedef int RefID;
 
 extern bool WITH_BIAS_CORRECTION;
-extern int kMaxInnerDist;
+//extern int kMaxInnerDist;
 extern int kMaxIntronLength; // max-junction-splice-distance
 extern int kMinIntronLength; // min-junction-splice-distance
 extern int kMaxIntronLen4ExtCluster; /*Do not extend the cluster if intron length large than this*/
@@ -36,10 +36,15 @@ extern int kMinDist4ExonEdge; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
 extern double kMinDepth4Locus; //used in ClusterFactory::finalizeCluster() to
                                            //select locus have enough reads covered.
-extern double kMinDepth4Quantify;
+extern double kMinDepth4Contig;
 extern int kMaxCoverGap1;
 extern int kMaxCoverGap2;
 extern int kMaxReadNum4FD;
+//extern int kMinExonLen4FD;
+//extern int kMinExonCov4FD;
+//extern bool singleExon4FD;
+extern bool singleIso4FD;
+
 extern double kInsertSizeMean;
 extern double kInsertSizeSD;
 extern bool infer_the_other_end;
@@ -52,6 +57,8 @@ extern std::string ref_gtf_filename;
 extern std::string ref_fasta_file;
 extern std::string tracking_log;
 extern bool effective_len_norm;
+extern float kIntronEdgeWeight;
+extern bool use_unique_hits;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 double standard_normal_cdf(double x);

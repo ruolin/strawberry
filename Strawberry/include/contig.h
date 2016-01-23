@@ -20,6 +20,7 @@
 class PairedHit;
 class ReadHit;
 class RefSeqTable;
+class Contig;
 struct CigarOp;
 
 enum Match_t
@@ -52,6 +53,7 @@ public:
    MatchOp _match_op;
    double _avg_cov; // average coverage
    GenomicFeature(const Match_t& op, uint offset, int len);
+   //GenomicFeature(const Match_t& op, uint offset, int len, double avg_doc);
    int len() const;
    void left(uint left);
    uint left() const;
@@ -59,7 +61,7 @@ public:
    uint right() const;
    void avg_doc(double coverage);
    double avg_doc() const;
-
+   bool compatible_2_read(const Contig& read) const;
    static bool overlaps(const GenomicFeature& lhs, const GenomicFeature& rhs);
    static int overlap_len(const GenomicFeature &lhs, const GenomicFeature &rhs);
    static int overlap_len_in_genome(const GenomicFeature& feat, const uint left, const uint right);
@@ -144,6 +146,7 @@ public:
                   int gene_id, int tscp_id);
 
    SingleOrit_t single_read_orit() const;
+   double avg_doc() const;
 };
 
 #endif /* CONTIG_H_ */

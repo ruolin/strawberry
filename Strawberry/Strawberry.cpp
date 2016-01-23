@@ -33,7 +33,7 @@
 
 
 #define OPT_MIN_DEPTH_4_ASSEMBLY 260
-#define OPT_MIN_DEPTH_4_QUAN     261
+#define OPT_MIN_DEPTH_4_CONTIG     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 
 using namespace std;
@@ -59,11 +59,11 @@ static struct option long_options[] = {
 //quantification
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
-      {"min-depth-4-quant",               required_argument,      0,       OPT_MIN_DEPTH_4_QUAN},
+      {"min-depth-4-contig",              required_argument,      0,       OPT_MIN_DEPTH_4_CONTIG},
       {"infer-missing-end",               no_argument,            0,       'm'},
 };
 
-const char *short_options = "o:i:I:j:J:n:g:t:d:s:a:c:b:vGcm";
+const char *short_options = "o:i:j:J:n:g:t:d:s:a:c:b:vGcm";
 
 void print_help()
 {
@@ -85,14 +85,14 @@ void print_help()
    fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.              [default:     4]\n");
    fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                           [default:     0]\n");
    fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.         [default:     1] \n");
-   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                              [default:     0.1]\n");
    fprintf(stderr, "   -c/--combine-short-transfrag          Disable merging non-overlap short transfrags .                               [default:     true]\n");
+   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                              [default:     1]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                    [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                         [default:     false]\n");
-   fprintf(stderr, "   --min-depth-4-quant                   Minimum read depth for a locus to be quantified.                             [default:     1.0]\n");
+   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read delpth for transcript.                                  [default:     1.0]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                        [default:     true]\n" );
 }
 
@@ -147,19 +147,19 @@ int parse_options(int argc, char** argv)
                case OPT_MIN_DEPTH_4_ASSEMBLY:
                         kMinDepth4Locus = parseFloat(optarg, 0, 999999.0, "--min-depth-4-assembly must be at least 0", print_help);
                         break;
-               case OPT_MIN_DEPTH_4_QUAN:
-                        kMinDepth4Quantify = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
+               case OPT_MIN_DEPTH_4_CONTIG:
+                        kMinDepth4Contig = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
                         break;
-               case '-c':
+               case 'c':
                         kCombineShrotTransfrag = false;
                         break;
-               case '-m':
+               case 'm':
                         infer_the_other_end = false;
                         break;
-               case '-b':
+               case 'b':
                         ref_fasta_file = optarg;
                         break;
-               case '-i':
+               case 'i':
                        {
                           vector<string> mean_and_sd;
                           split(optarg, "/", mean_and_sd);
@@ -168,11 +168,14 @@ int parse_options(int argc, char** argv)
                              print_help();
                              exit(1);
                           }
+                          cerr<<"Insert size mean: "<<mean_and_sd[0]<<endl;
+                          cerr<<"Insert size sd: "<<mean_and_sd[1]<<endl;
                           kInsertSizeMean = (double) parseInt(mean_and_sd[0].c_str(), 1, "minimun insert size mean must be at least 1", print_help);
                           kInsertSizeSD = (double) parseInt(mean_and_sd[1].c_str(), 1, "minimun insert size sd must be at least 1", print_help);
                           break;
                        }
                default:
+                        cerr<<"Invalid option"<<endl;
                         print_help();
                         return 1;
             }
@@ -237,6 +240,9 @@ int main(int argc, char** argv){
 
    if(ref_fasta_file != "") {
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
+   }
+   if(verbose){
+      cerr<<"Inspecting sample......"<<endl;
    }
    read_sample.inspectSample(plogfile);
    if(verbose){

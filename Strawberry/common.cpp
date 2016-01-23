@@ -11,7 +11,7 @@
 #include <errno.h>
 #include "common.h"
 bool WITH_BIAS_CORRECTION = false;
-int kMaxInnerDist = 50000;
+//int kMaxInnerDist = 200000;
 int kMaxIntronLength = 50000; // max-junction-splice-distance
 int kMinIntronLength = 50; // min-junction-splice-distance
 int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
@@ -21,14 +21,18 @@ double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
 double kMinIsoformFrac = 0.05;
 double kBinomialOverHangAlpha = 0.0;
 float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
-int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
+int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
                                      // weights on non-intron edges.
-double kMinDepth4Locus = 0.1; //used in ClusterFactory::finalizeCluster() to
+double kMinDepth4Locus = 1; //used in ClusterFactory::finalizeCluster() to
                                         //select locus have enough reads covered.
-double kMinDepth4Quantify = 1;
+double kMinDepth4Contig = 1;
 int kMaxCoverGap1 = 200; // cover gap due the read depth.
 int kMaxCoverGap2 = 50;
-int kMaxReadNum4FD = 50000;
+int kMaxReadNum4FD = 200000;
+//bool singleExon4FD = false;
+//int kMinExonLen4FD = 200; // if singleExon4FD is used.
+//int kMinExonCov4FD = 0;  // if singleExon4FD is used.
+bool singleIso4FD = true;
 double kInsertSizeMean = 0;
 double bothStrandCutoff = 0.1; // ratio of reads from different strands. If larger than this value, it
                               // possibly indicates genes on different strands overlap.
@@ -43,6 +47,8 @@ bool enforce_ref_models = false;
 bool utilize_ref_models = false;
 std::string tracking_log = "/tracking.log";
 bool effective_len_norm = false;
+float kIntronEdgeWeight = 2;
+bool use_unique_hits = true;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

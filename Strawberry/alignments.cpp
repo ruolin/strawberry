@@ -255,7 +255,7 @@ bool HitCluster::addHit(const PairedHit &hit){
 //   return false;
 //}
 
-bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
+bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
 {
    uint orig_left = _leftmost;
    uint orig_right = _rightmost;
@@ -289,12 +289,9 @@ bool HitCluster::addOpenHit(const int max_inner_d, ReadHitPtr hit, bool extend_b
          _rightmost = max(_rightmost, hit_right);
       }
       if(extend_by_partner && hit_partner_pos != 0 && hit->partner_ref_id() == _ref_id){
-         if((int)hit_partner_pos - (int)hit_left > max_inner_d){
-            LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
-            reset(orig_left, orig_right, orig_ref_id);
-            return false;
+         if((int)hit_partner_pos - (int)hit_left < kMaxIntronLength){
+            _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
          }
-         _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
       }
 //   }//end else
 
@@ -546,17 +543,17 @@ bool HitCluster::see_both_strands(){
 //   return false;
 }
 
-int Sample::max_inner_dist() const
-{
-   if(_is_inspecting)
-      return kMaxInnerDist;
-   else{
-      if(_insert_size_dist->empty())
-         return kMaxInnerDist;
-      else
-         return _insert_size_dist->_end_offset;
-   }
-}
+//int Sample::max_inner_dist() const
+//{
+//   if(_is_inspecting)
+//      return kMaxInnerDist;
+//   else{
+//      if(_insert_size_dist->empty())
+//         return kMaxInnerDist;
+//      else
+//         return _insert_size_dist->_end_offset -_hit_factory->_reads_table._read_len_abs*2;
+//   }
+//}
 
 bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile)
 {
@@ -669,9 +666,11 @@ double Sample::next_valid_alignment(ReadHit& readin){
          {
             const string cur_chr_name = _hit_factory->_ref_table.ref_name(readin.ref_id());
             const string last_chr_name = _hit_factory->_ref_table.ref_name(_prev_hit_ref_id);
-            LOG_ERR("BAM file not sort correctly!");
-            LOG_ERR("The current position is: ", cur_chr_name, ":", readin.left());
-            LOG_ERR("and previous position is: ", last_chr_name, ":", _prev_hit_pos);
+            if(_is_inspecting){
+               LOG_ERR("BAM file not sort correctly!");
+               LOG_ERR("The current position is: ", cur_chr_name, ":", readin.left());
+               LOG_ERR("and previous position is: ", last_chr_name, ":", _prev_hit_pos);
+            }
          }
       }
 
@@ -760,7 +759,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 
       if(clusterOut.ref_id() == -1){ // add first hit
 
-         clusterOut.addOpenHit( max_inner_dist(), new_hit, true, true);
+         clusterOut.addOpenHit(new_hit, true, true);
          clusterOut.addRawMass(mass);
 
       } else { //add the rest
@@ -773,7 +772,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
             rewindHit(*new_hit);
             break;
          }
-         clusterOut.addOpenHit(max_inner_dist(), new_hit, true, true);
+         clusterOut.addOpenHit(new_hit, true, true);
          clusterOut.addRawMass(mass);
       }
    }
@@ -826,7 +825,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
             break;
          }
 
-         clusterOut.addOpenHit(max_inner_dist(), new_hit, false, false);
+         clusterOut.addOpenHit(new_hit, false, false);
          clusterOut.addRawMass(mass);
 
          // if too many hits, i.e., read depths too high. Then randomly sample a fraction of them.
@@ -893,11 +892,11 @@ void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
    for(auto it = last._open_mates.begin(); it != last._open_mates.end(); ++it){
       for(auto hit = it->second.begin(); hit != it->second.end(); ++hit){
          if(hit->_left_read){
-            cur.addOpenHit(this->max_inner_dist(), hit->_left_read,false,false);
+            cur.addOpenHit(hit->_left_read,false,false);
          }
          else{
             assert(hit->_right_read);
-            cur.addOpenHit(this->max_inner_dist(), hit->_right_read,false,false);
+            cur.addOpenHit(hit->_right_read,false,false);
          }
       }
 
@@ -956,8 +955,9 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
       avg_dep= compute_doc(cluster.left(), cluster.right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
    }
 
-   if(avg_dep < kMinDepth4Locus)
+   if(avg_dep < kMinDepth4Locus){
       return;
+   }
 
    filter_intron(cluster.left(), exon_doc, intron_counter);
 
@@ -967,6 +967,7 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    Graph::ArcMap<int> min_flow_map(flow_network._g);
    vector<vector<Graph::Arc>> path_cstrs;
    vector<vector<GenomicFeature>> assembled_feats;
+   vector<vector<size_t>> constraints;
 //#ifdef DEBUG
 //      cout<<"cluster starts at: "<<cluster.left()<<endl;
 //      cout<<"exon coverage:"<<endl;
@@ -974,8 +975,30 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
 //         cout<<i;
 //      cout<<endl;
 //#endif
+
    flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, exons);
-   vector<vector<size_t>> constraints;
+
+//   if(_is_inspecting && singleExon4FD){ // just calculated the fragment length distribution
+//         //vector<GenomicFeature> merged_feats;
+//         //GenomicFeature::mergeFeatures(assembled_feats[0], merged_feats);
+//         //Contig assembled_transcript(cluster._ref_id, cluster.strand(), -1, merged_feats, false);
+//      for(auto ex = exons.cbegin(); ex != exons.cend(); ++ex){
+//         if(ex->len() <= kMinExonLen4FD || ex->avg_doc() <= kMinExonCov4FD) continue;
+//         for(size_t h = 0; h< hits.size(); ++h){
+//            if(hits[h].is_single_read()) continue;
+//            if(ex->compatible_2_read(hits[h])){
+//               double frag_len = hits[h].right() - hits[h].left() + 1;
+////#ifdef DEBUG
+////                  cout<<"frag_len: "<<frag_len<<endl;
+////                  cout<<"frag location>> "<<hits[h].ref_id()<<":"<<hits[h].left()<<"-"<<hits[h].right()<<endl;
+////#endif
+//               _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+//            }
+//         }
+//      }
+//      return;
+//   }//end if
+
    constraints = flow_network.findConstraints(exons, hits);
 
    bool stat = flow_network.createNetwork(hits, exons, intron_counter,
@@ -984,14 +1007,16 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
 
    bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs,cost_map, min_flow_map,assembled_feats);
    if(!stat2)return;
+   vector<Isoform> isoforms;
+   vector<Contig> assembled_transcripts;
+   map<set<pair<uint,uint>>, ExonBin>  exon_bin_map;
+   map<int, set<set<pair<uint,uint>>>> iso_2_bins_map;
+   map<int, int> iso_2_len_map;
 
+   assemble_2_contigs(assembled_feats,cluster.ref_id(), cluster.strand(), assembled_transcripts);
 
-   if(_is_inspecting){ // just calculated the fragment length distribution
-      if(assembled_feats.size() == 1){
-         vector<GenomicFeature> merged_feats;
-         GenomicFeature::mergeFeatures(assembled_feats[0], merged_feats);
-         Contig assembled_transcript(cluster._ref_id, cluster.strand(), -1, merged_feats, false);
-
+   if(_is_inspecting && singleIso4FD){ // just calculated the fragment length distribution
+      for(auto const& assembled_transcript: assembled_transcripts){
          for(size_t h = 0; h< hits.size(); ++h){
             if(hits[h].is_single_read()) continue;
             if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
@@ -1003,92 +1028,80 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
                   _hit_factory->_reads_table._frag_dist.push_back(frag_len);
          }
       }// end if
+      return;
    }//end if
-
-   else{
-      vector<Isoform> isoforms;
-      vector<Contig> assembled_transcripts;
-      map<set<pair<uint,uint>>, ExonBin>  exon_bin_map;
-      map<int, set<set<pair<uint,uint>>>> iso_2_bins_map;
-      map<int, int> iso_2_len_map;
-
-      /* Merge transfrags if they
-       *  do not overlaps.
-       *  Begin*/
-      assemble_2_contigs(assembled_feats,cluster.ref_id(), cluster.strand(), assembled_transcripts);
-      if(kCombineShrotTransfrag){
-         vector<pair<uint,uint>> to_merge;
-         vector<Contig> merged_transcripts;
-         for(uint i=0; i< assembled_transcripts.size()-1; ++i){
-            for(uint j = i+1; j< assembled_transcripts.size(); ++j){
-               if(!Contig::overlaps_directional(assembled_transcripts[i], assembled_transcripts[j])){
-                  to_merge.emplace_back(i,j);
-               }
+   /* Merge transfrags if they
+    *  do not overlaps.
+    *  Begin*/
+   if(kCombineShrotTransfrag){
+      vector<pair<uint,uint>> to_merge;
+      vector<Contig> merged_transcripts;
+      for(uint i=0; i< assembled_transcripts.size()-1; ++i){
+         for(uint j = i+1; j< assembled_transcripts.size(); ++j){
+            if(!Contig::overlaps_directional(assembled_transcripts[i], assembled_transcripts[j])){
+               to_merge.emplace_back(i,j);
             }
          }
-         if(!to_merge.empty()){
-            vector<bool> flags(assembled_transcripts.size(), false);
-            for(auto iso_pair: to_merge){
-               uint i = iso_pair.first;
-               uint j = iso_pair.second;
-               flags[i] = true;
-               flags[j] = true;
-               Contig new_contig;
-               if(assembled_transcripts[i] < assembled_transcripts[j]){
-                  new_contig = assembled_transcripts[i];
-                  GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
-                        assembled_transcripts[j].left()-new_contig.right()-1);
-                  new_contig._genomic_feats.push_back(intron);
-                  new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
-                                                   assembled_transcripts[j]._genomic_feats.begin(), \
-                                                   assembled_transcripts[j]._genomic_feats.end());
-               }
-               else{
-                  new_contig = assembled_transcripts[j];
-                  GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
-                        assembled_transcripts[i].left()-new_contig.right()-1);
-                  new_contig._genomic_feats.push_back(intron);
-                  new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
-                                                   assembled_transcripts[i]._genomic_feats.begin(), \
-                                                   assembled_transcripts[i]._genomic_feats.end());
-               }
-               merged_transcripts.push_back(new_contig);
-            } // end for
-
-            for(uint i = 0; i < assembled_transcripts.size(); ++i){
-               if (flags[i]) continue;
-               merged_transcripts.push_back(assembled_transcripts[i]);
-            }
-            assembled_transcripts = merged_transcripts;
-         } // end if(!to_merge.empty())
-      }  //end if(kCombineShrotTransfrag)
-      /* Merge transfrags if they
-       *  do not overlaps.
-       *  End*/
-
-      int tscp_id = 0;
-      for(auto t: assembled_transcripts){
-         ++tscp_id;
-         Isoform iso(exons, t, cluster._id, tscp_id);
-         iso_2_len_map[tscp_id] = t.exonic_length();
-         isoforms.push_back(iso);
       }
-      //if(cutoff > kMinDepth4Quantify){
-      Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs, plogfile);
-      est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
-      //est.empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
-      est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
-      //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-      bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
-                                             iso_2_len_map, isoforms, false);
-      //}
-      if(success){
-         for(auto & iso: isoforms){
-            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
+      if(!to_merge.empty()){
+         vector<bool> flags(assembled_transcripts.size(), false);
+         for(auto iso_pair: to_merge){
+            uint i = iso_pair.first;
+            uint j = iso_pair.second;
+            flags[i] = true;
+            flags[j] = true;
+            Contig new_contig;
+            if(assembled_transcripts[i] < assembled_transcripts[j]){
+               new_contig = assembled_transcripts[i];
+               GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
+                     assembled_transcripts[j].left()-new_contig.right()-1);
+               new_contig._genomic_feats.push_back(intron);
+               new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
+                                                assembled_transcripts[j]._genomic_feats.begin(), \
+                                                assembled_transcripts[j]._genomic_feats.end());
+            }
+            else{
+               new_contig = assembled_transcripts[j];
+               GenomicFeature intron(Match_t::S_INTRON, new_contig.right()+1, \
+                     assembled_transcripts[i].left()-new_contig.right()-1);
+               new_contig._genomic_feats.push_back(intron);
+               new_contig._genomic_feats.insert(new_contig._genomic_feats.end(),\
+                                                assembled_transcripts[i]._genomic_feats.begin(), \
+                                                assembled_transcripts[i]._genomic_feats.end());
+            }
+            merged_transcripts.push_back(new_contig);
+         } // end for
+
+         for(uint i = 0; i < assembled_transcripts.size(); ++i){
+            if (flags[i]) continue;
+            merged_transcripts.push_back(assembled_transcripts[i]);
          }
+         assembled_transcripts = merged_transcripts;
+      } // end if(!to_merge.empty())
+   }  //end if(kCombineShrotTransfrag)
+   /* Merge transfrags if they
+    *  do not overlaps.
+    *  End*/
+
+   int tscp_id = 0;
+   for(auto t: assembled_transcripts){
+      ++tscp_id;
+      Isoform iso(exons, t, cluster._id, tscp_id);
+      iso_2_len_map[tscp_id] = t.exonic_length();
+      isoforms.push_back(iso);
+   }
+   Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs, plogfile);
+   est.assign_exon_bin(hits, isoforms, exons, exon_bin_map, iso_2_bins_map);
+   //est.empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster.collapse_mass(), exon_bin_map);
+   est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
+   //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
+   bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
+                                          iso_2_len_map, isoforms, false);
+   if(success){
+      for(auto & iso: isoforms){
+         iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
       }
    }
-   //}// if cutoff > kMinDepth4Locus
 }
 
 void Sample::inspectSample(FILE *plogfile)
@@ -1210,7 +1223,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
          //}
 #endif
      last_cluster = move(cur_cluster);
-     //if(last_cluster->ref_id() == 4 && last_cluster->left() > 10,027,601) exit(0);
+     //if(last_cluster->ref_id() == 0 && last_cluster->left() > 6850811) exit(0);
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, pfile, plogfile);
@@ -1293,15 +1306,19 @@ void Sample::filter_intron(uint cluster_left,
              float depth_j = j->second.total_junc_reads;
             if( depth_i / depth_j < kMinIsoformFrac){
                bad_intron_pos.push_back(i->first);
-               LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
+               if(_is_inspecting){
+                  LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
                   depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
                   j->first.second, " has ", depth_j, " read supporting. ");
+               }
             }
             if( depth_j / depth_i < kMinIsoformFrac){
                bad_intron_pos.push_back(j->first);
-               LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
+               if(_is_inspecting){
+                  LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
                   depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
                   j->first.second, " has ", depth_j, " read supporting. ");
+               }
             }
          }
       }
@@ -1325,8 +1342,10 @@ void Sample::filter_intron(uint cluster_left,
 //      cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
       if(total_read < kMinJuncSupport && !enforce_ref_models){
-         LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
+         if(_is_inspecting){
+            LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
                " has only ", total_read, " total read.");
+         }
          i = intron_counter.erase(i);
          continue;
       }
@@ -1348,8 +1367,10 @@ void Sample::filter_intron(uint cluster_left,
       double x = (small_read-0.5 - normal_mean)/normal_sd;
       prob_not_lt_observed = 1.0 - standard_normal_cdf(x);
       if(prob_not_lt_observed < kBinomialOverHangAlpha) {
-         LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
+         if(_is_inspecting){
+            LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
                " has ", small_read, " small overhang read vs ", total_read, " total read.");
+         }
          i = intron_counter.erase(i);
          continue;
       }
@@ -1377,8 +1398,10 @@ void Sample::filter_intron(uint cluster_left,
       avg_intron_exonic_doc /= (end-start);
       if(avg_intron_exonic_doc != 0){
          if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
-            LOG("Filtering intron at by exonic coverage: ", _current_chrom, ":",i->first.first,"-",i->first.second,
+            if(_is_inspecting){
+               LOG("Filtering intron at by exonic coverage: ", _current_chrom, ":",i->first.first,"-",i->first.second,
                " averaged intron doc: ", avg_intron_doc, " vs averaged exonic doc on intron: ", avg_intron_exonic_doc, ".");
+            }
             i = intron_counter.erase(i);
             continue;
          }

@@ -34,6 +34,15 @@
 using namespace lemon;
 typedef int LimitValueType;
 
+void compute_exon_doc(const int left, const std::vector<float> exon_doc, std::vector<GenomicFeature>& exons)
+{
+   for(uint i = 0; i != exons.size(); ++i){
+      auto it_start = next(exon_doc.begin(), exons[i].left() - left);
+      auto it_end = next(exon_doc.begin(), exons[i].right() - left);
+      double cov = accumulate(it_start, it_end, 0.0);
+      exons[i].avg_doc( cov/exons[i].len() );
+   }
+}
 
 void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembled_feats,
                         const RefID & ref_id,
@@ -44,6 +53,9 @@ void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembl
       vector<GenomicFeature> merged_feats;
       GenomicFeature::mergeFeatures(feats, merged_feats);
       Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
+      if(assembled_transcript.avg_doc() < 1) {
+         continue;
+      }
       transcript.push_back(assembled_transcript);
    }
 }
@@ -254,6 +266,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       uint r = exon_boundaries.back().second;
       //cout<<exon_boundaries.size()<<endl;
       exons.push_back(GenomicFeature(Match_t::S_MATCH, l, r-l+1));
+      compute_exon_doc(left, exon_doc, exons);
       return;
    }
 
@@ -396,6 +409,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 //      exons.back().avg_doc(avg_doc);
    }
    sort(exons.begin(), exons.end());
+   compute_exon_doc(left, exon_doc, exons);
 }
 
 bool FlowNetwork::createNetwork(
@@ -562,7 +576,7 @@ void FlowNetwork::addWeight(const vector<Contig> &hits,
       uint arc_s = node_map[s]->right();
       uint arc_e = node_map[t]->left();
       float num_read_support = 0;
-      if(arc_e - arc_s == 1){
+      if(arc_e - arc_s == 1){// if exon segs are next to each other
          for(auto mp: hits){
             if(mp.left() > arc_e) break;
             if(mp.right() < arc_s) continue;
@@ -581,7 +595,7 @@ void FlowNetwork::addWeight(const vector<Contig> &hits,
          arc_e -= 1;
          for(auto i  = intron_counter.cbegin(); i != intron_counter.cend(); ++i){
             if(arc_s == i->first.first && arc_e == i->first.second){
-               num_read_support = i->second.total_junc_reads;
+               num_read_support = i->second.total_junc_reads*kIntronEdgeWeight;
                break;
             }
          }
@@ -707,7 +721,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
 #ifdef DEBUG
       for(Graph::NodeIt n(_g); n != lemon::INVALID; ++n){
          if( n == _source|| n == _sink) continue;
-         std::cout<<_g.id(n)<<":"<<node_map[n]->left()<<"-"<<node_map[n]->right()<<endl;
+         //std::cout<<_g.id(n)<<":"<<node_map[n]->left()<<"-"<<node_map[n]->right()<<endl;
       }
       digraphWriter(_g).                  // write g to the standard output
         arcMap("cost", cost_map).          // write 'cost' for for arcs
@@ -746,7 +760,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
                   const Graph::Node &n1 = _g.source(cstr[idx]);
                   const Graph::Node &n2 = _g.source(cstr[idx+1]);
                   //cout<<" inside constraint exon: "<< node_map[n1]->left()<<"-"<<node_map[n1]->right()<<endl;
-                  tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[n1]->_genomic_offset, node_map[n1]->_match_op._len));
+                  tscp.push_back(*node_map[n1]);
                   //if(idx+1 < cstr.size()-1)
                      if(node_map[n2]->left()-node_map[n1]->right() > 1){
                         //cout<<" inside constriant intron "<<node_map[n1]->right()+1<<"-"<<node_map[n2]->left()<<endl;
@@ -756,7 +770,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
 
                const Graph::Node &n1 = _g.source(cstr.back());
                const Graph::Node &n2 = _g.target(cstr.back());
-               tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[n1]->_genomic_offset, node_map[n1]->_match_op._len));
+               tscp.push_back(*node_map[n1]);
                if(node_map[n2]->left()-node_map[n1]->right() > 1){
                   tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[n1]->right()+1, node_map[n2]->left()-1-node_map[n1]->right()));
                }
@@ -767,7 +781,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
          // else it is edge originally
          if(is_edge){
             //cout<<node_map[s]->left()<<"-"<<node_map[s]->right()<<"\t";
-            tscp.push_back(GenomicFeature(Match_t::S_MATCH, node_map[arc_s]->_genomic_offset, node_map[arc_s]->_match_op._len));
+            tscp.push_back(*node_map[arc_s]);
             if( i+1 < p.size()){
                if(node_map[arc_t]->left()-node_map[arc_s]->right() > 1){
                   tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[arc_s]->right()+1, node_map[arc_t]->left()-1-node_map[arc_s]->right()));
