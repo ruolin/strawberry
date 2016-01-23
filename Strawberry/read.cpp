@@ -559,7 +559,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          fprintf(stderr, "BAM record error: found spliced alignment without XS attribute\n");
    }
 
-   if(use_unique_hits && num_hits == 1){
+   if(use_unique_hits && num_hits > 1){
       return false;
    }
 
