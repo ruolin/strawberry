@@ -128,7 +128,7 @@ class EmSolver{
    vector<vector<double>> _F; // sampling rate matrix, \alpha
    vector<vector<double>> _B; // bias matrix, \beta
    vector<vector<double>> _U; // hidden unobserved data matrix.
-   static constexpr int _max_iter_num = 10000;
+   static constexpr int _max_iter_num = 1000;
    static constexpr int _max_bias_it_num = 1000;
    static constexpr int _max_theta_it_num = 5000;
    static constexpr int _max_out_it_num = 10;

@@ -35,8 +35,8 @@ class HitCluster{
    std::vector<float> _dep_of_cov;
    //std::map<std::pair<int,int>,int> _current_intron_counter;
 public:
-   static const int _kMaxGeneLen = 1000000;
-   static const int _kMaxFragPerCluster = 100000;
+   //static const int _kMaxGeneLen = 1000000;
+   //static const int _kMaxFragPerCluster = 100000;
    static const int _kMinFold4BothStrand = 10;
    HitCluster();
    RefID ref_id() const;

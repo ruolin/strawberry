@@ -771,7 +771,7 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
    }
    if(success){
       for(uint i=0; i<niso; ++i){
-         fprintf(_p_log_file, "isoform %d has %d raw read count.\n", i+1, em._theta[i]);
+         fprintf(_p_log_file, "isoform %d has %f raw read count.\n", i+1, em._theta[i]);
       }
       double sum_fpkm = 0.0;
       for(uint i=0; i< niso; ++i){

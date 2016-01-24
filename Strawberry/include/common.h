@@ -20,7 +20,9 @@ typedef uint64_t ReadID;
 typedef int RefID;
 
 extern bool WITH_BIAS_CORRECTION;
-//extern int kMaxInnerDist;
+extern int kMaxGeneLength;
+extern int kMaxFragSpan;
+extern int kMaxFragPerCluster;
 extern int kMaxIntronLength; // max-junction-splice-distance
 extern int kMinIntronLength; // min-junction-splice-distance
 extern int kMaxIntronLen4ExtCluster; /*Do not extend the cluster if intron length large than this*/
@@ -59,6 +61,7 @@ extern std::string tracking_log;
 extern bool effective_len_norm;
 extern float kIntronEdgeWeight;
 extern bool use_unique_hits;
+extern bool use_paired_hits;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 
 double standard_normal_cdf(double x);

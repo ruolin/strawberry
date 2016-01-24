@@ -11,7 +11,9 @@
 #include <errno.h>
 #include "common.h"
 bool WITH_BIAS_CORRECTION = false;
-//int kMaxInnerDist = 200000;
+int kMaxGeneLength = 2500000;
+int kMaxFragSpan = 1000000;
+int kMaxFragPerCluster = 100000;
 int kMaxIntronLength = 50000; // max-junction-splice-distance
 int kMinIntronLength = 50; // min-junction-splice-distance
 int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
@@ -25,10 +27,10 @@ int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
                                      // weights on non-intron edges.
 double kMinDepth4Locus = 1; //used in ClusterFactory::finalizeCluster() to
                                         //select locus have enough reads covered.
-double kMinDepth4Contig = 1;
+double kMinDepth4Contig = 0;
 int kMaxCoverGap1 = 200; // cover gap due the read depth.
 int kMaxCoverGap2 = 50;
-int kMaxReadNum4FD = 200000;
+int kMaxReadNum4FD = 10000000;
 //bool singleExon4FD = false;
 //int kMinExonLen4FD = 200; // if singleExon4FD is used.
 //int kMinExonCov4FD = 0;  // if singleExon4FD is used.
@@ -49,6 +51,7 @@ std::string tracking_log = "/tracking.log";
 bool effective_len_norm = false;
 float kIntronEdgeWeight = 2;
 bool use_unique_hits = true;
+bool use_paired_hits = false;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

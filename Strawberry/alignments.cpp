@@ -21,9 +21,6 @@
 #include <iterator>
 #include <random>
 #include <math.h>
-#ifdef DEBUG
-   #include <iostream>
-#endif
 
 #include "alignments.h"
 #include "fasta.h"
@@ -257,6 +254,8 @@ bool HitCluster::addHit(const PairedHit &hit){
 
 bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
 {
+   if(this->size() > kMaxFragPerCluster)
+      return false;
    uint orig_left = _leftmost;
    uint orig_right = _rightmost;
    RefID orig_ref_id = _ref_id;
@@ -302,7 +301,7 @@ bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_p
       return false;
    }
 
-   if(abs((int)hit_right - (int)hit_left) > _kMaxGeneLen){
+   if(abs((int)hit_right - (int)hit_left) > kMaxFragSpan){
       reset(orig_left, orig_right, orig_ref_id);
       LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
       return false;
@@ -828,14 +827,6 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
          clusterOut.addOpenHit(new_hit, false, false);
          clusterOut.addRawMass(mass);
 
-         // if too many hits, i.e., read depths too high. Then randomly sample a fraction of them.
-         // This is not finished yet.
-         if(clusterOut._hits.size() >= HitCluster::_kMaxFragPerCluster ){
-            random_device rd;
-            mt19937 gen(rd());
-            uniform_int_distribution<> dis(1, clusterOut._hits.size());
-         }
-
       } // end while loop
    } // end loadRefmRNAs
    return clusterOut.size();
@@ -918,6 +909,8 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
       _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD)
       return;
 
+
+   if(cluster.len() > kMaxGeneLength) return;
    //double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
    //cutoff /= (double)cluster.len();
    //if(cutoff > kMinDepth4Locus){
@@ -1033,7 +1026,7 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    /* Merge transfrags if they
     *  do not overlaps.
     *  Begin*/
-   if(kCombineShrotTransfrag){
+   if(kCombineShrotTransfrag && assembled_transcripts.size() > 1){
       vector<pair<uint,uint>> to_merge;
       vector<Contig> merged_transcripts;
       for(uint i=0; i< assembled_transcripts.size()-1; ++i){

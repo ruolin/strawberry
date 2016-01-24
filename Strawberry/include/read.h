@@ -206,7 +206,7 @@ private:
 public:
    BAMHitFactory(const string& bam_file_name,
                  ReadTable& read_table,
-                 RefSeqTable &ref_table) throw(runtime_error);
+                 RefSeqTable &ref_table);
    ~BAMHitFactory();
    bool recordsRemain() const;
    void markCurrPos();

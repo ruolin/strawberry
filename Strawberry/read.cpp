@@ -316,13 +316,14 @@ bool HitFactory::parse_header_line(const string& hline){
 
 BAMHitFactory::BAMHitFactory(const string& bam_file_name,
                             ReadTable &read_table,
-                            RefSeqTable &ref_table) throw(runtime_error):
+                            RefSeqTable &ref_table):
                  HitFactory(read_table, ref_table)
 {
    _hit_file = samopen(bam_file_name.c_str(), "rb", 0);
    memset(&_next_hit, 0, sizeof(_next_hit));
    if(_hit_file == NULL || _hit_file->header == NULL){
-      throw runtime_error("Fail to open BAM file");
+      cerr<<"Fail to open BAM file..."<<endl;
+      exit(0);
    }
 
    _beginning = bgzf_tell(_hit_file->x.bam);
@@ -438,7 +439,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    vector<CigarOp> cigar;
    bool is_spliced_alignment = false;
    int num_hits = 1;
-   if( (sam_flag & 0x4) || target_id < 0 ){
+   if( (sam_flag & 0x4) || target_id < 0 ){ // unmapped reads
+         return false;
       bh = ReadHit(readid,
                    GenomicInterval(),
                    cigar,
@@ -451,7 +453,6 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
                    );
       return true;
    }
-
 
    string text_name = _hit_file->header->target_name[target_id];
    str2lower(text_name);
@@ -503,6 +504,18 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          }
          break;
       default: return false;
+      }
+   }
+
+   /*Filtering based on Cigar.
+    * DEL and INS must be sandwiched by MATCH
+    * */
+   for(int i=0; i != cigar.size(); ++i){
+      if(cigar[i]._type == INS || cigar[i]._type == DEL){
+         if(i-1 <= 0 || i+1 >= cigar.size())
+            return false;
+         if(cigar[i-1]._type != MATCH || cigar[i+1]._type != MATCH)
+            return false;
       }
    }
 
@@ -559,9 +572,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          fprintf(stderr, "BAM record error: found spliced alignment without XS attribute\n");
    }
 
-   if(use_unique_hits && num_hits > 1){
+   if(use_unique_hits && num_hits > 1)
       return false;
-   }
+   if(use_paired_hits && ( sam_flag & 0x8 || mate_target_id != target_id ))
+      return false;
 
    bh = ReadHit(
                readid,

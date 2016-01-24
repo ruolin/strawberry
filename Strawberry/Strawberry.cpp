@@ -35,7 +35,7 @@
 #define OPT_MIN_DEPTH_4_ASSEMBLY 260
 #define OPT_MIN_DEPTH_4_CONTIG     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
-
+#define OPT_ALLOW_MULTIPLE_HITS   263
 using namespace std;
 
 
@@ -46,6 +46,7 @@ static struct option long_options[] = {
       {"max-junction-splice-size",        required_argument,      0,       'J'},
       {"min-junction-splice-size",        required_argument,      0,       'j'},
       {"num-reads-4-prerun",              required_argument,      0,       'n'},
+      {"allow-multiple-his",              no_argument,            0,       OPT_ALLOW_MULTIPLE_HITS},
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
 //      {"enforce-ref-model",               no_argument,            0,       'G'},
@@ -71,29 +72,29 @@ void print_help()
    fprintf(stderr, "--------------------------------------\n");
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
-   fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                      [default:     ./out ]\n");
-   fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                 [default:     false]\n");
-   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                    [default:     50000]\n");
-   fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                               [default:     50]\n");
-   fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.    [default:     50000]");
-
+   fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./out ]\n");
+   fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
+   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     50000]\n");
+   fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
+   fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
+   fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
    fprintf(stderr, "\n Assembly Options:\n");
-   fprintf(stderr, "   -g/--GTF                              Use reference transcripts annotation to guide assembly.                      [default:     NULL]\n");
+   fprintf(stderr, "   -g/--GTF                              Use reference transcripts annotation to guide assembly.                                              [default:     NULL]\n");
 //   fprintf(stderr, "   -G/--enforce-ref-model                Omit assembled transcripts that are not in the reference.                    [default:     false]\n");
-   fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                     [default:     200]\n");
-   fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                         [default:     30]\n");
-   fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.              [default:     4]\n");
-   fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                           [default:     0]\n");
-   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.         [default:     1] \n");
-   fprintf(stderr, "   -c/--combine-short-transfrag          Disable merging non-overlap short transfrags .                               [default:     true]\n");
-   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                              [default:     1]\n");
+   fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                                             [default:     200]\n");
+   fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
+   fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
+   fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                                                   [default:     0]\n");
+   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     1] \n");
+   fprintf(stderr, "   -c/--combine-short-transfrag          Disable merging non-overlap short transfrags .                                                       [default:     true]\n");
+   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                                                      [default:     1]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
-   fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.\n");
-   fprintf(stderr, "                                         This will disable empirical insert distribution learning.                    [default:     NULL]\n");
-   fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                         [default:     false]\n");
-   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read delpth for transcript.                                  [default:     1.0]\n");
-   fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                        [default:     true]\n" );
+   fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
+   fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
+   fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
+   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read delpth for transcript.                                                          [default:     1.0]\n");
+   fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
 }
 
 int parse_options(int argc, char** argv)
@@ -109,7 +110,9 @@ int parse_options(int argc, char** argv)
                case 'o':
                         output_dir = optarg;
                         break;
-
+               case OPT_ALLOW_MULTIPLE_HITS:
+                        use_unique_hits = false;
+                        break;
                case 'v':
                         verbose = true;
                         break;
