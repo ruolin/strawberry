@@ -81,7 +81,7 @@ public:
    void printOut(){
       printf("<%d,%d>\n", left(), right());
    }
-   static void mergeFeatures(const vector<GenomicFeature> & feats, vector<GenomicFeature> & result);
+   static void mergeFeatures(const std::vector<GenomicFeature> & feats, std::vector<GenomicFeature> & result);
 
 };
 
@@ -141,8 +141,8 @@ public:
    void mass(float m);
    void print2gtf(FILE *pFile,
                   const RefSeqTable &ref_lookup,
-                  const string fpkm,
-                  const string tpm,
+                  const std::string fpkm,
+                  const std::string tpm,
                   int gene_id, int tscp_id);
 
    SingleOrit_t single_read_orit() const;

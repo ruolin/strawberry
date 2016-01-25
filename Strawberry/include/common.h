@@ -123,8 +123,8 @@ inline void str2lupper(std::string &str){
       str[i] = toupper(str[i]);
 }
 
-inline double getMedian(const vector<float> &vec){
-   vector<float> dup = vec;
+inline double getMedian(const std::vector<float> &vec){
+   std::vector<float> dup = vec;
    double median = 0.0;
    size_t n = vec.size();
    if(n % 2 ==0)

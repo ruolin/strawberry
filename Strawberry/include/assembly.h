@@ -92,6 +92,8 @@ public:
          std::vector<std::vector<GenomicFeature>> &transcripts);
 
    void filter_short_transcripts(std::vector<std::vector<GenomicFeature>> &transcripts);
+   void filter_exon_segs(const std::vector<std::pair<uint,uint>>& paired_bars,
+                         std::list<std::pair<uint,uint>>& exon_boundaries);
 };
 
 void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assembled_feats,

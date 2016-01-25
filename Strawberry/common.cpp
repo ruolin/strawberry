@@ -169,7 +169,7 @@ void reverseString(char str[], int length)
     int end = length -1;
     while (start < end)
     {
-        swap(*(str+start), *(str+end));
+        std::swap(*(str+start), *(str+end));
         start++;
         end--;
     }
@@ -189,13 +189,13 @@ int parseInt(const char* optarg, int lower, const char *errmsg, void (*print_hel
     l = strtol(optarg, &endPtr, 10);
     if (endPtr != NULL) {
         if (l < lower) {
-            cerr << errmsg << endl;
+            std::cerr << errmsg << std::endl;
             print_help();
             exit(1);
         }
         return (int32_t)l;
     }
-    cerr<< errmsg <<endl;
+    std::cerr<< errmsg <<std::endl;
     print_help();
     exit(1);
     return -1;
@@ -207,21 +207,21 @@ float parseFloat(const char* optarg, float lower, float upper, const char *errms
     l = (float)atof(optarg);
 
     if (l < lower) {
-        cerr << errmsg <<endl;
+        std::cerr << errmsg <<std::endl;
         print_help();
         exit(1);
     }
 
     if (l > upper)
     {
-        cerr << errmsg << endl;
+        std::cerr << errmsg << std::endl;
         print_help();
         exit(1);
     }
 
     return l;
 
-    cerr << errmsg << endl;
+    std::cerr << errmsg << std::endl;
     print_help();
     exit(1);
     return -1;

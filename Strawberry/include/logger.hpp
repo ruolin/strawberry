@@ -6,7 +6,7 @@
 #include<sstream>
 #include<fstream>
 #include <mutex>
-using namespace std;
+//using namespace std;
 
 /*
  * This file is modefied based on Dr.Dobb's lightweight c++ logger

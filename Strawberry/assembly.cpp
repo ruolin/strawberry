@@ -50,7 +50,7 @@ void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembl
                         std::vector<Contig> &transcript)
 {
    for(auto const &feats: assembled_feats){
-      vector<GenomicFeature> merged_feats;
+      std::vector<GenomicFeature> merged_feats;
       GenomicFeature::mergeFeatures(feats, merged_feats);
       Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
       if(assembled_transcript.avg_doc() < 1) {
@@ -141,7 +141,7 @@ void FlowNetwork::flowDecompose(const Graph &g,
       while(cur_node != sink ){
          for(Graph::OutArcIt out(g, cur_node); out != lemon::INVALID; ++out){
             if(copy_flow[out] > 0){
-               bottle_neck = max(bottle_neck, copy_flow[out]);
+               bottle_neck = std::max(bottle_neck, copy_flow[out]);
                cur_node = g.target(out);
                path.push_back(out);
                break;
@@ -156,8 +156,114 @@ void FlowNetwork::flowDecompose(const Graph &g,
 }
 
 
+void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& paired_bars,
+                         std::list<std::pair<uint,uint>>& exon_boundaries)
+{
+/*
+  * filter exon segments if it does not have intron supporting
+   * */
+   std::vector<size_t> dropoff;
+   std::vector<std::pair<uint, uint>> left_coords;
+   std::vector<std::pair<uint, uint>> right_coords;
+   std::vector<std::pair<uint, uint>> e_boundaries;
+   for(auto i: exon_boundaries){
+      e_boundaries.push_back(i);
+   }
+
+   for(uint i = 0; i < paired_bars.size(); ++i){
+      left_coords.push_back(std::pair<uint, uint>(paired_bars[i].first, i));
+      right_coords.push_back(std::pair<uint, uint>(paired_bars[i].second, i));
+   }
+   sort(left_coords.begin(), left_coords.end(), comp_lt_first);
+   sort(right_coords.begin(), right_coords.end(), comp_lt_first);
+
+   for(size_t ex = 0 ; ex != e_boundaries.size(); ++ex){
+//      if(e_boundaries[ex].second -e_boundaries[ex].first == 0) {
+//         dropoff.push_back(ex);
+//         continue;
+//      }
+      if(ex == 0){
+         if(e_boundaries[ex].second == e_boundaries[ex+1].first-1);
+         else{
+            auto lower = lower_bound(left_coords.begin(), left_coords.end(), std::pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
+            if(lower != left_coords.end() && lower->first == e_boundaries[ex].second+1){
+               uint right = paired_bars[lower->second].second;
+               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(right+1,0), comp_lt_first)){
+                  dropoff.push_back(ex);
+               }
+            }
+            else{
+               dropoff.push_back(ex);
+            }
+         }
+      }
+      else if(ex == e_boundaries.size()-1){
+         if( e_boundaries[ex].first == e_boundaries[ex-1].second+1 );
+         else{
+            auto lower = lower_bound(right_coords.begin(), right_coords.end(), std::pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
+            if( lower != right_coords.end() && lower->first == e_boundaries[ex].first-1){
+               uint left = paired_bars[lower->second].first;
+               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(0,left-1), comp_lt_second))
+                  dropoff.push_back(ex);
+            }
+            else
+               dropoff.push_back(ex);
+         }
+      }
+      else{
+         if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
+            bool no_intron_on_left = false;
+            bool no_intron_on_right = false;
+            auto l = lower_bound(left_coords.begin(), left_coords.end(), std::pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
+            if(l != left_coords.end() && l->first == e_boundaries[ex].second+1){
+               uint right = paired_bars[l->second].second;
+
+               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(right+1,0), comp_lt_first))
+                  no_intron_on_right = true;
+
+            }
+            //else if(e_boundaries[ex].second+1 == e_boundaries[ex+1].first);
+            else{
+               no_intron_on_right = true;
+            }
+
+            auto r = lower_bound(right_coords.begin(), right_coords.end(), std::pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
+            if( r != right_coords.end() && r->first == e_boundaries[ex].first-1){
+               uint left = paired_bars[r->second].first;
+               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(0,left-1), comp_lt_second))
+                  no_intron_on_left = true;
+            }
+            //else if(e_boundaries[ex].first-1 == e_boundaries[ex-1].second);
+            else{
+               no_intron_on_left = true;
+            }
+            if(no_intron_on_left && no_intron_on_right){
+               //cout<<e_boundaries[ex].first<<"-"<<e_boundaries[ex].second<<endl;
+               dropoff.push_back(ex);
+            }
+         }
+      } // end of if-ifelse-else condition
+   }
+
+//#ifdef DEBUG
+//   for(auto i: exon_boundaries)
+//      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
+//#endif
+
+   std::vector<std::list<std::pair<uint,uint>>::iterator> drops;
+   for(auto d: dropoff){
+      drops.push_back(next(exon_boundaries.begin(),d));
+
+   }
+
+   for(auto&d: drops){
+      exon_boundaries.erase(d);
+   }
+
+}
+
 void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_doc,
-      const std::map<pair<uint,uint>, IntronTable> &intron_counter,
+      const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
       std::vector<GenomicFeature> &exons)
 {
    /*
@@ -165,19 +271,19 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
     * used as nodes in createNetwork();
     */
 
-   vector<pair<uint,uint>> paired_bars; // two end intron boundaries
-   vector<pair<uint,bool>> single_bars; // single intron boundaries
+   std::vector<std::pair<uint,uint>> paired_bars; // two end intron boundaries
+   std::vector<std::pair<uint,bool>> single_bars; // single intron boundaries
 
    for(auto i= intron_counter.cbegin(); i != intron_counter.cend(); ++i){
-      paired_bars.push_back(pair<uint, uint> (i->first.first, i->first.second));
-      single_bars.push_back(pair<uint, bool> (i->first.first, true));
-      single_bars.push_back(pair<uint, bool> (i->first.second, false));
+      paired_bars.push_back(std::pair<uint, uint> (i->first.first, i->first.second));
+      single_bars.push_back(std::pair<uint, bool> (i->first.first, true));
+      single_bars.push_back(std::pair<uint, bool> (i->first.second, false));
    }
 
    // unique element in single_bars
    sort(single_bars.begin(), single_bars.end(),comp_lt_first);
    auto newend = unique(single_bars.begin(), single_bars.end(),
-         [](const pair<uint, bool> &lhs, const pair<uint, bool> &rhs){
+         [](const std::pair<uint, bool> &lhs, const std::pair<uint, bool> &rhs){
          return (lhs.first == rhs.first && lhs.second == rhs.second) ;}
          );
    single_bars.erase(newend, single_bars.end());
@@ -192,7 +298,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 //   cout<<"---------------------"<<endl;
 //#endif
 
-   list<pair<uint,uint>> exon_boundaries;
+   std::list<std::pair<uint,uint>> exon_boundaries;
 
 
    /*
@@ -206,12 +312,12 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       }
       if(exon_doc[i] == 0 && l != 0 ){
          r = i+left-1;
-         exon_boundaries.push_back(pair<uint,uint>(l,r));
+         exon_boundaries.push_back(std::pair<uint,uint>(l,r));
          l = 0;
       }
    }
    if( l != 0 && l < left+exon_doc.size() )
-      exon_boundaries.push_back(pair<uint,uint>(l, left+exon_doc.size()-1));
+      exon_boundaries.push_back(std::pair<uint,uint>(l, left+exon_doc.size()-1));
 //#ifdef DEBUG
 //   for(auto const & e: exon_boundaries){
 //      cout<<"preliminary exon segments: "<<e.first<<"-"<<e.second<<endl;
@@ -285,11 +391,11 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
          uint temp = e->second;
          if(left){
             e->second = bar-1;
-            exon_boundaries.insert(++e, pair<uint,uint>(bar, temp));
+            exon_boundaries.insert(++e, std::pair<uint,uint>(bar, temp));
          }
          else{
             e->second = bar;
-            exon_boundaries.insert(++e, pair<uint,uint>(bar+1, temp));
+            exon_boundaries.insert(++e, std::pair<uint,uint>(bar+1, temp));
          }
          --e;
          ++s;
@@ -299,107 +405,7 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
       }
    }
 
-   /*
-   * filter exon segments if it does not have intron supporting
-   * */
-   vector<size_t> dropoff;
-   vector<pair<uint, uint>> left_coords;
-   vector<pair<uint, uint>> right_coords;
-   vector<pair<uint, uint>> e_boundaries;
-   for(auto i: exon_boundaries){
-      e_boundaries.push_back(i);
-   }
-
-   for(uint i = 0; i < paired_bars.size(); ++i){
-      left_coords.push_back(pair<uint, uint>(paired_bars[i].first, i));
-      right_coords.push_back(pair<uint, uint>(paired_bars[i].second, i));
-   }
-   sort(left_coords.begin(), left_coords.end(), comp_lt_first);
-   sort(right_coords.begin(), right_coords.end(), comp_lt_first);
-
-   for(size_t ex = 0 ; ex < e_boundaries.size(); ++ex){
-//      if(e_boundaries[ex].second -e_boundaries[ex].first == 0) {
-//         dropoff.push_back(ex);
-//         continue;
-//      }
-      if(ex == 0){
-         if(e_boundaries[ex].second == e_boundaries[ex+1].first-1);
-         else{
-            auto lower = lower_bound(left_coords.begin(), left_coords.end(), pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
-            if(lower != left_coords.end() && lower->first == e_boundaries[ex].second+1){
-               uint right = paired_bars[lower->second].second;
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), pair<uint, uint>(right+1,0), comp_lt_first)){
-                  dropoff.push_back(ex);
-               }
-            }
-            else{
-               dropoff.push_back(ex);
-            }
-         }
-      }
-      else if(ex == e_boundaries.size()-1){
-         if( e_boundaries[ex].first == e_boundaries[ex-1].second+1 );
-         else{
-            auto lower = lower_bound(right_coords.begin(), right_coords.end(), pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
-            if( lower != right_coords.end() && lower->first == e_boundaries[ex].first-1){
-               uint left = paired_bars[lower->second].first;
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), pair<uint, uint>(0,left-1), comp_lt_second))
-                  dropoff.push_back(ex);
-            }
-            else
-               dropoff.push_back(ex);
-         }
-      }
-      else{
-         if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
-            bool no_intron_on_left = false;
-            bool no_intron_on_right = false;
-            auto l = lower_bound(left_coords.begin(), left_coords.end(), pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
-            if(l != left_coords.end() && l->first == e_boundaries[ex].second+1){
-               uint right = paired_bars[l->second].second;
-
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), pair<uint, uint>(right+1,0), comp_lt_first))
-                  no_intron_on_right = true;
-
-            }
-            //else if(e_boundaries[ex].second+1 == e_boundaries[ex+1].first);
-            else{
-               no_intron_on_right = true;
-            }
-
-            auto r = lower_bound(right_coords.begin(), right_coords.end(), pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
-            if( r != right_coords.end() && r->first == e_boundaries[ex].first-1){
-               uint left = paired_bars[r->second].first;
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), pair<uint, uint>(0,left-1), comp_lt_second))
-                  no_intron_on_left = true;
-            }
-            //else if(e_boundaries[ex].first-1 == e_boundaries[ex-1].second);
-            else{
-               no_intron_on_left = true;
-            }
-            if(no_intron_on_left && no_intron_on_right){
-               //cout<<e_boundaries[ex].first<<"-"<<e_boundaries[ex].second<<endl;
-               dropoff.push_back(ex);
-            }
-         }
-      } // end of if-ifelse-else condition
-   }
-
-//#ifdef DEBUG
-//   for(auto i: exon_boundaries)
-//      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
-//#endif
-
-   vector<list<pair<uint,uint>>::iterator> drops;
-   for(auto d: dropoff){
-      drops.push_back(next(exon_boundaries.begin(),d));
-
-   }
-
-   for(auto&d: drops){
-      exon_boundaries.erase(d);
-   }
-
+   filter_exon_segs(paired_bars, exon_boundaries);
 
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)
@@ -413,19 +419,19 @@ void FlowNetwork::splicingGraph(const int &left, const std::vector<float> &exon_
 }
 
 bool FlowNetwork::createNetwork(
-      const vector<Contig> &hits,
-      const vector<GenomicFeature> &exons,
-      const std::map<pair<uint,uint>, IntronTable> &intron_counter,
-      const vector<vector<size_t>> &constraints,
+      const std::vector<Contig> &hits,
+      const std::vector<GenomicFeature> &exons,
+      const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
+      const std::vector<std::vector<size_t>> &constraints,
       Graph::NodeMap<const GenomicFeature*> &node2feat,
       Graph::ArcMap<int> &cost_map,
       Graph::ArcMap<int> &min_flow_map,
-      vector<vector<Graph::Arc>> &path_cstrs)
+      std::vector<std::vector<Graph::Arc>> &path_cstrs)
 {
    assert(!hits.empty());
-   vector<Graph::Node> nodes;
-   vector<Graph::Arc> arcs;
-   map<const GenomicFeature*, Graph::Node> feat2node;
+   std::vector<Graph::Node> nodes;
+   std::vector<Graph::Arc> arcs;
+   std::map<const GenomicFeature*, Graph::Node> feat2node;
    for(size_t i = 0; i< exons.size(); ++i){
       nodes.push_back(_g.addNode());
       node2feat[nodes[i]] = &exons[i];
@@ -470,7 +476,7 @@ bool FlowNetwork::createNetwork(
    OutDegMap<Graph> outDeg(_g);
 
    for(auto c: constraints){
-      vector<Graph::Arc> path_cstr;
+      std::vector<Graph::Arc> path_cstr;
 
       size_t s_idx = c.front();
       size_t t_idx = c.back();
@@ -523,7 +529,7 @@ bool FlowNetwork::createNetwork(
     * Convert edges to path constraints while avoiding
     * duplications ( path constraints already contains edges)
     */
-   vector<Graph::Arc> one_d_path_cstrs;
+   std::vector<Graph::Arc> one_d_path_cstrs;
    for(auto p: path_cstrs){
      for(auto e: p)
         one_d_path_cstrs.push_back(e);
@@ -534,7 +540,7 @@ bool FlowNetwork::createNetwork(
 
    for(auto edge: arcs){
       if(find(one_d_path_cstrs.begin(), one_d_path_cstrs.end(), edge) == one_d_path_cstrs.end()){
-         vector<Graph::Arc> path;
+         std::vector<Graph::Arc> path;
          path.push_back(edge);
          path_cstrs.push_back(path);
       }
@@ -564,8 +570,8 @@ bool FlowNetwork::createNetwork(
    return true;
 }
 
-void FlowNetwork::addWeight(const vector<Contig> &hits,
-      const std::map<pair<uint,uint>, IntronTable> &intron_counter,
+void FlowNetwork::addWeight(const std::vector<Contig> &hits,
+      const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
       const Graph::NodeMap<const GenomicFeature*> &node_map,
       Graph::ArcMap<int> &arc_map)
 {
@@ -600,7 +606,7 @@ void FlowNetwork::addWeight(const vector<Contig> &hits,
             }
          }
       }
-      _max_weight = max(_max_weight, num_read_support);
+      _max_weight = std::max(_max_weight, num_read_support);
       arc_map[arc] = num_read_support;
    }
 
@@ -612,15 +618,15 @@ void FlowNetwork::addWeight(const vector<Contig> &hits,
 
 
 
-vector<vector<size_t>> FlowNetwork::findConstraints(
+std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
 
-   const vector<GenomicFeature> &exons,
-   const vector<Contig> &hits)
+   const std::vector<GenomicFeature> &exons,
+   const std::vector<Contig> &hits)
 {
-   vector<vector<size_t>> result;
+   std::vector<std::vector<size_t>> result;
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
-      vector<size_t> constraint;
-      vector<GenomicFeature> introns;
+      std::vector<size_t> constraint;
+      std::vector<GenomicFeature> introns;
       uint start = 0;
       uint end = 0;
       for(auto feat = mp->_genomic_feats.cbegin(); feat != mp->_genomic_feats.cend(); ++feat){
@@ -691,11 +697,11 @@ vector<vector<size_t>> FlowNetwork::findConstraints(
 }
 
 bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
-      const vector<GenomicFeature> &exons,
-      const vector<vector<Graph::Arc>> &path_cstrs,
+      const std::vector<GenomicFeature> &exons,
+      const std::vector<std::vector<Graph::Arc>> &path_cstrs,
       Graph::ArcMap<int> &cost_map,
       Graph::ArcMap<int> &min_flow_map,
-      vector<vector<GenomicFeature>> &transcripts)
+      std::vector<std::vector<GenomicFeature>> &transcripts)
 {
 
    // single exon cases
@@ -734,15 +740,15 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
 #endif
       return false;
    }
-   vector<vector<Graph::Arc>> paths;
+   std::vector<std::vector<Graph::Arc>> paths;
    flowDecompose(_g, flow, _source, _sink, paths);
 
-   //put paths into vector<vector<GenomicFeature>>
+   //put paths into std::vector<std::vector<GenomicFeature>>
    //int i=0;
    for(auto p: paths){
       //cout<<"number "<<i<<endl;
       //++i;
-      vector<GenomicFeature> tscp;
+      std::vector<GenomicFeature> tscp;
       for(size_t i = 1; i <p.size(); ++i){
          const Graph::Arc e = p[i];
          const Graph::Node &arc_s = _g.source(e);
@@ -798,7 +804,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    return true;
 }
 
-void FlowNetwork::filter_short_transcripts(vector<vector<GenomicFeature>> &transcripts)
+void FlowNetwork::filter_short_transcripts(std::vector<std::vector<GenomicFeature>> &transcripts)
 {
    for(auto it=transcripts.begin(); it != transcripts.end();){
       int len = 0;
