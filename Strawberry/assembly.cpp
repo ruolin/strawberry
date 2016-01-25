@@ -53,7 +53,7 @@ void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembl
       std::vector<GenomicFeature> merged_feats;
       GenomicFeature::mergeFeatures(feats, merged_feats);
       Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
-      if(assembled_transcript.avg_doc() < 1) {
+      if(assembled_transcript.avg_doc() < kMinDepth4Contig) {
          continue;
       }
       transcript.push_back(assembled_transcript);
@@ -161,7 +161,16 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
 {
 /*
   * filter exon segments if it does not have intron supporting
-   * */
+* */
+
+//#ifdef DEBUG
+//   for(auto ex = exon_boundaries.cbegin(); ex != exon_boundaries.cend(); ++ex){
+//      std::cout<<"exon seg: "<<ex->first <<"-"<<ex->second<<std::endl;
+//   }
+//   for(auto in = paired_bars.cbegin(); in != paired_bars.cend(); ++in){
+//      std::cout<<"intron: "<<in->first<<"-"<<in->second<<std::endl;
+//   }
+//#endif
    std::vector<size_t> dropoff;
    std::vector<std::pair<uint, uint>> left_coords;
    std::vector<std::pair<uint, uint>> right_coords;
@@ -178,71 +187,48 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
    sort(right_coords.begin(), right_coords.end(), comp_lt_first);
 
    for(size_t ex = 0 ; ex != e_boundaries.size(); ++ex){
-//      if(e_boundaries[ex].second -e_boundaries[ex].first == 0) {
-//         dropoff.push_back(ex);
-//         continue;
-//      }
-      if(ex == 0){
-         if(e_boundaries[ex].second == e_boundaries[ex+1].first-1);
-         else{
-            auto lower = lower_bound(left_coords.begin(), left_coords.end(), std::pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
-            if(lower != left_coords.end() && lower->first == e_boundaries[ex].second+1){
-               uint right = paired_bars[lower->second].second;
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(right+1,0), comp_lt_first)){
-                  dropoff.push_back(ex);
-               }
-            }
-            else{
-               dropoff.push_back(ex);
-            }
-         }
+
+      bool no_intron_on_right = false;
+      auto l = lower_bound(left_coords.begin(), left_coords.end(), std::pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
+      if(l != left_coords.end() && l->first == e_boundaries[ex].second+1){
+         uint right = paired_bars[l->second].second;
+
+         if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(right+1,0), comp_lt_first))
+            no_intron_on_right = true;
+
       }
-      else if(ex == e_boundaries.size()-1){
-         if( e_boundaries[ex].first == e_boundaries[ex-1].second+1 );
-         else{
-            auto lower = lower_bound(right_coords.begin(), right_coords.end(), std::pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
-            if( lower != right_coords.end() && lower->first == e_boundaries[ex].first-1){
-               uint left = paired_bars[lower->second].first;
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(0,left-1), comp_lt_second))
-                  dropoff.push_back(ex);
-            }
-            else
-               dropoff.push_back(ex);
+      else{
+         no_intron_on_right = true;
+      }
+
+      bool no_intron_on_left = false;
+      auto r = lower_bound(right_coords.begin(), right_coords.end(), std::pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
+      if( r != right_coords.end() && r->first == e_boundaries[ex].first-1){
+         uint left = paired_bars[r->second].first;
+         if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(0,left-1), comp_lt_second)){
+            no_intron_on_left = true;
          }
       }
       else{
-         if( e_boundaries[ex].first != e_boundaries[ex-1].second+1 || e_boundaries[ex].second != e_boundaries[ex+1].first-1){
-            bool no_intron_on_left = false;
-            bool no_intron_on_right = false;
-            auto l = lower_bound(left_coords.begin(), left_coords.end(), std::pair<uint, uint>(e_boundaries[ex].second+1,0), comp_lt_first);
-            if(l != left_coords.end() && l->first == e_boundaries[ex].second+1){
-               uint right = paired_bars[l->second].second;
-
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(right+1,0), comp_lt_first))
-                  no_intron_on_right = true;
-
-            }
-            //else if(e_boundaries[ex].second+1 == e_boundaries[ex+1].first);
-            else{
-               no_intron_on_right = true;
-            }
-
-            auto r = lower_bound(right_coords.begin(), right_coords.end(), std::pair<uint,uint>(e_boundaries[ex].first-1,0), comp_lt_first);
-            if( r != right_coords.end() && r->first == e_boundaries[ex].first-1){
-               uint left = paired_bars[r->second].first;
-               if(!binary_search(e_boundaries.begin(), e_boundaries.end(), std::pair<uint, uint>(0,left-1), comp_lt_second))
-                  no_intron_on_left = true;
-            }
-            //else if(e_boundaries[ex].first-1 == e_boundaries[ex-1].second);
-            else{
-               no_intron_on_left = true;
-            }
-            if(no_intron_on_left && no_intron_on_right){
-               //cout<<e_boundaries[ex].first<<"-"<<e_boundaries[ex].second<<endl;
+         no_intron_on_left = true;
+      }
+      if(no_intron_on_left && no_intron_on_right){
+         if(ex == 0){
+            if( e_boundaries[ex].second +1 != e_boundaries[ex+1].first){
                dropoff.push_back(ex);
             }
          }
-      } // end of if-ifelse-else condition
+         else if(ex == e_boundaries.size() -1 ){
+            if( e_boundaries[ex-1].second +1 != e_boundaries[ex].first)
+               dropoff.push_back(ex);
+         }
+         else{
+            if(e_boundaries[ex].second + 1 != e_boundaries[ex+1].first ||
+                  e_boundaries[ex].first -1 != e_boundaries[ex-1].second){
+            dropoff.push_back(ex);
+            }
+         }
+      }
    }
 
 //#ifdef DEBUG

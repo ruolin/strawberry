@@ -74,7 +74,7 @@ void print_help()
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./out ]\n");
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
-   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     50000]\n");
+   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     200000]\n");
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
    fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
    fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
@@ -93,7 +93,7 @@ void print_help()
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
-   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read delpth for transcript.                                                          [default:     1.0]\n");
+   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read delpth for transcript.                                                          [default:     1]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
 }
 
@@ -178,7 +178,7 @@ int parse_options(int argc, char** argv)
                           break;
                        }
                default:
-                        cerr<<"Invalid option"<<endl;
+                        //cerr<<"Invalid option"<<endl;
                         print_help();
                         return 1;
             }

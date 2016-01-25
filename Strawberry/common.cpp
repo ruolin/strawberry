@@ -14,7 +14,7 @@ bool WITH_BIAS_CORRECTION = false;
 int kMaxGeneLength = 2500000;
 int kMaxFragSpan = 1000000;
 int kMaxFragPerCluster = 100000;
-int kMaxIntronLength = 50000; // max-junction-splice-distance
+int kMaxIntronLength = 200000; // max-junction-splice-distance
 int kMinIntronLength = 50; // min-junction-splice-distance
 int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
@@ -23,11 +23,11 @@ double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
 double kMinIsoformFrac = 0.05;
 double kBinomialOverHangAlpha = 0.0;
 float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
-int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
+int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
                                      // weights on non-intron edges.
 double kMinDepth4Locus = 1; //used in ClusterFactory::finalizeCluster() to
                                         //select locus have enough reads covered.
-double kMinDepth4Contig = 0;
+double kMinDepth4Contig = 1;
 int kMaxCoverGap1 = 200; // cover gap due the read depth.
 int kMaxCoverGap2 = 50;
 int kMaxReadNum4FD = 10000000;
@@ -36,8 +36,7 @@ int kMaxReadNum4FD = 10000000;
 //int kMinExonCov4FD = 0;  // if singleExon4FD is used.
 bool singleIso4FD = true;
 double kInsertSizeMean = 0;
-double bothStrandCutoff = 0.1; // ratio of reads from different strands. If larger than this value, it
-                              // possibly indicates genes on different strands overlap.
+//double bothStrandCutoff = 0.05 // Depracated. Now use kMinIsoformFrac
 double kInsertSizeSD = 0;
 bool infer_the_other_end = true;
 bool verbose = true;

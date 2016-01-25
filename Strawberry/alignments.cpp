@@ -520,26 +520,26 @@ bool HitCluster::overlaps( const HitCluster& rhs) const{
 //}
 
 bool HitCluster::see_both_strands(){
-   bool see_plus = false;
-   bool see_minus = false;
-   for(auto &hit: _hits){
-      if(hit.contains_splice()){
-         if(hit.strand() == Strand_t::StrandPlus)
-            see_plus = true;
-         else
-            see_minus = true;
-      }
-   }
-   return see_plus && see_minus;
-//   if(_plus_strand_num_hits == 0) return false;
-//   if(_minus_strand_num_hits == 0) return false;
-//   if(_minus_strand_num_hits < _plus_strand_num_hits &&
-//      _minus_strand_num_hits/(double) _plus_strand_num_hits > bothStrandCutoff)
-//      return true;
-//   if(_plus_strand_num_hits < _minus_strand_num_hits &&
-//      _plus_strand_num_hits/(double) _minus_strand_num_hits > bothStrandCutoff)
-//      return true;
-//   return false;
+//   bool see_plus = false;
+//   bool see_minus = false;
+//   for(auto &hit: _hits){
+//      if(hit.contains_splice()){
+//         if(hit.strand() == Strand_t::StrandPlus)
+//            see_plus = true;
+//         else
+//            see_minus = true;
+//      }
+//   }
+//   //return see_plus && see_minus;
+   if(_plus_strand_num_hits == 0) return false;
+   if(_minus_strand_num_hits == 0) return false;
+   if(_minus_strand_num_hits < _plus_strand_num_hits &&
+      _minus_strand_num_hits/(double) _plus_strand_num_hits > kMinIsoformFrac)
+      return true;
+   if(_plus_strand_num_hits < _minus_strand_num_hits &&
+      _plus_strand_num_hits/(double) _minus_strand_num_hits > kMinIsoformFrac)
+      return true;
+   return false;
 }
 
 //int Sample::max_inner_dist() const
