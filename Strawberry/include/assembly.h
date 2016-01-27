@@ -40,6 +40,7 @@ class FlowNetwork{
 
    static void flowDecompose(const Graph &g,
          const Graph::ArcMap<int> &flow,
+         const Graph::ArcMap<int> &cost,
          const Graph::Node &source,
          const Graph::Node &sink,
          std::vector<std::vector<Graph::Arc>> &paths );
@@ -60,8 +61,8 @@ public:
 //           std::vector<GenomicFeature> &exons,
 //           Graph::NodeMap<const GenomicFeature*> &node2feat);
 
-   void splicingGraph(const int &left, const std::vector<float> &exon_doc,
-         const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
+   void splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
+         std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
          std::vector<GenomicFeature> &exons);
 
    bool createNetwork(
@@ -94,6 +95,10 @@ public:
    void filter_short_transcripts(std::vector<std::vector<GenomicFeature>> &transcripts);
    void filter_exon_segs(const std::vector<std::pair<uint,uint>>& paired_bars,
                          std::list<std::pair<uint,uint>>& exon_boundaries);
+   void remove_low_cov_exon(const int cluster_left, const std::vector<float>& exon_doc,
+                            std::list<std::pair<uint,uint>>& exon_boundaries);
+   void filter_intron(const std::vector<GenomicFeature> &exons,
+         std::map<std::pair<uint,uint>, IntronTable> &intron_counter);
 };
 
 void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assembled_feats,
@@ -101,5 +106,5 @@ void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assemble
                         const Strand_t & strand,
                         std::vector<Contig>& transcript);
 
-void compute_exon_doc(const int left, const std::vector<float> exon_doc, std::vector<GenomicFeature>& exons);
+void compute_exon_doc(const int left, const std::vector<float>& exon_doc, std::vector<GenomicFeature>& exons);
 #endif /* ASSEMBLY_H_ */

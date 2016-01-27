@@ -39,6 +39,7 @@ extern int kMinDist4ExonEdge; // used in FlowNetwork::addWeight() for assigning
 extern double kMinDepth4Locus; //used in ClusterFactory::finalizeCluster() to
                                            //select locus have enough reads covered.
 extern double kMinDepth4Contig;
+extern double kMinExonDoc;
 extern int kMaxCoverGap1;
 extern int kMaxCoverGap2;
 extern int kMaxReadNum4FD;

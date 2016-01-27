@@ -969,7 +969,7 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
 //      cout<<endl;
 //#endif
 
-   flow_network.splicingGraph(cluster.left(), exon_doc, intron_counter, exons);
+   flow_network.splicingGraph(cluster.ref_id(), cluster.left(), exon_doc, intron_counter, exons);
 
 //   if(_is_inspecting && singleExon4FD){ // just calculated the fragment length distribution
 //         //vector<GenomicFeature> merged_feats;

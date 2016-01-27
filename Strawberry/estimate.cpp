@@ -33,6 +33,7 @@
 // program and solution types
 
 const double Estimation::_kMinTPM = kMinIsoformFrac * 1e6;
+//const double Estimation::_kMinTPM = 0;
 
 uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_2_extend,  SingleOrit_t orit, Contig & inferred_mp){
 /*

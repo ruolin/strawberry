@@ -21,15 +21,17 @@ int kMinTransLen = 200; //ignore isoforms if its length is too short.
 int kMaxOlapDist = 30; // merge cluster if within this distance.
 double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
 double kMinIsoformFrac = 0.05;
+double kMinExonDoc = 1.0;
 double kBinomialOverHangAlpha = 0.0;
 float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
-int kMinDist4ExonEdge = 1; // used in FlowNetwork::addWeight() for assigning
+int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
                                      // weights on non-intron edges.
+float kIntronEdgeWeight = 1;
 double kMinDepth4Locus = 1; //used in ClusterFactory::finalizeCluster() to
                                         //select locus have enough reads covered.
 double kMinDepth4Contig = 1;
 int kMaxCoverGap1 = 200; // cover gap due the read depth.
-int kMaxCoverGap2 = 50;
+int kMaxCoverGap2 = 10;
 int kMaxReadNum4FD = 10000000;
 //bool singleExon4FD = false;
 //int kMinExonLen4FD = 200; // if singleExon4FD is used.
@@ -48,7 +50,6 @@ bool enforce_ref_models = false;
 bool utilize_ref_models = false;
 std::string tracking_log = "/tracking.log";
 bool effective_len_norm = false;
-float kIntronEdgeWeight = 2;
 bool use_unique_hits = true;
 bool use_paired_hits = false;
 double standard_normal_cdf(double x)
@@ -77,7 +78,7 @@ double standard_normal_cdf(double x)
     return 0.5*(1.0 + sign*y);
 }
 
-static char msg[4096];
+//static char msg[4096];
 int fileExists(const char* fname)
 {
   struct stat stFileInfo;
