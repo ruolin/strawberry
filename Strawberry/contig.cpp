@@ -618,7 +618,9 @@ void Contig::print2gtf(FILE *pFile,
                        const string fpkm,
                        const string tpm,
                        int gene_id, int tscp_id){
-   const char* ref = ref_lookup.ref_name(_ref_id).c_str();
+
+   const char* ref = ref_lookup.ref_real_name(_ref_id).c_str();
+
    char strand = 0;
    switch(_strand){
    case Strand_t::StrandPlus:
@@ -635,7 +637,7 @@ void Contig::print2gtf(FILE *pFile,
    char locus[13] = "gene.";
    char tscp[24] = "transcript.";
    char gene_str[7];
-   char tscp_str[4]; // at most 999 transcripts for a gene.
+   char tscp_str[7];
    char fpkm_c[12];
    char tpm_c[12];
    Sitoa(gene_id, gene_str, 10);

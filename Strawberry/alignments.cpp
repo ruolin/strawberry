@@ -530,7 +530,15 @@ bool HitCluster::see_both_strands(){
 //            see_minus = true;
 //      }
 //   }
-//   //return see_plus && see_minus;
+//   return see_plus && see_minus;
+//   if(left() == 9092004){
+//      cout<<"plus read: "<<_plus_strand_num_hits<<endl;
+//      cout<<"minus read: "<<_minus_strand_num_hits<<endl;
+//      exit(0);
+//   }
+
+   if(_plus_strand_num_hits >= 5 && _minus_strand_num_hits >= 5)
+      return true;
    if(_plus_strand_num_hits == 0) return false;
    if(_minus_strand_num_hits == 0) return false;
    if(_minus_strand_num_hits < _plus_strand_num_hits &&
@@ -663,8 +671,8 @@ double Sample::next_valid_alignment(ReadHit& readin){
                ( _prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
            )
          {
-            const string cur_chr_name = _hit_factory->_ref_table.ref_name(readin.ref_id());
-            const string last_chr_name = _hit_factory->_ref_table.ref_name(_prev_hit_ref_id);
+            const string cur_chr_name = _hit_factory->_ref_table.ref_real_name(readin.ref_id());
+            const string last_chr_name = _hit_factory->_ref_table.ref_real_name(_prev_hit_ref_id);
             if(_is_inspecting){
                LOG_ERR("BAM file not sort correctly!");
                LOG_ERR("The current position is: ", cur_chr_name, ":", readin.left());
@@ -921,7 +929,6 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    vector<Contig> hits;
    cluster._strand = cluster.guessStrand();
 
-
    for(auto r = cluster._uniq_hits.cbegin(); r< cluster._uniq_hits.cend(); ++r){
 //#ifdef DEBUG
 //         if(r->_left_read && r->_right_read)
@@ -1109,7 +1116,7 @@ void Sample::inspectSample(FILE *plogfile)
       return;
    }
 
-   _current_chrom = ref_t.ref_name(last_cluster->ref_id());
+   _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
 
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
@@ -1130,19 +1137,19 @@ void Sample::inspectSample(FILE *plogfile)
          last_cluster = move(cur_cluster);
          continue;
       }
-      if(_current_chrom != ref_t.ref_name(last_cluster->ref_id())){
-         _current_chrom = ref_t.ref_name(last_cluster->ref_id());
+      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
+         _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, NULL, NULL);
       _total_mapped_reads += last_cluster->collapse_mass();
-      //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
       //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
       last_cluster = move(cur_cluster);
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, NULL, NULL);
-   //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+   //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
    //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
    _total_mapped_reads += (int)last_cluster->collapse_mass();
    _hit_factory->reset();
@@ -1168,7 +1175,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
       return;
    }
    _is_inspecting = false;
-   _current_chrom = ref_t.ref_name(last_cluster->ref_id());
+   _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
 
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
@@ -1196,12 +1203,12 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
          last_cluster = move(cur_cluster);
          continue;
       }
-      if(_current_chrom != ref_t.ref_name(last_cluster->ref_id())){
-         _current_chrom = ref_t.ref_name(last_cluster->ref_id());
+      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
+         _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, pfile, plogfile);
-      fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
       fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
       fprintf(plogfile, "Number of total unique hits: %d\n\n", last_cluster->_uniq_hits.size());
 #ifdef DEBUG
@@ -1220,7 +1227,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
    }
    last_cluster->_id = ++_num_cluster;
    finalizeAndAssemble(*last_cluster, pfile, plogfile);
-   fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+   fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
    fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
    fprintf(plogfile ,"Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
 }

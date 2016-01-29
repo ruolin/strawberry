@@ -7,7 +7,7 @@
    #include<stdio.h>
 #endif
 
-
+unique_ptr<GffInfoTable> GffObj::_infotable = unique_ptr<GffInfoTable> (new GffInfoTable());
 
 void GffLine::extractAttr(const string attr, string &val) {
    //parse a key attribute and remove it from the info string
@@ -78,7 +78,7 @@ void GffLine::extractAttr(const string attr, string &val) {
 }
 
 
-static char fnamelc[128];
+static char feat_type[128];
 GffLine::GffLine(const char* l)
 {
 //   printf("enter in gffline constructor\n");
@@ -154,30 +154,30 @@ GffLine::GffLine(const char* l)
    }
 
    _phase=*t[7];
-   strncpy(fnamelc, t[2], 127);
-   fnamelc[127]=0;
-   str2lower(fnamelc);
-   if(strstr(fnamelc,"utr")!=NULL){
+   strncpy(feat_type, t[2], 127);
+   feat_type[127]=0;
+   str2lower(feat_type);
+   if(strstr(feat_type,"utr")!=NULL){
       _feat_type = UTR;
    }
-   else if(strstr(fnamelc,"exon")!=NULL){
+   else if(strstr(feat_type,"exon")!=NULL){
       _feat_type = EXON;
    }
-   else if (strstr(fnamelc, "stop") &&
-         (strstr(fnamelc, "codon") || strstr(fnamelc, "cds"))){
+   else if (strstr(feat_type, "stop") &&
+         (strstr(feat_type, "codon") || strstr(feat_type, "cds"))){
       _feat_type = STOP_CODON;
    }
-   else if (strstr(fnamelc, "start") &&
-         ((strstr(fnamelc, "codon")!=NULL) || strstr(fnamelc, "cds")!=NULL)){
+   else if (strstr(feat_type, "start") &&
+         ((strstr(feat_type, "codon")!=NULL) || strstr(feat_type, "cds")!=NULL)){
       _feat_type = START_CODON;
    }
-   else if (strcmp(fnamelc, "cds")==0) {
+   else if (strcmp(feat_type, "cds")==0) {
       _feat_type = CDS;
    }
-   else if (strstr(fnamelc,"rna")!=NULL || strstr(fnamelc,"transcript")!=NULL) {
+   else if (strstr(feat_type,"rna")!=NULL || strstr(feat_type,"transcript")!=NULL) {
       _feat_type = mRNA;
    }
-   else if (strstr(fnamelc, "gene")!=NULL) {
+   else if (strstr(feat_type, "gene")!=NULL) {
       _feat_type = GENE;
    }
    extractAttr("id=", _ID);
@@ -296,8 +296,6 @@ int GffInfoVec::addInfo(const string name){
    }
    return -1;
 }
-
-unique_ptr<GffInfoTable> GffObj::_infotable = unique_ptr<GffInfoTable> (new GffInfoTable());
 
 GffObj::GffObj(LinePtr gl, GffReader & greader):
    _score(gl->_score),

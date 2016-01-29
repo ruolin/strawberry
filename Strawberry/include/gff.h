@@ -40,7 +40,11 @@ public:
 };
 
 class GffInfo{
-   //Info is a id->name type
+   /*
+    * Info is a id->name pair.
+    * It is intended to be use in more general case.
+    * But right now only use for ref_id -> ref_seq_name
+    */
 public:
    int _id;
    string _name;
@@ -65,12 +69,16 @@ public:
 };
 
 class GffInfoTable{
+   /*
+    * Lookup table for reference sequence names and attribute names
+    * FIXME: Attribute names has not been used yet.
+    */
 public:
    unique_ptr<GffInfoVec> _seq_names;
-   unique_ptr<GffInfoVec> _attr_names;
+   //unique_ptr<GffInfoVec> _attr_names;
    GffInfoTable(){
       _seq_names = unique_ptr<GffInfoVec>(new GffInfoVec());
-      _attr_names = unique_ptr<GffInfoVec>(new GffInfoVec());
+     // _attr_names = unique_ptr<GffInfoVec>(new GffInfoVec());
    }
 };
 

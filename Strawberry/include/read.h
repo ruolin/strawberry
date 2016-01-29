@@ -1,5 +1,7 @@
 /*
  * This file is the interface that reads BAM/SAM files.
+ * Utilize some functions from Cufflinks:
+ * https://github.com/cole-trapnell-lab/cufflinks/blob/master/src/hits.h
  */
 
 #ifndef STRAWB_READ_H_
@@ -147,16 +149,15 @@ private:
    bool _keep_seq;
    unordered_map<string, int> _name2id;
    vector<string> _id2name;
+   vector<string> _id_2_real_name;
 
 public:
    RefSeqTable(bool keep_seq) : _keep_seq(keep_seq){}
-   int get_id(const string& name);
+   int get_id(string& name);
    int size() const{
       return _name2id.size();
    }
-   const string ref_name(int id) const{
-      return _id2name[id];
-   }
+   const string ref_real_name(int id) const;
 };
 
 

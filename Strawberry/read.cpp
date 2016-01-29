@@ -290,11 +290,12 @@ bool HitFactory::parse_header_line(const string& hline){
          vector<string> fields;
          split(i, ":", fields);
          if(fields[0] == "SN"){
-            str2lower(fields[1]);
+            //str2lower(fields[1]);
             RefID _ID = _ref_table.get_id(fields[1]);
-            if(_ID != _num_seq_header_recs-1)
-               LOG_ERR("Sort order of reads in BAM not consistent.");
-               return false;
+            if(_ID != _num_seq_header_recs-1){
+               cerr<<"Sort order of reads in BAM not consistent."<<endl;
+               exit(0);
+            }
          }
       }
    }
@@ -430,7 +431,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
    else{
       mate_text_name = _hit_file->header->target_name[mate_target_id];
-      str2lower(mate_text_name);
+      //str2lower(mate_text_name);
    }
    RefID parterner_ref_id = ref_table().get_id(mate_text_name);
 
@@ -455,7 +456,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
 
    string text_name = _hit_file->header->target_name[target_id];
-   str2lower(text_name);
+   //str2lower(text_name);
    RefID ref_id = ref_table().get_id(text_name);
 
    if(target_id >= _hit_file->header->n_targets){
@@ -755,8 +756,10 @@ bool PairedHit::operator<(const PairedHit& rhs) const
       return left_pos() < rhs.left_pos();
 }
 
-RefID RefSeqTable::get_id(const string& name) {
+RefID RefSeqTable::get_id(string& name) {
    if (name == "*") return -1;
+   string raw_name = name;
+   str2lower(name);
    unordered_map<string,int>::const_iterator it = _name2id.find(name);
    if(it != _name2id.end()) return it->second;
    else {
@@ -764,11 +767,16 @@ RefID RefSeqTable::get_id(const string& name) {
       _name2id.insert(make_pair(name, id));
       _id2name.resize(_name2id.size());
       _id2name[id] = name;
+      _id_2_real_name.resize(_name2id.size());
+      _id_2_real_name[id] = raw_name;
       return id;
    }
    return 0;
 }
 
+const string RefSeqTable::ref_real_name(int id) const{
+   return _id_2_real_name[id];
+}
 
 void PairedHit::add_2_collapse_mass(float add){
    _collapse_mass += add;

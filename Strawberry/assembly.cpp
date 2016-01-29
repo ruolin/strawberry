@@ -50,6 +50,7 @@ void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembl
                         const Strand_t & strand,
                         std::vector<Contig> &transcript)
 {
+
    for(auto const &feats: assembled_feats){
       std::vector<GenomicFeature> merged_feats;
       GenomicFeature::mergeFeatures(feats, merged_feats);
@@ -193,6 +194,8 @@ void FlowNetwork::remove_low_cov_exon(const int cluster_left, const std::vector<
      cov = cov / (it->second - it->first);
      if(cov < kMinExonDoc)
        it =  exon_boundaries.erase(it);
+     else if(it->second - it->first + 1 < kMinExonLen && cov < 5.0)
+        it =  exon_boundaries.erase(it);
      else
         ++it;
   }
@@ -267,8 +270,8 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
          }
          else{
             if(e_boundaries[ex].second + 1 != e_boundaries[ex+1].first ||
-                  e_boundaries[ex].first -1 != e_boundaries[ex-1].second){
-            dropoff.push_back(ex);
+               e_boundaries[ex].first -1 != e_boundaries[ex-1].second){
+               dropoff.push_back(ex);
             }
          }
       }
@@ -321,6 +324,7 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
     * create non overlapping exon segments which will be
     * used as nodes in createNetwork();
     */
+
 
    std::vector<std::pair<uint,uint>> paired_bars; // two end intron boundaries
    std::vector<std::pair<uint,bool>> single_bars; // single intron boundaries
@@ -410,6 +414,13 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    };
 
 
+//   if(left == 30064425){
+//      for(auto ex: exon_boundaries){
+//         std::cout<<ex.first<<"-"<<ex.second<<std::endl;
+//      }
+//      exit(0);
+//   }
+
    /*
     * for single exon genes
     * */
@@ -476,8 +487,8 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
         ++it;
      }
    }
+   //remove_low_cov_exon(left, exon_doc, exon_boundaries);
    filter_exon_segs(paired_bars, exon_boundaries);
-   remove_low_cov_exon(left, exon_doc, exon_boundaries);
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)
          exons.push_back(GenomicFeature(Match_t::S_MATCH, i.first, i.second-i.first+1));
