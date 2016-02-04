@@ -10,7 +10,7 @@
 #include <iostream>
 #include <errno.h>
 #include "common.h"
-bool WITH_BIAS_CORRECTION = false;
+bool BIAS_CORRECTION = false;
 int kMaxGeneLength = 2500000;
 int kMaxFragSpan = 1000000;
 int kMaxFragPerCluster = 100000;

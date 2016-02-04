@@ -561,9 +561,23 @@ bool HitCluster::see_both_strands(){
 //         return _insert_size_dist->_end_offset -_hit_factory->_reads_table._read_len_abs*2;
 //   }
 //}
+bool Sample::load_chrom_fasta(RefID seq_id)
+{
+   /*
+    * Loading reference FASTA sequence without gene model
+    */
+   string seq_name = _hit_factory->_ref_table.ref_real_name(seq_id);
+   _fasta_interface->load2FaSeqGetter(*_fasta_getter, seq_name);
+   return _fasta_getter->loadSeq();
+}
+
 
 bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile)
 {
+   /*
+    * Loading reference FASTA sequence for RNA molecule according to gene model.
+    */
+
    //sort gseqs accroding to the observation order in ref_table
    // or if ref_table is empty, initialize it according to gseqs
    //ref_id in ref_table start from 0.
@@ -1096,7 +1110,7 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
    bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
-                                          iso_2_len_map, isoforms, false);
+                                          iso_2_len_map, isoforms, true, _fasta_getter);
    if(success){
       for(auto & iso: isoforms){
          iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
@@ -1116,7 +1130,9 @@ void Sample::inspectSample(FILE *plogfile)
       return;
    }
 
-   _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
+   RefID current_ref_id = last_cluster->ref_id();
+   if(BIAS_CORRECTION)
+      load_chrom_fasta(current_ref_id);
 
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
@@ -1137,8 +1153,10 @@ void Sample::inspectSample(FILE *plogfile)
          last_cluster = move(cur_cluster);
          continue;
       }
-      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
-         _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
+      if(current_ref_id != last_cluster->ref_id()){
+         current_ref_id = last_cluster->ref_id();
+         if(BIAS_CORRECTION)
+            load_chrom_fasta(current_ref_id);
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, NULL, NULL);

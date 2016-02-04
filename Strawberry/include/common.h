@@ -19,7 +19,7 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
-extern bool WITH_BIAS_CORRECTION;
+extern bool BIAS_CORRECTION;
 extern int kMaxGeneLength;
 extern int kMaxFragSpan;
 extern int kMaxFragPerCluster;

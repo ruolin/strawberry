@@ -9,7 +9,7 @@
 #define QP_H_
 #include <contig.h>
 #include <read.h>
-
+class FaSeqGetter;
 class Isoform{
 
 public:
@@ -39,6 +39,7 @@ private:
    float _whole_read_mass = 0;
    /*  exon boundaries left1,right1,left2,right2,... */
    set<pair<uint,uint>> _coords;
+   double _GC_content;
 public:
    set<Contig> _frags;
    void add_read_mass(float mass);
@@ -46,8 +47,8 @@ public:
    map<int, double> _bin_weight_map; // iso -> bin_weight
    map<int, vector<pair<int,float>>> _iso_2_frag_lens;
    ExonBin(set<pair<uint,uint>> coordinates);
-   uint left_most() const;
-   uint right_most() const;
+   uint left() const;
+   uint right() const;
    float read_count() const;
    void add_frag_len(const int iso, const int frag_len, const float mass);
    double read_depth() const;
@@ -64,6 +65,9 @@ public:
    bool add_frag(const Contig& fg);
    int num_exons() const;
    int left_exon_len() const;
+   double GC_content() const;
+   double avg_frag_len() const;
+   RefID ref_id() const;
 };
 
 
@@ -110,11 +114,14 @@ public:
    void calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_bins_map,
           const map<set<uint>, ExonBin> & exon_bin_map);
 
-   bool estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
+   bool estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
                      const double mass,
                      map<int, int>& iso_2_len_map,
                      vector<Isoform>& isoforms,
-                     bool with_bias_correction = true);
+                     bool with_bias_correction,
+                     shared_ptr<FaSeqGetter> & fa_getter);
+   void calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
+                            shared_ptr<FaSeqGetter> &fa_getter);
 };
 
 

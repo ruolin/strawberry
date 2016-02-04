@@ -102,23 +102,19 @@ class FaSeqGetter{
     * One seq at a time in memory
     */
    string _fname;
-   FILE* fh = nullptr;
+   FILE* _fh = nullptr;
    SubSeq _my_subseq;
    FaRecord _my_record;
 public:
    const static int MAX_LEN_TO_READ = 0x20000000;
    FaSeqGetter() = default;
-   void initial(const string fname, const FaRecord &rec);
+   void initiate(const string fname, const FaRecord &rec);
    string get_fname() const;
    // Default parameters mean loading a whole sequence
    // for the first time.
    uint loadSeq(uint start = 1, uint len = 0);
    char* fetchSeq(uint start, uint len);
-   ~FaSeqGetter(){
-      if(!_fname.empty()){
-         fclose(fh);
-      }
-   }
+   ~FaSeqGetter();
    FaSeqGetter(const FaSeqGetter &other) = delete;
    FaSeqGetter& operator=(const FaSeqGetter &other) = delete;
    FaSeqGetter(FaSeqGetter &&other) = delete;

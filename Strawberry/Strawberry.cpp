@@ -161,6 +161,7 @@ int parse_options(int argc, char** argv)
                         break;
                case 'b':
                         ref_fasta_file = optarg;
+                        BIAS_CORRECTION = true;
                         break;
                case 'i':
                        {
@@ -237,12 +238,20 @@ int main(int argc, char** argv){
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
       greader->reverseExonOrderInMinusStrand();
-      read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
 
 
    if(ref_fasta_file != "") {
-      read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
+      if(ref_gtf_filename != ""){
+         read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
+      }
+      else{
+         shared_ptr<FaInterface> fa_api(new FaInterface());
+         fa_api->initiate(ref_fasta_file.c_str());
+         shared_ptr<FaSeqGetter> fsg(new FaSeqGetter());
+         read_sample._fasta_interface = fa_api;
+         read_sample._fasta_getter = fsg;
+      }
    }
    if(verbose){
       cerr<<"Inspecting sample......"<<endl;

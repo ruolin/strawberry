@@ -19,7 +19,6 @@
 
 
 
-#include "include/estimate.h"
 
 #include <iostream>
 #include <cassert>
@@ -27,7 +26,10 @@
 #include <random>
 #include <Eigen/Dense>
 #include <stdexcept>
+#include "estimate.h"
+#include "fasta.h"
 #include "contig.h"
+
 // choose exact integral type
 
 // program and solution types
@@ -201,13 +203,13 @@ bool ExonBin::operator==(const ExonBin& rhs) const
 //   }
 //}
 
-uint ExonBin::left_most() const
+uint ExonBin::left() const
 {
    return _coords.cbegin()->first;
 }
 
 
-uint ExonBin::right_most() const
+uint ExonBin::right() const
 {
    return _coords.crbegin()->second;
 }
@@ -256,6 +258,28 @@ int ExonBin::bin_len() const
    return bin_len;
 }
 
+double ExonBin::GC_content() const
+{
+
+}
+
+double ExonBin::avg_frag_len() const
+{
+   assert(_frags.empty() == false);
+   int sum = 0;
+   for(auto it = _frags.cbegin(); it != _frags.cend(); ++it){
+      sum += it->exonic_length();
+   }
+   return (double) sum / _frags.size();
+}
+
+RefID ExonBin::ref_id() const
+{
+   assert(_frags.empty() == false);
+   return _frags.cbegin()->ref_id();
+}
+
+
 vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
          vector<pair<uint, uint>> & exon_coords) const
 /*
@@ -273,7 +297,7 @@ vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
    for(uint i=0; i<exons.size(); ++i){
       start_pos[i] = exons[i].left();
    }
-   vector<uint>::const_iterator low = lower_bound(start_pos.cbegin(), start_pos.cend(), this->left_most());
+   vector<uint>::const_iterator low = lower_bound(start_pos.cbegin(), start_pos.cend(), this->left());
 
    assert(low != start_pos.cend());
    vector<uint>::const_iterator up  = lower_bound(start_pos.cbegin(), start_pos.cend(), _coords.crbegin()->first );
@@ -623,6 +647,17 @@ void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_
 
 }
 
+void Estimation::calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
+                                     shared_ptr<FaSeqGetter> &fa_getter){
+   for(auto it = exon_bin_map.begin(); it != exon_bin_map.end(); ++it){
+      ExonBin& eb = it->second;
+      cout<<eb.ref_id()<<endl;
+      cout<<eb.avg_frag_len()<<endl;
+      cout<<fa_getter->fetchSeq(eb.left(),eb.right()-eb.left()+1)<<endl;
+   }
+}
+
+
 void Estimation::theory_bin_weight(const map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map,
                           const map<int,int> &iso_2_len_map,
                           const vector<Isoform>& isoforms,
@@ -723,11 +758,12 @@ void Estimation::empirical_bin_weight( const map<int, set<set<pair<uint,uint>>>>
 
 }
 
-bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
+bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
                      const double mass,
                      map<int, int>& iso_2_len_map,
                      vector<Isoform>& isoforms,
-                     bool with_bias_correction)
+                     bool with_bias_correction,
+                     shared_ptr<FaSeqGetter> &fa_getter)
 {
    size_t nrow = exon_bin_map.size();
    size_t niso = isoforms.size();
@@ -755,7 +791,8 @@ bool Estimation::estimate_abundances(const map<set<pair<uint,uint>>, ExonBin> & 
 //#endif
    bool success;
    EmSolver em;
-   if(WITH_BIAS_CORRECTION){
+   if(with_bias_correction){
+      calculate_bin_bias(exon_bin_map, fa_getter);
       Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> X;
       X.setRandom(nrow, 3);
       X = X+Eigen::MatrixXd::Ones(nrow,3);

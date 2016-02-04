@@ -13,6 +13,8 @@
 #include "contig.h"
 #include "gff.h"
 class Sample;
+class FaInterface;
+class FaSeqGetter;
 using IntronMap = std::map<std::pair<uint,uint>,IntronTable>;
 
 class HitCluster{
@@ -115,6 +117,9 @@ class Sample{
 public:
    unique_ptr<HitFactory> _hit_factory;
    shared_ptr<InsertSize> _insert_size_dist =nullptr;
+   shared_ptr<FaSeqGetter> _fasta_getter = nullptr;
+   shared_ptr<FaInterface> _fasta_interface = nullptr;
+
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    Sample(unique_ptr<HitFactory> hit_fac):
       _refmRNA_offset(0),
@@ -123,10 +128,12 @@ public:
    {}
    //int max_inner_dist() const;
    int total_mapped_reads() const;
-   bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile = NULL);
+   bool load_chrom_fasta(RefID seq_id);
    bool hasLoadRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
+   bool loadRefFasta(RefSeqTable &rt, const char *seqFile = NULL);
+   bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile);
    int addRef2Cluster(HitCluster &clusterOut);
    void reset_refmRNAs();
    double next_valid_alignment(ReadHit& readin);

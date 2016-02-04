@@ -74,7 +74,7 @@ int FaIndex::loadIndex(){
       #ifdef DEBUG
          //printf("%s\t%d\t%lld\t%d\t%d\n", line, len ,offset, line_len, bline_len);
       #endif
-      str2lower(line);
+      //str2lower(line);
       add_record(line, len ,offset, line_len, bline_len);
    }
    fclose(fi);
@@ -107,11 +107,19 @@ bool FaIndex::getRecord(const string &seqname, FaRecord &got) const{
    return false;
 }
 
-void FaSeqGetter::initial(const string fname, const FaRecord &rec)
+FaSeqGetter::~FaSeqGetter(){
+   if(_fh != nullptr) fclose(_fh);
+}
+
+void FaSeqGetter::initiate(const string fname, const FaRecord &rec)
 {
    _fname = fname;
    _my_record = rec;
-   fh = fopen(fname.c_str(),"rb");
+   if(_fh != nullptr){
+      fclose(_fh);
+      _fh == nullptr;
+   }
+   _fh = fopen(fname.c_str(),"rb");
 }
 
 string FaSeqGetter::get_fname() const {return _fname;}
@@ -139,13 +147,13 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    _my_subseq.setup(start, toread);
    //assert(start >= _my_subseq._subseq_start);
    char* cur_char_p = _my_subseq._sequence;
-   fseeko(fh, f_start, SEEK_SET);
+   fseeko(_fh, f_start, SEEK_SET);
    int act_read_len = 0;
    uint already_read_len = 0;
    if(start_char_in_line > 0){ // read first line (partially if indeed)
       int should_read_len = line_len - start_char_in_line;
       if (should_read_len > toread) should_read_len = toread; // in case we need just a few chars
-      act_read_len = fread((void*)cur_char_p, 1, should_read_len, fh);
+      act_read_len = fread((void*)cur_char_p, 1, should_read_len, _fh);
       if( act_read_len < should_read_len){
          LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
          exit(1);
@@ -153,23 +161,25 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
       toread -= act_read_len;
       cur_char_p += act_read_len;
       already_read_len += act_read_len;
-      fseeko(fh, line_endlen, SEEK_CUR);
+      fseeko(_fh, line_endlen, SEEK_CUR);
    }
    while(toread >= line_len){
-      act_read_len = fread((void*)cur_char_p, 1, line_len, fh);
+      act_read_len = fread((void*)cur_char_p, 1, line_len, _fh);
       if(act_read_len < line_len){
-         LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
+         cerr<<"reading "<<_fname<<" encountered a premature eof. Please check input."<<endl;
+         fclose(_fh);
          exit(1);
       }
       toread -= act_read_len;
       cur_char_p += act_read_len;
       already_read_len += act_read_len;
-      fseeko(fh, line_endlen, SEEK_CUR);
+      fseeko(_fh, line_endlen, SEEK_CUR);
    }
    if(toread>0){ // read last line
-      act_read_len = fread((void*)cur_char_p, 1, toread, fh);
+      act_read_len = fread((void*)cur_char_p, 1, toread, _fh);
       if(act_read_len < toread){
-         LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
+         cerr<<"reading "<<_fname<<" encountered a premature eof. Please check input."<<endl;;
+         fclose(_fh);
          exit(1);
       }
       already_read_len += act_read_len;
@@ -281,14 +291,18 @@ void FaInterface::initiate(const char* fpath){
 void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){
    auto it_fa_file_name = _seqname_2_fafile.find(seqname);
    if(it_fa_file_name == _seqname_2_fafile.end()){
-      LOG_ERR("Reference sequence name ",seqname, " cannot be found in fasta file. Please check fasta file header line.");
+      cerr<<"Reference sequence name "<<seqname<<" cannot be found in fasta file. Please check fasta file header line."<<endl;
+      cerr<<_seqname_2_fafile.begin()->first<<endl;
+      exit(0);
    }
    string fa_file_name = it_fa_file_name->second;
    auto it_faidx = _fa_indexes.find(fa_file_name);
    assert(it_faidx != _fa_indexes.end());
    FaRecord rec;
    if(it_faidx->second->getRecord(seqname, rec))
-      getter.initial(fa_file_name, rec);
-   else
-      LOG_ERR("Fetching seq name ", seqname, " failed");
+      getter.initiate(fa_file_name, rec);
+   else{
+      cerr<<"Fetching seq name "<<seqname<< " failed!"<<endl;
+      exit(0);
+   }
 }
