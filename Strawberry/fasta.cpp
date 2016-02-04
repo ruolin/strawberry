@@ -132,7 +132,6 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    int line_endlen = line_blen - line_len;
    off_t orig_start = _my_record._fpos;
    uint seq_len = _my_record._seq_len;
-
    if(seq_len == 0){
       LOG_ERR("Empty or zero-length fasta record ", _my_record._seq_name);
       exit(1);

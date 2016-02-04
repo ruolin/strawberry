@@ -45,7 +45,7 @@ public:
    void add_read_mass(float mass);
 
    map<int, double> _bin_weight_map; // iso -> bin_weight
-   map<int, vector<pair<int,float>>> _iso_2_frag_lens;
+   map<int, vector<pair<int,float>>> _iso_2_frag_lens; // iso -> (frag_len, mass)
    ExonBin(set<pair<uint,uint>> coordinates);
    uint left() const;
    uint right() const;
@@ -65,7 +65,7 @@ public:
    bool add_frag(const Contig& fg);
    int num_exons() const;
    int left_exon_len() const;
-   double GC_content() const;
+   double bin_gc_content(const shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const;
    double avg_frag_len() const;
    RefID ref_id() const;
 };
@@ -121,7 +121,8 @@ public:
                      bool with_bias_correction,
                      shared_ptr<FaSeqGetter> & fa_getter);
    void calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
-                            shared_ptr<FaSeqGetter> &fa_getter);
+                            shared_ptr<FaSeqGetter> &fa_getter,
+                            vector<vector<double>> &bias);
 };
 
 

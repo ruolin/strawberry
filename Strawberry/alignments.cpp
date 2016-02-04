@@ -1110,7 +1110,7 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    est.theory_bin_weight(iso_2_bins_map, iso_2_len_map, isoforms, exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
    bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
-                                          iso_2_len_map, isoforms, true, _fasta_getter);
+                                          iso_2_len_map, isoforms, BIAS_CORRECTION, _fasta_getter);
    if(success){
       for(auto & iso: isoforms){
          iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
@@ -1130,9 +1130,7 @@ void Sample::inspectSample(FILE *plogfile)
       return;
    }
 
-   RefID current_ref_id = last_cluster->ref_id();
-   if(BIAS_CORRECTION)
-      load_chrom_fasta(current_ref_id);
+   _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
 
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
@@ -1153,10 +1151,8 @@ void Sample::inspectSample(FILE *plogfile)
          last_cluster = move(cur_cluster);
          continue;
       }
-      if(current_ref_id != last_cluster->ref_id()){
-         current_ref_id = last_cluster->ref_id();
-         if(BIAS_CORRECTION)
-            load_chrom_fasta(current_ref_id);
+      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
+         _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, NULL, NULL);
@@ -1193,7 +1189,10 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
       return;
    }
    _is_inspecting = false;
-   _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
+
+    RefID current_ref_id = last_cluster->ref_id();
+   if(BIAS_CORRECTION)
+      load_chrom_fasta(current_ref_id);
 
    while(true){
       unique_ptr<HitCluster> cur_cluster (new HitCluster());
@@ -1221,9 +1220,13 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
          last_cluster = move(cur_cluster);
          continue;
       }
-      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
-         _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
+
+      if(current_ref_id != last_cluster->ref_id()){
+         current_ref_id = last_cluster->ref_id();
+         if(BIAS_CORRECTION)
+            load_chrom_fasta(current_ref_id);
       }
+
       last_cluster->_id = _num_cluster;
       finalizeAndAssemble(*last_cluster, pfile, plogfile);
       fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());

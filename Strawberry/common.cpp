@@ -176,6 +176,37 @@ void reverseString(char str[], int length)
     }
 }
 
+double gc_content(const std::string& str){
+   int gcCount = 0;
+   int totalBaseCount = 0;
+   for(auto pos = str.cbegin(); pos !=str.cend(); ++pos){
+      switch(*pos)
+      {
+         case 'A' :
+            ++totalBaseCount;
+            break;
+         case 'C' :
+            ++totalBaseCount;
+            ++gcCount;
+            break;
+         case 'G' :
+            ++totalBaseCount;
+            ++gcCount;
+            break;
+         case 'T' :
+            ++totalBaseCount;
+            break;
+         default:
+            break;
+      }
+   }
+   if(totalBaseCount == 0){
+      std::cerr<<"Errors in calculating GC content. please check the reference FASTA file!"<<std::endl;
+      std::cerr<<str<<std::endl;
+      exit(0);
+   }
+   return (double) gcCount / totalBaseCount;
+}
 
 /**
  * Parse an int out of optarg and enforce that it be at least 'lower';

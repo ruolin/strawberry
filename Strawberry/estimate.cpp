@@ -223,12 +223,15 @@ void ExonBin::add_read_mass(float mass)
 bool ExonBin::add_frag(const Contig& fg)
 {
    auto ret = _frags.insert(fg);
-#ifdef DEBUG
+//#ifdef DEBUG
 //   if(ret.second == false){
 //      cout<<(*ret.first).left()<<" has existed"<<endl;
-//      cout<<fg.left()<<" want to be added"<<endl;
+//
 //   }
-#endif
+//   if(ret.second == true){
+//      cout<<fg.left()<<" has been added"<<endl;
+//   }
+//#endif
    return true;
 }
 
@@ -253,24 +256,56 @@ int ExonBin::bin_len() const
 {
    int bin_len = 0;
    for(auto c = _coords.cbegin(); c != _coords.cend(); ++c){
-      bin_len = c->second - c->first;
+      bin_len += c->second - c->first +1;
    }
    return bin_len;
 }
 
-double ExonBin::GC_content() const
+double ExonBin::bin_gc_content(const shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const
 {
+   int start = 0;
+   int len = 0;
+   if(num_exons() == 1){
+      start = _coords.cbegin()->first;
+      len = bin_len();
+      return gc_content( fa_getter->fetchSeq(start, len));
+
+   }
+   else if(num_exons() == 2){
+      double total_gc = 0.0;
+      for(auto it = _coords.cbegin(); it != _coords.cend(); ++it){
+         start = max(it->first, it->second - readlen + 1);
+         len = it->second  - start +1;
+         total_gc += gc_content( fa_getter->fetchSeq(start, len));
+      }
+      return total_gc/2;
+   }
+   else{
+      vector<double> gc_ratios;
+      for(auto it = _coords.cbegin(); it != _coords.cend(); ++it){
+         if( *it == *_coords.cbegin() || *it == *_coords.crbegin()) continue;
+         start = it->first;
+         len += it->second - it->first +1;
+         gc_ratios.push_back( gc_content( fa_getter->fetchSeq(start, len))  );
+      }
+      auto it = max_element(gc_ratios.begin(), gc_ratios.end());
+      return *it;
+   }
 
 }
 
 double ExonBin::avg_frag_len() const
 {
-   assert(_frags.empty() == false);
-   int sum = 0;
-   for(auto it = _frags.cbegin(); it != _frags.cend(); ++it){
-      sum += it->exonic_length();
+   assert(_iso_2_frag_lens.empty() == false);
+   float total_mass = 0;
+   double total_len = 0;
+   for(auto const &by_iso : _iso_2_frag_lens){
+      for(auto const &f: by_iso.second){
+         total_len += f.first * f.second;
+         total_mass += f.second;
+      }
    }
-   return (double) sum / _frags.size();
+   return total_len / total_mass;
 }
 
 RefID ExonBin::ref_id() const
@@ -648,12 +683,24 @@ void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_
 }
 
 void Estimation::calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
-                                     shared_ptr<FaSeqGetter> &fa_getter){
+                                     shared_ptr<FaSeqGetter> &fa_getter,
+                                     vector<vector<double>> &bias){
    for(auto it = exon_bin_map.begin(); it != exon_bin_map.end(); ++it){
+//#ifdef DEBUG
+//      for(auto e: it->first){
+//         cout<<"exon bin "<<e.first<<"="<<e.second<<endl;
+//      }
+//#endif
       ExonBin& eb = it->second;
-      cout<<eb.ref_id()<<endl;
-      cout<<eb.avg_frag_len()<<endl;
-      cout<<fa_getter->fetchSeq(eb.left(),eb.right()-eb.left()+1)<<endl;
+      vector<double> b;
+      b.reserve(3);
+      b.push_back( eb.bin_len());
+      b.push_back( eb.avg_frag_len());
+      b.push_back( eb.bin_gc_content(fa_getter, _read_len));
+//      for(auto c:it->first){
+//         cout<<"exon bin: " <<c.first<<"-"<<c.second<<endl;
+//      }
+      bias.push_back(b);
    }
 }
 
@@ -741,7 +788,7 @@ void Estimation::empirical_bin_weight( const map<int, set<set<pair<uint,uint>>>>
          iso_weight += weight;
       }
       iso_weight_factor_map[it->first] = iso_weight;
-      cout<<"bias iso "<<iso_weight<<endl;
+      //cout<<"bias iso "<<iso_weight<<endl;
    }
 
    for(auto it = exon_bin_map.begin(); it != exon_bin_map.end(); ++it){
@@ -751,9 +798,9 @@ void Estimation::empirical_bin_weight( const map<int, set<set<pair<uint,uint>>>>
    }
 
    for(auto & il: iso_2_len_map){
-#ifdef DEBUG
-            cout<<"isoform length for "<<il.first<<": "<<il.second<<endl;
-#endif
+//#ifdef DEBUG
+//            cout<<"isoform length for "<<il.first<<": "<<il.second<<endl;
+//#endif
    }
 
 }
@@ -792,13 +839,14 @@ bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_b
    bool success;
    EmSolver em;
    if(with_bias_correction){
-      calculate_bin_bias(exon_bin_map, fa_getter);
-      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> X;
-      X.setRandom(nrow, 3);
-      X = X+Eigen::MatrixXd::Ones(nrow,3);
-      vector<vector<double>> bias(nrow, vector<double>(3,0.0));
-      for(int i=0; i< nrow; ++i)
-         for(int j =0; j< 3; ++j) bias[i][j] = X(i,j);
+      vector<vector<double>> bias;
+      calculate_bin_bias(exon_bin_map, fa_getter, bias);
+//      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> X;
+//      X.setRandom(nrow, 3);
+//      X = X+Eigen::MatrixXd::Ones(nrow,3);
+//      vector<vector<double>> bias(nrow, vector<double>(3,0.0));
+//      for(int i=0; i< nrow; ++i)
+//         for(int j =0; j< 3; ++j) bias[i][j] = X(i,j);
 
       success = em.init(niso, n, alpha, bias);
       if(success) success = em.run();
