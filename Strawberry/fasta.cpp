@@ -255,7 +255,7 @@ void FaInterface::initiate(const char* fpath){
             strcat(fai_name, ".fai");
             if(strlen(fai_name) > 199) {
                cerr<<"file name is too long "<<fai_name<<endl;
-               exit(1);
+               exit(0);
             }
             // if index file exists
             if( fileExists(fai_name) ==2 ) {
@@ -273,7 +273,34 @@ void FaInterface::initiate(const char* fpath){
                }//end for loop
             }
             else{
-               cerr<<"Error: fasta file "<<fa_file_name<<" lack index file!"<<endl;
+               cerr<<"Warning: fasta file "<<fa_file_name<<" lack index file!"<<endl;
+               if(!system(NULL)){
+                  cerr<<"processor is not available"<<endl;
+                  exit(0);
+               }
+               const char* samtools = "samtools faidx ";
+               char* command = (char*) malloc(1 + strlen(samtools) + fa_file_name.size());
+               strcpy(command, samtools);
+               strcat(command, fa_file_name.c_str());
+               cerr<<"Now using samtools to build fasta index file"<<endl;
+               system(command);
+
+               if(fileExists(fai_name) !=2){
+                  cerr<<"Unable to call samtools. Please check you have completely install samtools!"<<endl;
+               }
+
+               ret = _fa_indexes.insert(make_pair(fa_file_name, unique_ptr<FaIndex>(new FaIndex(fa_file_name.c_str(), fai_name) ) )  );
+               assert(ret.second);
+               // this for loop initialize _seqname_2_fafile object
+               unique_ptr<FaIndex> &faidx_ptr = ret.first->second;
+               const string &fasta_file_name  = ret.first->first;
+               for(auto record = faidx_ptr->_records.begin(); record != faidx_ptr->_records.end(); ++record){
+                  pair<unordered_map<string, string>::iterator, bool> ret_it;
+                  ret_it = _seqname_2_fafile.insert(make_pair(record->first, fasta_file_name));
+                  if(!ret_it.second){
+                     LOG_ERR("Please checking fasta file ", fasta_file_name,  "for possible duplicated sequence names" );
+                  }
+               }//end for loop
             }
          }
       }
@@ -291,7 +318,7 @@ void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){
    auto it_fa_file_name = _seqname_2_fafile.find(seqname);
    if(it_fa_file_name == _seqname_2_fafile.end()){
       cerr<<"Reference sequence name "<<seqname<<" cannot be found in fasta file. Please check fasta file header line."<<endl;
-      cerr<<_seqname_2_fafile.begin()->first<<endl;
+      //cerr<<_seqname_2_fafile.begin()->first<<endl;
       exit(0);
    }
    string fa_file_name = it_fa_file_name->second;

@@ -185,7 +185,14 @@ double gc_content(const std::string& str){
          case 'A' :
             ++totalBaseCount;
             break;
+         case 'a':
+            ++totalBaseCount;
+            break;
          case 'C' :
+            ++totalBaseCount;
+            ++gcCount;
+            break;
+         case 'c':
             ++totalBaseCount;
             ++gcCount;
             break;
@@ -193,7 +200,14 @@ double gc_content(const std::string& str){
             ++totalBaseCount;
             ++gcCount;
             break;
+         case 'g' :
+            ++totalBaseCount;
+            ++gcCount;
+            break;
          case 'T' :
+            ++totalBaseCount;
+            break;
+         case 't' :
             ++totalBaseCount;
             break;
          default:
