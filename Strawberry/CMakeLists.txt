@@ -15,11 +15,76 @@ set(CPACK_PACKAGE_NAME
 set(CPACK_SOURCE_PACKAGE_FILE_NAME
   "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}-Source")
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+#set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+MESSAGE( STATUS "CMAKE_MODULE_DIR:         " ${CMAKE_MODULE_PATH} )
+set(CMAKE_CXX+FLAS "-pthread -funroll-loops -fPIC -fmoit-frame-pointer -0fast -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
+if (APPLE)
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -undefined dynamic_lookup")
+    set (LIBSALMON_LINKER_FLAGS "-all_load")
+    set(SHARED_LIB_EXTENSION "dylib")
+else()
+    # We're in sane linux world
+   set (SHARED_LIB_EXTENSION "so")
+   set (LIBSALMON_LINKER_FLAGS "")
+endif()
+
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
+    execute_process(
+        COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
+    # If we're on OSX
+    if (APPLE AND NOT (GCC_VERSION VERSION_GREATER 4.8.2 OR GCC_VERSION VERSION_EQUAL 4.8.2))
+        message(FATAL_ERROR "When building under OSX, ${PROJECT_NAME} requires "
+                            "g++ >= 4.8.2")
+    elseif (NOT (GCC_VERSION VERSION_GREATER 4.7 OR GCC_VERSION VERSION_EQUAL 4.7))
+        message(FATAL_ERROR "${PROJECT_NAME} requires g++ 4.7 or greater.")
+    endif ()
+
+    set (GCC TRUE)
+
+    # Put complete static linking on hold for the time-being
+    # If we're not on OSX, make an attempt to compile everything statically
+    #if (NOT APPLE)
+    #set (CMAKE_CXX_FLAGS "-static ${CMAKE_CXX_FLAGS}")
+    #set (CMAKE_EXE_LINK_FLAGS "-static")
+    set (PTHREAD_LIB "pthread")
+    #endif()
+
+    # If we're on Linux (i.e. not OSX) and we're using
+    # gcc, then set the -static-libstdc++ flag
+    if (NOT APPLE)
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
+    endif()
+
+    set (WARNING_IGNORE_FLAGS "${WARNING_IGNORE_FLAGS} -Wno-unused-local-typedefs")
+else()
+	 message(FATAL_ERROR "Please install g++.")
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARNING_IGNORE_FLAGS}")
+
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+    message ("Making Debug build")
+    set (CMAKE_CXX_FLAGS_DEBUG "-g ${CMAKE_CXX_FLAGS}")
+elseif (CMAKE_BUILD_TYPE MATCHES Release)
+    message ("Making Release build")
+    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS}")
+else ()
+    message ("Making Default build type")
+endif ()
+
+##
+# Record this top-level path
+##
+set (GAT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+
+# Have CMake tell us what it's doing
+set (CMAKE_VERBOSE_MAKEFILE true)
 
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
 CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
+
+
 if(COMPILER_SUPPORTS_CXX11)
    add_compile_options(-Wall -g -O3 -DDEBUG -std=c++11)
 elseif(COMPILER_SUPPORTS_CXX0X)
@@ -35,6 +100,10 @@ if ( COMMAND cmake_policy )
 
 endif()
 
+find_package (ZLIB)
+if (NOT ZLIB_FOUND)
+	message (FATAL_ERROR "zlib must be installed before configuration & building can proceed")
+endif()
 
 # include for local directory
 
@@ -46,17 +115,34 @@ endif()
 
 #
 
-set(BAM_INCLUDE /usr/local/include/bam)
-link_directories(/usr/local/lib)
-include_directories(include )
-add_library(strawlib common.cpp fasta.cpp contig.cpp read.cpp gff.cpp logger.cpp)
-add_library(estimate.o OBJECT estimate.cpp include/assembly.h)
-target_include_directories(estimate.o PRIVATE)
-add_library(alignments.o OBJECT alignments.cpp include/alignments.h)
-target_include_directories(alignments.o PRIVATE)
-add_library(assembly.o OBJECT assembly.cpp include/assembly.h include/common.h)
-target_include_directories(assembly.o PRIVATE)
+#set(BAM_INCLUDE /usr/local/include/bam)
+find_library(BAM_LIBRARY 
+    NAMES libbam bam bamlib
+	HINTS
+		${SAMTOOLS_ROOT} ENV SAMTOOLS_ROOT
+	PATHS
+		/usr/local/lib
+)
 
-add_executable(Strawberry Strawberry.cpp  $<TARGET_OBJECTS:alignments.o> $<TARGET_OBJECTS:assembly.o> $<TARGET_OBJECTS:estimate.o>) 
-target_link_libraries(Strawberry strawlib bam z pthread )
+if( BAM_LIBRARY)
+	message("samtools library is found in ${BAM_LIBRARY}")
+else()
+	message(FATAL_ERROR "samtools library not found!")
+endif()
+
+# Recurse into Strawberry source directory
+add_subdirectory ( src )
+
+#link_directories(/usr/local/lib)
+#include_directories(include)
+#add_library(strawlib common.cpp fasta.cpp contig.cpp read.cpp gff.cpp logger.cpp)
+#add_library(estimate.o OBJECT estimate.cpp include/assembly.h)
+#target_include_directories(estimate.o PRIVATE)
+#add_library(alignments.o OBJECT alignments.cpp include/alignments.h)
+#target_include_directories(alignments.o PRIVATE)
+#add_library(assembly.o OBJECT assembly.cpp include/assembly.h include/common.h)
+#target_include_directories(assembly.o PRIVATE)
+
+#add_executable(Strawberry Strawberry.cpp  $<TARGET_OBJECTS:alignments.o> $<TARGET_OBJECTS:assembly.o> $<TARGET_OBJECTS:estimate.o>) 
+#target_link_libraries(Strawberry strawlib bam z pthread )
 
