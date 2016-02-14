@@ -22,6 +22,7 @@ assembly.cpp
 Strawberry.cpp
 )
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 #add_library(strawlib common.cpp fasta.cpp contig.cpp read.cpp gff.cpp logger.cpp)
 #add_library(estimate.o OBJECT estimate.cpp assembly.h)
 #target_include_directories(estimate.o PRIVATE)
@@ -29,6 +30,11 @@ Strawberry.cpp
 #target_include_directories(alignments.o PRIVATE)
 #add_library(assembly.o OBJECT assembly.cpp assembly.h common.h)
 #target_include_directories(assembly.o PRIVATE) 
+
 add_executable(strawberry ${STRAWBERRY_MAIN_SRCS})
+
 target_link_libraries(strawberry bam z pthread )
 
+install(TARGETS strawberry 
+			    RUNTIME DESTINATION bin
+)

@@ -132,7 +132,7 @@ endif()
 
 # Recurse into Strawberry source directory
 add_subdirectory ( src )
-
+include (CPack)
 #link_directories(/usr/local/lib)
 #include_directories(include)
 #add_library(strawlib common.cpp fasta.cpp contig.cpp read.cpp gff.cpp logger.cpp)
