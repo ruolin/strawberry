@@ -9,7 +9,7 @@ Strawberry consists of two module: assembly module and quantifcation module. The
 
 Prerequisites
 ===================
-* A C++11 conformant compiler (currently tested with GCC>=4.7
+* A C++11 conformant compiler (currently tested with GCC>=4.7)
 * Strawberry uses the [CMake](https://cmake.org/)(2.8.12+) to build system to check, fetch and install dependencies, and to compile and install Strawberry. Make sure the Cmake version is at least 2.8.12. 
 * [Samtools](http://samtools.sourceforge.net/). Strawberry uses an older version of Samtools(v0.1.19) as a dependent library.   
   * If your system installed a different version (currently Samtools split into 3 projects now and has been updated to v1.3) or your system does not have Samtools installed at all, please let Strawberry automatically download and install Samtools for you. You DONOT need to do anything
