@@ -9,6 +9,7 @@
 #define STRAWB_ALIGNMENTS_H_
 #include <list>
 #include <map>
+#include <climits>
 #include "read.h"
 #include "contig.h"
 #include "gff.h"

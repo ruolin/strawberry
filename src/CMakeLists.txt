@@ -1,7 +1,10 @@
-link_directories(
-  /usr/local/lib
-  ${BAM_LIBRARY}
-)
+#link_directories(
+  #/usr/local/lib
+  #${BAM_LIBRARY}
+#)
+
+add_library(bam STATIC IMPORTED)
+set_property(TARGET bam PROPERTY IMPORTED_LOCATION ${BAM_LIBRARY})
 
 include_directories(
 
@@ -33,7 +36,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 #target_include_directories(assembly.o PRIVATE) 
 
 add_executable(strawberry ${STRAWBERRY_MAIN_SRCS})
-
+#target_link_libraries(bam z)
 target_link_libraries(strawberry bam z pthread )
 
 install(TARGETS strawberry 
