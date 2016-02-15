@@ -109,22 +109,45 @@ endif()
 # Creating entries for target: Strawberry
 # ############################
 
-#
+include(ExternalProject)
+
 
 #set(BAM_INCLUDE /usr/local/include/bam)
+
+
 find_library(BAM_LIBRARY 
     NAMES libbam bam bamlib
 	HINTS
 		${SAMTOOLS_ROOT} ENV SAMTOOLS_ROOT
 	PATHS
-		/usr/local/lib
+		#/usr/local/lib
+        ${CMAKE_CURRENT_SOURCE_DIR}/exteral/samtools-0.1.19
 )
 
+message("${SAMTOOLS_ROOT}")
+
 if( BAM_LIBRARY)
-	message("samtools library is found in ${BAM_LIBRARY}")
+	message("-- Found samtools: ${BAM_LIBRARY}")
 else()
-	message(FATAL_ERROR "samtools library not found!")
+	message("-- samtools library not found! ")
+    message("-- will attempt to fetch and build samtools on version 0.1.19")
+ExternalProject_Add(samtools
+  DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
+  URL http://iweb.dl.sourceforge.net/project/samtools/samtools/0.1.19/samtools-0.1.19.tar.bz2
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19
+# INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/install
+# PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19
+  BUILD_IN_SOURCE TRUE
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND make CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+  INSTALL_COMMAND ""
+)
+
+set(BAM_LIBRARY ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19/libbam.a)
 endif()
+
+
+
 
 # Recurse into Strawberry source directory
 add_subdirectory ( src )
