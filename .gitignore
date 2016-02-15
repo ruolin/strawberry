@@ -1,6 +1,5 @@
 #Build dir
 Build/
-Default/
 
 # Compiled Object files
 *.slo
