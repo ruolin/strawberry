@@ -124,7 +124,6 @@ find_library(BAM_LIBRARY
         ${CMAKE_CURRENT_SOURCE_DIR}/exteral/samtools-0.1.19
 )
 
-message("${SAMTOOLS_ROOT}")
 
 if( BAM_LIBRARY)
 	message("-- Found samtools: ${BAM_LIBRARY}")
