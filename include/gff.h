@@ -112,10 +112,12 @@ public:
    GffLine& operator = (GffLine &&rhs) = default;
    const string parent() const
    {
-      if(_parents.size() != 1)
-         LOG_WARN("No parent or multiple parents for a mRNA object in: %s\n", _dupline);
-      else
-         return _parents[0];
+      if(_parents.size() != 1){
+         cerr<<"No parent gene or multiple parents for a mRNA object in "<< _dupline<<endl;;
+         exit(0);
+      }
+
+      return _parents[0];
    }
    GffLine();
    ~GffLine();

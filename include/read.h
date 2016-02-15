@@ -7,16 +7,15 @@
 #ifndef STRAWB_READ_H_
 #define STRAWB_READ_H_
 #include<string>
-#include<bam/sam.h>
 #include<vector>
 #include<memory>
 #include<string>
 #include<unordered_map>
 #include<cassert>
 #include "common.h"
-#ifdef DEBUG
-   #include <iostream>
-#endif
+#include <iostream>
+#include "sam/sam.h"
+
 using namespace std;
 /*
  * COMMON PARAMETERS
@@ -232,6 +231,7 @@ public:
       _left_read = rhs._left_read;
       _right_read = rhs._right_read;
       _collapse_mass = rhs._collapse_mass;
+      return *this;
    }
    const ReadHit& left_read_obj() const;
    void set_left_read(ReadHitPtr lr);

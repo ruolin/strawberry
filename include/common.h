@@ -226,7 +226,7 @@ enum class Strand_t: char{
    StrandBoth
 };
 
-std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
+//std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
 
 class GenomicInterval {
 private:
