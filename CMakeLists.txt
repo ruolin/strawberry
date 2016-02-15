@@ -16,18 +16,15 @@ set(CPACK_SOURCE_PACKAGE_FILE_NAME
   "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}-Source")
 
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
-MESSAGE( STATUS "CMAKE_MODULE_DIR:         " ${CMAKE_MODULE_PATH} )
-set(CMAKE_CXX+FLAS "-pthread -funroll-loops -fPIC -fmoit-frame-pointer -0fast -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
+#MESSAGE( STATUS "CMAKE_MODULE_DIR:         " ${CMAKE_MODULE_PATH} )
+set(CMAKE_CXX_FLAGS "-pthread -Ofast -funroll-loops -fPIC -fomit-frame-pointer -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
 if (APPLE)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -undefined dynamic_lookup")
-    set (LIBSALMON_LINKER_FLAGS "-all_load")
-    set(SHARED_LIB_EXTENSION "dylib")
 else()
     # We're in sane linux world
-   set (SHARED_LIB_EXTENSION "so")
-   set (LIBSALMON_LINKER_FLAGS "")
 endif()
 
+message("Using g++ complier: " ${CMAKE_CXX_COMPILER})
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     execute_process(
         COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE GCC_VERSION)
@@ -43,17 +40,13 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 
     # Put complete static linking on hold for the time-being
     # If we're not on OSX, make an attempt to compile everything statically
-    #if (NOT APPLE)
-    #set (CMAKE_CXX_FLAGS "-static ${CMAKE_CXX_FLAGS}")
-    #set (CMAKE_EXE_LINK_FLAGS "-static")
     set (PTHREAD_LIB "pthread")
-    #endif()
 
     # If we're on Linux (i.e. not OSX) and we're using
     # gcc, then set the -static-libstdc++ flag
-    if (NOT APPLE)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-    endif()
+    #if (NOT APPLE)
+        #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
+    #endif()
 
     set (WARNING_IGNORE_FLAGS "${WARNING_IGNORE_FLAGS} -Wno-unused-local-typedefs")
 else()
@@ -61,16 +54,6 @@ else()
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${WARNING_IGNORE_FLAGS}")
-
-if (CMAKE_BUILD_TYPE MATCHES Debug)
-    message ("Making Debug build")
-    set (CMAKE_CXX_FLAGS_DEBUG "-g ${CMAKE_CXX_FLAGS}")
-elseif (CMAKE_BUILD_TYPE MATCHES Release)
-    message ("Making Release build")
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS}")
-else ()
-    message ("Making Default build type")
-endif ()
 
 ##
 # Record this top-level path
@@ -86,12 +69,25 @@ CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 
 
 if(COMPILER_SUPPORTS_CXX11)
-   add_compile_options(-Wall -g -O3 -DDEBUG -std=c++11)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 elseif(COMPILER_SUPPORTS_CXX0X)
-   add_complie_options(-Wall -g -DDEBUG -std=c++0x)
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 else()
-        message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+        message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
 endif()
+
+
+
+if (CMAKE_BUILD_TYPE MATCHES Debug)
+    message ("Making Debug build")
+    set (CMAKE_CXX_FLAGS_DEBUG "-g ${CMAKE_CXX_FLAGS}")
+elseif (CMAKE_BUILD_TYPE MATCHES Release)
+    message ("Making Release build")
+    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS}")
+else ()
+    message ("Making Default build type")
+endif ()
+#message("C++ complier options: ${CMAKE_CXX_FLAGS_RELEASE}")
 
 set( CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true )
 if ( COMMAND cmake_policy )

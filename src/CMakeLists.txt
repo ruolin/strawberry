@@ -4,9 +4,10 @@ link_directories(
 )
 
 include_directories(
+
+  ${PROJECT_SOURCE_DIR}/include/eigen
+  ${PROJECT_SOURCE_DIR}/include/sam
   ${PROJECT_SOURCE_DIR}/include
- # ${PROJECT_SOURCE_DIR}/include/eigen
- # ${PROJECT_SOURCE_DIR}/include/lemon
 )
 
 set( STRAWBERRY_MAIN_SRCS

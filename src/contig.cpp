@@ -399,6 +399,7 @@ uint Contig::gap_left() const
    for(auto const & gf: _genomic_feats){
       if(gf._match_op._code == S_GAP) return gf.left();
    }
+   return 0;
 }
 
 uint Contig::gap_right() const
@@ -407,6 +408,7 @@ uint Contig::gap_right() const
    for(auto const & gf: _genomic_feats){
       if(gf._match_op._code == S_GAP) return gf.right();
    }
+   return 0;
 }
 
 RefID Contig::ref_id() const

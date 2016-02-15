@@ -391,6 +391,7 @@ char* SlineReader::getLine(FILE* stream, off_t& f_pos)
       ++lcount;
       return buf;
    }
+   return NULL;
 }
 
 GenomicInterval::GenomicInterval(int chr, uint l, uint r, Strand_t o) :
@@ -578,16 +579,16 @@ FLD_source EmpDist::fld_source() const
 {
    return _fld_source;
 }
-
-std::ostream& operator<<(std::ostream&os, const Strand_t& obj){
-   switch(obj){
-   case Strand_t::StrandPlus:
-      os<<"+";
-      break;
-   case Strand_t::StrandMinus:
-      os<<"-";
-      break;
-   default:
-      os<<".";
-   };
-}
+//
+//std::ostream& operator<<(std::ostream&os, const Strand_t& obj){
+//   switch(obj){
+//   case Strand_t::StrandPlus:
+//      os<<"+";
+//      break;
+//   case Strand_t::StrandMinus:
+//      os<<"-";
+//      break;
+//   default:
+//      os<<".";
+//   };
+//}

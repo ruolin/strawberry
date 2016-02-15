@@ -20,9 +20,7 @@
 #include "assembly.h"
 #include "contig.h"
 #include <iterator>
-#ifdef DEBUG
 #include <iostream>
-#endif
 #include <climits>
 //#include <lemon/smart_graph.h>
 #include <lemon/lgf_reader.h>
