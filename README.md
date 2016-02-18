@@ -1,10 +1,10 @@
 What is Strawberry?
 ==================
-Strawberry is a C++ program for fast yet accurate ab initio transcript reconstruction and quantification from RNA-seq data. It is written in C++11, and is available as open source software. It leverages the speed and the accuracy in such a way that it finishes assembling and quantifing 10 million aligned artifical reads within 2 minutes on a 16GB RAM and core-i7 desktop while achieving over 90% correlation with the ground truth. This accuracy is very close to a very differnt yet state-of-art known transcript quantification approach, RSEM. 
+Strawberry is a C++ program for fast yet accurate ab initio transcript reconstruction and quantification from RNA-seq data. It is written in C++11, and is available as open source software. It leverages the speed and the accuracy in such a way that it finishes assembling and quantifying 10 million aligned simulated reads within 2 minutes on a 16GB RAM and core-i7 desktop while achieving over 90% correlation with the ground truth. This accuracy is very close to a very different yet state-of-art known transcript quantification approach, RSEM. 
 
-Strawberry is a genome-guided transcript-level assembler and quantification tool. It runs on aligned RNA-seq data in BAM format. Strawberry is specially designed for paired-end data based on our belief that it is advantageous to use paired-end RNA-seq over single-end data. It empirically infers the insert length distribution from the reads that are mapped uniquely and concordantly. For those halfmapped reads, it simulates their other end based on the mapped orientation and the insert length distribution. 
+Strawberry is a genome-guided transcript-level assembler and quantification tool. It runs on aligned RNA-seq data in BAM format. The assembly and quantification are an inseparable whole in a sense that every eukaryotes RNA-seq experiment is likely to generate unknown transcripts. Strawberry's assembler takes advantages of the latest genome assembly and stat-of-art splice-awareness aligners and are thereby more accurate then the de novo assemblers. This program is specially designed for paired-end data based on our belief that it is advantageous to use paired-end RNA-seq over single-end data. It empirically infers the insert length distribution from the reads that are mapped uniquely and concordantly. For those half-mapped reads, it generates the other ends based on the mapped orientation and the insert length distribution. 
 
-Strawberry consists of two module: assembly module and quantifcation module. The two modules work in a sequential manner. The assembly module parses aligned reads into splicing graphs and it uses network flow algorithms to selected the most possible transcripts. The quantification module uses a statistcal model, more accuratly a Poisson generalized linear model with identity link, to assign ambiguous reads to possible transcripts. Strawberry simultaneous estimates the transcript abundances and corrects for sequencing bias through the EM steps. 
+Strawberry consists of two module: assembly module and quantification module. The two modules work in a sequential manner. The assembly module parses aligned reads into splicing graphs and it uses network flow algorithms to selected the most possible transcripts. The quantification module uses a statistical model, more accurately a Poisson generalized linear model with identity link, to assign ambiguous reads to possible transcripts. Strawberry simultaneous estimates the transcript abundances and corrects for sequencing bias through the EM steps. 
 <hr />
 
 Prerequisites
@@ -39,11 +39,11 @@ You can add this directory to your PATH variable to complete the installation.
 Running Strawberry
 ==================
 
-Running Strawberry is fairly easy. You need to have an alignemnt file in BAM format. This step can be done using any splice-awareness aligner, e.g. Tophat, GSNAP, STAR. The BAM file has to be sorted according to the genomic positions. If you use Tophat, the default output is already sorted. For other software, you might have to sort their outputs before running Strawberry. This can be done using Samtools command `samtools sort`
+Running Strawberry is fairly easy. You need to have an alignment file in BAM format. This step can be done using any splice-awareness aligner, e.g. Tophat, GSNAP, STAR. The BAM file has to be sorted according to the genomic positions. If you use Tophat, the default output is already sorted. For other software, you might have to sort their outputs before running Strawberry. This can be done using Samtools command `samtools sort`
 
 type  `strawberry accepted_hits.bam` to run the program on the default parameters. 
 
-For the choice of parameters and their meanings type `strawberry` without any argument for help informations. 
+For the choice of parameters and their meanings type `strawberry` without any argument for help information. 
 
 
 
