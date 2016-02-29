@@ -49,6 +49,8 @@ extern int kMaxReadNum4FD;
 //extern bool singleExon4FD;
 extern bool singleIso4FD;
 
+extern int num_threads;
+
 extern double kInsertSizeMean;
 extern double kInsertSizeSD;
 extern bool infer_the_other_end;
@@ -65,6 +67,7 @@ extern float kIntronEdgeWeight;
 extern bool use_unique_hits;
 extern bool use_paired_hits;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
+#define ENABLE_THREADS 1
 
 double standard_normal_cdf(double x);
 

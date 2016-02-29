@@ -21,13 +21,27 @@
 #include <iterator>
 #include <random>
 #include <math.h>
-
+#include <thread>
+#include <mutex>
+#include <atomic>
+#include <chrono>
 #include "alignments.h"
 #include "fasta.h"
 #include "assembly.h"
 #include "estimate.h"
 using namespace std;
 
+
+#if ENABLE_THREADS
+mutex out_file_lock;
+mutex thread_pool_lock;
+atomic<int> curr_thread_num = {0};
+
+void decr_pool_count()
+{
+   --curr_thread_num;
+}
+#endif
 /*
  * Global utility function begin:
  */
@@ -437,7 +451,11 @@ void HitCluster::clearOpenMates()
 
 int HitCluster::collapseHits()
 {
-   assert(_uniq_hits.empty());
+   if(!_uniq_hits.empty()){
+      cout<<this->left()<<"-"<<this->right()<<endl;
+      cout<<_uniq_hits.size()<<endl;
+      assert(false);
+   }
    if(_hits.empty())
       return 0;
    sort(_hits.begin(), _hits.end());
@@ -917,7 +935,7 @@ void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
 }
 
 
-void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfile){
+void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, HitCluster & cluster, FILE *pfile, FILE *plogfile){
    /*
     * Isoform id is integer from 1. The index
     * for each isoform in vector<Isoform> is id+1.
@@ -928,11 +946,20 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
 
    //enough read for calculating empirical distribution of reads.
    if(_is_inspecting &&
-      _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD)
+      _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD){
+#if ENABLE_THREADS
+      decr_pool_count();
+#endif
       return;
+   }
 
 
-   if(cluster.len() > kMaxGeneLength) return;
+   if(cluster.len() > kMaxGeneLength){
+#if ENABLE_THREADS
+      decr_pool_count();
+#endif
+      return;
+   }
    //double cutoff = cluster.size() * _hit_factory->_reads_table._read_len_abs;
    //cutoff /= (double)cluster.len();
    //if(cutoff > kMinDepth4Locus){
@@ -970,6 +997,9 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    }
 
    if(avg_dep < kMinDepth4Locus){
+#if ENABLE_THREADS
+   decr_pool_count();
+#endif
       return;
    }
 
@@ -1017,10 +1047,20 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
 
    bool stat = flow_network.createNetwork(hits, exons, intron_counter,
          constraints, node_map, cost_map, min_flow_map, path_cstrs);
-   if(!stat)return;
+   if(!stat) {
+#if ENABLE_THREADS
+   decr_pool_count();
+#endif
+      return;
+   }
 
    bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs,cost_map, min_flow_map,assembled_feats);
-   if(!stat2)return;
+   if(!stat2){
+#if ENABLE_THREADS
+   decr_pool_count();
+#endif
+      return;
+   }
    vector<Isoform> isoforms;
    vector<Contig> assembled_transcripts;
    map<set<pair<uint,uint>>, ExonBin>  exon_bin_map;
@@ -1042,6 +1082,9 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
                   _hit_factory->_reads_table._frag_dist.push_back(frag_len);
          }
       }// end if
+#if ENABLE_THREADS
+   decr_pool_count();
+#endif
       return;
    }//end if
    /* Merge transfrags if they
@@ -1112,10 +1155,20 @@ void Sample::finalizeAndAssemble(HitCluster & cluster, FILE *pfile, FILE *plogfi
    bool success = est.estimate_abundances(exon_bin_map, this->total_mapped_reads(), \
                                           iso_2_len_map, isoforms, BIAS_CORRECTION, _fasta_getter);
    if(success){
+#if ENABLE_THREADS
+      lock_guard<mutex> lock(out_file_lock);
+#endif
       for(auto & iso: isoforms){
          iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
+
       }
+      fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_real_name(cluster.ref_id()).c_str(), cluster.left(), cluster.right());
+      fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", cluster._ref_mRNAs.size());
+      fprintf(plogfile, "Number of total unique hits: %d\n\n", cluster._uniq_hits.size());
    }
+#if ENABLE_THREADS
+   decr_pool_count();
+#endif
 }
 
 void Sample::inspectSample(FILE *plogfile)
@@ -1155,14 +1208,35 @@ void Sample::inspectSample(FILE *plogfile)
          _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
       }
       last_cluster->_id = _num_cluster;
-      finalizeAndAssemble(*last_cluster, NULL, NULL);
-      _total_mapped_reads += last_cluster->collapse_mass();
+#if ENABLE_THREADS
+      while(true){
+         if(curr_thread_num < num_threads){
+            break;
+         }
+         this_thread::sleep_for(chrono::milliseconds(5));
+      }
+      ++curr_thread_num;
+      thread worker ([&] {this-> finalizeAndAssemble(ref_t, *last_cluster, NULL, NULL);});
+      //&Sample::finalizeAndAssemble, this, ref_t, *last_cluster, NULL, NULL};
+      worker.detach();
+#else
+      finalizeAndAssemble(ref_t, *last_cluster, NULL, NULL);
+#endif
+      _total_mapped_reads += last_cluster->raw_mass();
       //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
       //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
       last_cluster = move(cur_cluster);
    }
+#if ENABLE_THREADS
+   while(true){
+      if(curr_thread_num==0){
+         break;
+      }
+      this_thread::sleep_for(chrono::milliseconds(5));
+   }
+#endif
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(*last_cluster, NULL, NULL);
+   finalizeAndAssemble(ref_t, *last_cluster, NULL, NULL);
    //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
    //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
    _total_mapped_reads += (int)last_cluster->collapse_mass();
@@ -1228,11 +1302,20 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
       }
 
       last_cluster->_id = _num_cluster;
-      finalizeAndAssemble(*last_cluster, pfile, plogfile);
-      fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
-      fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
-      fprintf(plogfile, "Number of total unique hits: %d\n\n", last_cluster->_uniq_hits.size());
-#ifdef DEBUG
+#if ENABLE_THREADS
+      while(true){
+         if(curr_thread_num < num_threads){
+            break;
+         }
+         this_thread::sleep_for(chrono::milliseconds(5));
+      }
+      ++curr_thread_num;
+      thread worker ([&] {this-> finalizeAndAssemble(ref_t, *last_cluster, NULL, NULL);});
+      worker.detach();
+#else
+      finalizeAndAssemble(ref_t, *last_cluster, pfile, plogfile);
+#endif
+//#ifdef DEBUG
      //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
 //           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
 //           for(auto &h: last_cluster->_hits){
@@ -1242,15 +1325,23 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
 //                  <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
 //            cerr<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
          //}
-#endif
+//#endif
      last_cluster = move(cur_cluster);
      //if(last_cluster->ref_id() == 0 && last_cluster->left() > 6850811) exit(0);
    }
+#if ENABLE_THREADS
+   while(true){
+      if(curr_thread_num==0){
+         break;
+      }
+      this_thread::sleep_for(chrono::milliseconds(5));
+   }
+#endif
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(*last_cluster, pfile, plogfile);
-   fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
-   fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
-   fprintf(plogfile ,"Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
+   finalizeAndAssemble(ref_t, *last_cluster, pfile, plogfile);
+//   fprintf(plogfile, "Assembling locus: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+//   fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", last_cluster->_ref_mRNAs.size());
+//   fprintf(plogfile ,"Number of total unique hits: %d\n", last_cluster->_uniq_hits.size());
 }
 
 

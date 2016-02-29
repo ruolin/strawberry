@@ -47,6 +47,9 @@ static struct option long_options[] = {
       {"min-junction-splice-size",        required_argument,      0,       'j'},
       {"num-reads-4-prerun",              required_argument,      0,       'n'},
       {"allow-multiple-his",              no_argument,            0,       OPT_ALLOW_MULTIPLE_HITS},
+#if ENABLE_THREADS
+      {"num-threads",                      required_argument,      0,       'p'},
+#endif
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
 //      {"enforce-ref-model",               no_argument,            0,       'G'},
@@ -64,7 +67,11 @@ static struct option long_options[] = {
       {"infer-missing-end",               no_argument,            0,       'm'},
 };
 
+#if ENABLE_THREADS
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:c:b:vGcm";
+#else
 const char *short_options = "o:i:j:J:n:g:t:d:s:a:c:b:vGcm";
+#endif
 
 void print_help()
 {
@@ -73,6 +80,9 @@ void print_help()
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./out ]\n");
+#if ENABLE_THREADS
+   fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
+#endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
    fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     200000]\n");
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
@@ -112,6 +122,9 @@ int parse_options(int argc, char** argv)
                         break;
                case OPT_ALLOW_MULTIPLE_HITS:
                         use_unique_hits = false;
+                        break;
+               case '-p':
+                        num_threads = parseInt(optarg, 1, "-p/--num-threads must be at least 1", print_help);
                         break;
                case 'v':
                         verbose = true;

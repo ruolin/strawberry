@@ -10,6 +10,7 @@
 #include <list>
 #include <map>
 #include <climits>
+#include <atomic>
 #include "read.h"
 #include "contig.h"
 #include "gff.h"
@@ -102,7 +103,7 @@ public:
 class Sample{
    bool _is_inspecting;
    int _num_cluster = 0;
-   uint _prev_pos = 0;
+   //uint _prev_pos = 0;
    RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
    uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
    size_t _refmRNA_offset;
@@ -153,7 +154,7 @@ public:
    void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
    void procSample(FILE *f, FILE *log);
    void inspectSample(FILE *log);
-   void finalizeAndAssemble(HitCluster & cluster, FILE *f, FILE *plogfile);
+   void finalizeAndAssemble(const RefSeqTable & ref_t, HitCluster & cluster, FILE *f, FILE *plogfile);
 };
 
 

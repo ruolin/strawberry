@@ -34,6 +34,7 @@ double kMinDepth4Contig = 1;
 int kMaxCoverGap1 = 200; // cover gap due the read depth.
 int kMaxCoverGap2 = 10;
 int kMaxReadNum4FD = 500000;
+int num_threads = 1;
 //bool singleExon4FD = false;
 //int kMinExonLen4FD = 200; // if singleExon4FD is used.
 //int kMinExonCov4FD = 0;  // if singleExon4FD is used.

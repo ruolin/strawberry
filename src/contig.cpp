@@ -21,6 +21,7 @@
 
 #include <algorithm>
 #include <iostream>
+//#include <mutex>
 //#include <iterator>
 #include "contig.h"
 #include "read.h"
@@ -665,6 +666,7 @@ void Contig::print2gtf(FILE *pFile,
    strcat(gff_attr, "TPM \"");
    strcat(gff_attr, tpm_c);
    strcat(gff_attr, "\";");
+
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
          ref, "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);
 
