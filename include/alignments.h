@@ -154,7 +154,7 @@ public:
    void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
    void procSample(FILE *f, FILE *log);
    void inspectSample(FILE *log);
-   void finalizeAndAssemble(const RefSeqTable & ref_t, HitCluster & cluster, FILE *f, FILE *plogfile);
+   void finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluster> cluster, FILE *f, FILE *plogfile);
 };
 
 

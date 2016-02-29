@@ -123,7 +123,7 @@ int parse_options(int argc, char** argv)
                case OPT_ALLOW_MULTIPLE_HITS:
                         use_unique_hits = false;
                         break;
-               case '-p':
+               case 'p':
                         num_threads = parseInt(optarg, 1, "-p/--num-threads must be at least 1", print_help);
                         break;
                case 'v':
