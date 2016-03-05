@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <stdio.h>
 #include <iostream>
+#include <mutex>
+
 
 // for now this function free whole sequence and setup a
 // new _my_subseq object for FaSeqGetter. This is not an efficient way.
@@ -109,6 +111,7 @@ bool FaIndex::getRecord(const string &seqname, FaRecord &got) const{
 
 FaSeqGetter::~FaSeqGetter(){
    if(_fh != nullptr) fclose(_fh);
+   _fh = nullptr;
 }
 
 void FaSeqGetter::initiate(const string fname, const FaRecord &rec)
@@ -187,11 +190,11 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    return already_read_len;
 }
 
-char* FaSeqGetter::fetchSeq(uint start, uint len){
-   char * str = new char[len+1];
+string FaSeqGetter::fetchSeq(uint start, uint len){
+   char str[len+1];
    strncpy(str, _my_subseq._sequence+start-1, len);
    str[len] = 0;
-   return str;
+   return string(str);
 }
 
 

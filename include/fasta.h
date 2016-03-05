@@ -113,7 +113,7 @@ public:
    // Default parameters mean loading a whole sequence
    // for the first time.
    uint loadSeq(uint start = 1, uint len = 0);
-   char* fetchSeq(uint start, uint len);
+   string fetchSeq(uint start, uint len);
    ~FaSeqGetter();
    FaSeqGetter(const FaSeqGetter &other) = delete;
    FaSeqGetter& operator=(const FaSeqGetter &other) = delete;

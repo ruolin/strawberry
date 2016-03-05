@@ -125,6 +125,7 @@ int parse_options(int argc, char** argv)
                         break;
                case 'p':
                         num_threads = parseInt(optarg, 1, "-p/--num-threads must be at least 1", print_help);
+                        use_threads = true;
                         break;
                case 'v':
                         verbose = true;
@@ -237,7 +238,7 @@ int main(int argc, char** argv){
    char* bam_file = argv[optind++];
    ReadTable read_table;
    RefSeqTable ref_seq_table(true);
-   unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
+   shared_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
    hf->inspect_header();
    Sample read_sample(move(hf));
 
@@ -250,21 +251,23 @@ int main(int argc, char** argv){
       }
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
+      fclose(gff);
       greader->reverseExonOrderInMinusStrand();
+      read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
 
 
    if(ref_fasta_file != "") {
-      if(ref_gtf_filename != ""){
-         read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table, ref_fasta_file.c_str());
-      }
-      else{
+      //if(ref_gtf_filename != ""){
+         //read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
+      //}
+      //else{
          shared_ptr<FaInterface> fa_api(new FaInterface());
          fa_api->initiate(ref_fasta_file.c_str());
          shared_ptr<FaSeqGetter> fsg(new FaSeqGetter());
-         read_sample._fasta_interface = fa_api;
-         read_sample._fasta_getter = fsg;
-      }
+         read_sample._fasta_interface = move(fa_api);
+         read_sample._fasta_getter = move(fsg);
+      //}
    }
    if(verbose){
       cerr<<"Inspecting sample......"<<endl;

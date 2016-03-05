@@ -388,6 +388,7 @@ bool operator==(const Contig &lhs, const Contig & rhs)
 
 bool Contig::is_single_read() const
 {
+   if(_is_ref) return false;
    for(auto const & gf: _genomic_feats){
       if(gf._match_op._code == S_GAP) return false;
    }
@@ -535,6 +536,8 @@ bool Contig::is_compatible(const Contig &read, const Contig &isoform)
  * Looking for first overlaping exon
  */
 {
+   if(read._is_ref) return false;
+
    vector<const GenomicFeature*> exons;
    for(size_t i = 0; i<isoform._genomic_feats.size(); ++i){
       if(isoform._genomic_feats[i]._match_op._code == S_MATCH){

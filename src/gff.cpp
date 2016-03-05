@@ -206,7 +206,12 @@ GffLine::GffLine(const char* l)
          split(_parent, ",", _parents);
       }
    } // end is gff3
-
+   else{
+      cerr<<endl;
+      cerr<<"Error: Strawberry currently only accepts Gff3 format..."<<endl;
+      cerr<<"Please Convert your annotation file to Gff3 format."<<endl;
+      exit(0);
+   }
 }
 
 
@@ -445,13 +450,12 @@ bool GffReader::nextGffLine(){
    while(true){
       const char *l = nextLine();
       if (l == NULL) {
-
          return false; //end of file
       }
       int ns=0; // first nonspace position
       while (l[ns]!=0 && isspace(l[ns])) ns++;
       if(l[ns]=='#' ||len<10) continue;
-      _gfline. reset (new GffLine(l));
+      _gfline.reset (new GffLine(l));
       if(_gfline->_skip){
          continue;
       }
@@ -459,6 +463,7 @@ bool GffReader::nextGffLine(){
          LOG_WARN("Warning: malformed GFF line",_gfline->_dupline);
          continue;
       }
+//      cout<<string(l)<<endl;
       break;
    }
    return true;
@@ -529,6 +534,7 @@ void GffReader::readAll(){
 //   }
 //#endif
    gseq = nullptr;
+
 }
 
 void GffReader::reverseExonOrderInMinusStrand(){

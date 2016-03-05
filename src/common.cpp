@@ -54,6 +54,7 @@ std::string tracking_log = "/tracking.log";
 bool effective_len_norm = false;
 bool use_unique_hits = true;
 bool use_paired_hits = false;
+bool use_threads = false;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

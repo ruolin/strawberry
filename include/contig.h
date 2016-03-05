@@ -100,8 +100,8 @@ class Contig{
    double _mass = 0.0;
    SingleOrit_t _single_read_orit = SingleOrit_t::NotSingle;
 public:
-   std::vector<GenomicFeature> _genomic_feats;
    bool _is_ref;
+   std::vector<GenomicFeature> _genomic_feats;
    Contig() = default;
 
    Contig(const PairedHit& ph);

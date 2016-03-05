@@ -117,13 +117,13 @@ class Sample{
                      IntronMap &intron_doc,
                      uint smallOverhang);
 public:
-   unique_ptr<HitFactory> _hit_factory;
+   shared_ptr<HitFactory> _hit_factory;
    shared_ptr<InsertSize> _insert_size_dist =nullptr;
    shared_ptr<FaSeqGetter> _fasta_getter = nullptr;
    shared_ptr<FaInterface> _fasta_interface = nullptr;
 
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
-   Sample(unique_ptr<HitFactory> hit_fac):
+   Sample(shared_ptr<HitFactory> hit_fac):
       _refmRNA_offset(0),
       _has_load_all_refs(false),
       _hit_factory(move(hit_fac))
@@ -135,7 +135,7 @@ public:
       return _ref_mRNAs.size() > 0;
    }
    bool loadRefFasta(RefSeqTable &rt, const char *seqFile = NULL);
-   bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt, const char *seqFile);
+   bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt);
    int addRef2Cluster(HitCluster &clusterOut);
    void reset_refmRNAs();
    double next_valid_alignment(ReadHit& readin);
