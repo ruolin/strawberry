@@ -44,9 +44,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 
     # If we're on Linux (i.e. not OSX) and we're using
     # gcc, then set the -static-libstdc++ flag
-    #if (NOT APPLE)
-        #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
-    #endif()
+    if (NOT APPLE)
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
+    endif()
 
     set (WARNING_IGNORE_FLAGS "${WARNING_IGNORE_FLAGS} -Wno-unused-local-typedefs")
 else()
