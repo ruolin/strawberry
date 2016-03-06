@@ -1102,9 +1102,21 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
 
          }
       }// end if
+
 #if ENABLE_THREADS
-   if(use_threads)
+      if(use_threads){
+         out_file_lock.lock();
+      }
+#endif
+      fprintf(plogfile, "Finish inspecting locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
+      fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", cluster->_ref_mRNAs.size());
+      fprintf(plogfile, "Number of total unique hits: %d\n\n", cluster->_uniq_hits.size());
+
+#if ENABLE_THREADS
+   if(use_threads){
+      out_file_lock.unlock();
       decr_pool_count();
+   }
 #endif
       return;
    }//end if
@@ -1184,9 +1196,7 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
          iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
 
       }
-      fprintf(plogfile, "Finish assembling locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
-      fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", cluster->_ref_mRNAs.size());
-      fprintf(plogfile, "Number of total unique hits: %d\n\n", cluster->_uniq_hits.size());
+      fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
    }
 #if ENABLE_THREADS
    if(use_threads)
@@ -1240,14 +1250,14 @@ void Sample::inspectSample(FILE *plogfile)
             this_thread::sleep_for(chrono::milliseconds(3));
          }
          ++curr_thread_num;
-         thread worker ([=] {this-> finalizeAndAssemble(ref_t, last_cluster, NULL, NULL);});
+         thread worker ([=] {this-> finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);});
          //thread worker{&Sample::finalizeAndAssemble, this, ref_t, last_cluster, NULL, NULL};
          worker.detach();
       }else{
-         finalizeAndAssemble(ref_t, last_cluster, NULL, NULL);
+         finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
       }
 #else
-      finalizeAndAssemble(ref_t, last_cluster, NULL, NULL);
+      finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
 #endif
       _total_mapped_reads += last_cluster->raw_mass();
       //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());

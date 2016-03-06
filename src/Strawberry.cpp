@@ -137,7 +137,7 @@ int parse_options(int argc, char** argv)
                         kMinIntronLength = parseInt(optarg, 1, "-j/--min-intron-size must be at least 1", print_help);
                         break;
                case 'n':
-                        kMaxReadNum4FD = parseInt(optarg, 5000, "-n/--num-read-4-prerun is suggested to be at least 5000", print_help);
+                        kMaxReadNum4FD = parseInt(optarg, 50000, "-n/--num-read-4-prerun is suggested to be at least 50000", print_help);
                         break;
                case 'g':
                         ref_gtf_filename = optarg;
