@@ -32,8 +32,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     if (APPLE AND NOT (GCC_VERSION VERSION_GREATER 4.8.2 OR GCC_VERSION VERSION_EQUAL 4.8.2))
         message(FATAL_ERROR "When building under OSX, ${PROJECT_NAME} requires "
                             "g++ >= 4.8.2")
-    elseif (NOT (GCC_VERSION VERSION_GREATER 4.7 OR GCC_VERSION VERSION_EQUAL 4.7))
-        message(FATAL_ERROR "${PROJECT_NAME} requires g++ 4.7 or greater.")
+    elseif (NOT (GCC_VERSION VERSION_GREATER 4.8.2 OR GCC_VERSION VERSION_EQUAL 4.8.2))
+        message(FATAL_ERROR "${PROJECT_NAME} requires g++ 4.8.2 or greater.")
     endif ()
 
     set (GCC TRUE)
