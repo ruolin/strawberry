@@ -570,7 +570,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
 
    if(is_spliced_alignment){
       if(source_strand == Strand_t::StrandUnknown)
-         fprintf(stderr, "BAM record error: found spliced alignment without XS attribute\n");
+         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
    }
 
    if(use_unique_hits && num_hits > 1)

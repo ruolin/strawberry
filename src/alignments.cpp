@@ -222,7 +222,8 @@ bool HitCluster::addHit(const PairedHit &hit){
          ++_minus_strand_num_hits;
       }
       else{
-         assert(false);
+         //This cause problem with some versions of STAR
+         //assert(false);
       }
    }
 #ifdef DEBUG

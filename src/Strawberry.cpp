@@ -193,7 +193,7 @@ int parse_options(int argc, char** argv)
                           break;
                        }
                default:
-                        //cerr<<"Invalid option"<<endl;
+                        cerr<<"Invalid option"<<endl;
                         print_help();
                         return 1;
             }
