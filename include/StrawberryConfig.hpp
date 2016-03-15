@@ -11,8 +11,8 @@
 namespace strawberry{
    constexpr char majorVersion[] = "0";
    constexpr char minorVersion[] = "7";
-   constexpr char patchVersion[] = "3";
-   constexpr char version[] = "0.7.3";
+   constexpr char patchVersion[] = "5";
+   constexpr char version[] = "0.7.5";
 }
 
 
