@@ -28,10 +28,10 @@ float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid in
 int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
                                      // weights on non-intron edges.
 float kIntronEdgeWeight = 1;
-double kMinDepth4Locus = 1; //used in ClusterFactory::finalizeCluster() to
+double kMinDepth4Locus = 1.0; //used in ClusterFactory::finalizeCluster() to
                                         //select locus have enough reads covered.
-double kMinDepth4Contig = 1;
-int kMaxCoverGap1 = 200; // cover gap due the read depth.
+double kMinDepth4Contig = 1.0;
+int kMaxCoverGap1 = 20; // cover gap due the read depth.
 int kMaxCoverGap2 = 10;
 int kMaxReadNum4FD = 500000;
 int num_threads = 1;
@@ -44,7 +44,7 @@ double kInsertSizeMean = 0;
 double kInsertSizeSD = 0;
 bool infer_the_other_end = true;
 bool verbose = true;
-bool kCombineShrotTransfrag = true;
+bool kCombineShrotTransfrag = false;
 std::string output_dir = ".";
 std::string ref_gtf_filename = "";
 std::string ref_fasta_file = "";
@@ -55,6 +55,8 @@ bool effective_len_norm = false;
 bool use_unique_hits = true;
 bool use_paired_hits = false;
 bool use_threads = false;
+bool filter_by_expression = true;
+
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

@@ -67,6 +67,8 @@ extern float kIntronEdgeWeight;
 extern bool use_unique_hits;
 extern bool use_paired_hits;
 extern bool use_threads;
+extern bool filter_by_expression;
+
 
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 #define ENABLE_THREADS 1

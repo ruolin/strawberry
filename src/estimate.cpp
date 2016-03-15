@@ -849,11 +849,11 @@ bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_b
 //         for(int j =0; j< 3; ++j) bias[i][j] = X(i,j);
 
       success = em.init(niso, n, alpha, bias);
-      if(success) success = em.run();
+      if(success) em.run();
    }
    else{
       success = em.init(niso, n, alpha);
-      if(success) success = em.run();
+      if(success) em.run();
    }
    if(success){
       for(uint i=0; i<niso; ++i){
@@ -889,12 +889,13 @@ bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_b
          isoforms[i]._TPM = tpm;
          isoforms[i]._TPM_s = to_string(tpm);
       }
-
-      for(auto it = isoforms.begin() ; it != isoforms.end();){
-         if(it->_TPM < _kMinTPM || it->_FPKM < _kMinFPKM)
-            it = isoforms.erase(it);
-         else
-            ++it;
+      if(filter_by_expression){
+         for(auto it = isoforms.begin() ; it != isoforms.end();){
+            if(it->_TPM < _kMinTPM || it->_FPKM < _kMinFPKM)
+               it = isoforms.erase(it);
+            else
+               ++it;
+         }
       }
    }
 //   else{
@@ -1109,7 +1110,13 @@ bool EmSolver::run(){
                   ++num_changes;
                }
          }
-         if(num_changes == 0) break;
+         if(num_changes == 0) {
+             for(size_t j = 0; j< ncol; ++j){
+                _theta[j] = theta[j];
+                //cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
+             }
+            break;
+         }
       }
 
       return true;

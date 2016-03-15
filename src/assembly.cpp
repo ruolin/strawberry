@@ -412,12 +412,9 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    };
 
 
-//   if(left == 30064425){
 //      for(auto ex: exon_boundaries){
 //         std::cout<<ex.first<<"-"<<ex.second<<std::endl;
 //      }
-//      exit(0);
-//   }
 
    /*
     * for single exon genes

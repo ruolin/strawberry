@@ -32,8 +32,8 @@
 //#include "qp.h"
 
 
-#define OPT_MIN_DEPTH_4_ASSEMBLY 260
-#define OPT_MIN_DEPTH_4_CONTIG     261
+//#define OPT_MIN_DEPTH_4_ASSEMBLY 260
+#define OPT_MIN_DEPTH_4_TRANSCRIPT     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
 using namespace std;
@@ -58,24 +58,25 @@ static struct option long_options[] = {
       {"small-anchor-size",               required_argument,      0,       's'},
       {"small-anchor-alpha",              required_argument,      0,       'a'},
       {"min-support-4-intron",            required_argument,      0,       OPT_MIN_SUPPORT_4_INTRON},
-      {"min-depth-4-assembly",            required_argument,      0,       OPT_MIN_DEPTH_4_ASSEMBLY},
+      //{"min-depth-4-assembly",            required_argument,      0,       OPT_MIN_DEPTH_4_ASSEMBLY},
+      {"min-depth-4-transcript",              required_argument,      0,       OPT_MIN_DEPTH_4_TRANSCRIPT},
       {"combine-short-transfrag",          no_argument,            0,       'c'},
 //quantification
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
-      {"min-depth-4-contig",              required_argument,      0,       OPT_MIN_DEPTH_4_CONTIG},
       {"infer-missing-end",               no_argument,            0,       'm'},
+      {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:c:b:vGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:cvGcm";
 #else
-const char *short_options = "o:i:j:J:n:g:t:d:s:a:c:b:vGcm";
+const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:cvGcm";
 #endif
 
 void print_help()
 {
-   fprintf(stderr, "\n\nstrawberry v%s\n", strawberry::version);
+   fprintf(stderr, "\nstrawberry v%s\n", strawberry::version);
    fprintf(stderr, "--------------------------------------\n");
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
@@ -95,15 +96,15 @@ void print_help()
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
    fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
    fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                                                   [default:     0]\n");
-   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     1] \n");
-   fprintf(stderr, "   -c/--combine-short-transfrag          Disable merging non-overlap short transfrags .                                                       [default:     true]\n");
-   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                                                      [default:     1]\n");
+   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     1.0] \n");
+   fprintf(stderr, "   -c/-combine-short-transfrag           merging non-overlap short transfrags.                                                                [default:     false]\n");
+//   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                                                      [default:     1]\n");
+   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
-   fprintf(stderr, "   --min-depth-4-transcript              Minimum average read delpth for transcript.                                                          [default:     1]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
 }
 
@@ -161,14 +162,14 @@ int parse_options(int argc, char** argv)
                case OPT_MIN_SUPPORT_4_INTRON:
                         kMinJuncSupport = parseInt(optarg, 1, "--min-support-4-intron must be at least 1", print_help);
                         break;
-               case OPT_MIN_DEPTH_4_ASSEMBLY:
-                        kMinDepth4Locus = parseFloat(optarg, 0, 999999.0, "--min-depth-4-assembly must be at least 0", print_help);
-                        break;
-               case OPT_MIN_DEPTH_4_CONTIG:
+//               case OPT_MIN_DEPTH_4_ASSEMBLY:
+//                        kMinDepth4Locus = parseFloat(optarg, 0, 999999.0, "--min-depth-4-assembly must be at least 0", print_help);
+//                        break;
+               case OPT_MIN_DEPTH_4_TRANSCRIPT:
                         kMinDepth4Contig = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
                         break;
                case 'c':
-                        kCombineShrotTransfrag = false;
+                        kCombineShrotTransfrag = true;
                         break;
                case 'm':
                         infer_the_other_end = false;
@@ -193,7 +194,6 @@ int parse_options(int argc, char** argv)
                           break;
                        }
                default:
-                        cerr<<"Invalid option"<<endl;
                         print_help();
                         return 1;
             }
@@ -234,6 +234,8 @@ int main(int argc, char** argv){
       fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
    }
    FILE *pFile = fopen(assembled_file.c_str(), "w");
+   fprintf(pFile, "#%s\n", cmdline.c_str());
+   fprintf(pFile, "#########################################\n");
    FILE *plogfile = fopen(tracker.c_str(), "w");
    char* bam_file = argv[optind++];
    ReadTable read_table;
