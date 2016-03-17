@@ -8,7 +8,7 @@ Strawberry consists of two module: assembly module and quantification module. Th
 
 Documentation
 ===================
-The preprint of Strawberry paper is availble [here](http://biorxiv.org/content/early/2016/03/16/043802) 
+The preprint of Strawberry paper is availble [here](http://biorxiv.org/content/early/2016/03/16/043802).
 <hr />
 
 Prerequisites
