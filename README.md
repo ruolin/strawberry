@@ -5,6 +5,10 @@ Strawberry is a C++ program for fast and accurate ab initio transcript reconstru
 Strawberry is a genome-guided transcript-level assembler and quantification tool. It runs on aligned RNA-seq data in BAM format. This allows Strawberry to take advantages of the latest referecen genome (if possible a finished and high-quality one) and stat-of-art splice-awareness aligners. The application of a fast flow network algorithm, for assembly speeds up the construction of transcript-based models. The resulting reduced data representation improves quantification of the different isoforms. Strawberry is also able to account for various sequncing bias that are intrinsic to the RNA-seq experiment. This program is specially designed for paired-end data based on our belief that it is advantageous to use paired-end RNA-seq over single-end data. Strawberry empirically infers the insert length distribution from the reads that are mapped uniquely and concordantly. For those half-mapped reads, it generates the other ends based on the mapped orientation and the insert length distribution. 
 
 Strawberry consists of two module: assembly module and quantification module. The two modules work in a sequential manner. The assembly module parses aligned reads into splicing graphs and it uses network flow algorithms to selected the most possible transcripts. The quantification module uses a statistical model, more accurately a Poisson generalized linear model with identity link, to assign ambiguous reads to possible transcripts. Strawberry simultaneous estimates the transcript abundances and corrects for sequencing bias through the EM steps. 
+
+Documentation
+===================
+The preprint of Strawberry paper is availble [here](http://biorxiv.org/content/early/2016/03/16/043802) 
 <hr />
 
 Prerequisites
