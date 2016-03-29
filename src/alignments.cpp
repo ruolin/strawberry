@@ -954,6 +954,14 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
    cluster->clearOpenMates();
    cluster->collapseHits();
 
+   if(SINGLE_END_EXP && _is_inspecting){
+#if ENABLE_THREADS
+      if(use_threads)
+         decr_pool_count();
+#endif
+      return;
+   }
+
    //enough read for calculating empirical distribution of reads.
    if(_is_inspecting &&
       _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD){
@@ -1079,7 +1087,7 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
 
    assemble_2_contigs(assembled_feats,cluster->ref_id(), cluster->strand(), assembled_transcripts);
 
-   if(_is_inspecting && singleIso4FD){ // just calculated the fragment length distribution
+   if(_is_inspecting ){ // calculated the fragment length distribution
       for(auto const& assembled_transcript: assembled_transcripts){
          for(size_t h = 0; h< hits.size(); ++h){
             if(hits[h].is_single_read()) continue;
@@ -1323,7 +1331,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
          }
       }
       ++_num_cluster;
-
       if(cur_cluster->overlaps(*last_cluster) ){
 //         if(!cur_cluster->hasRefmRNAs() && !last_cluster->hasRefmRNAs()) {
 //            LOG_ERR("Error: It is unlikely that novo cluster overlaps");
@@ -1374,15 +1381,10 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
       finalizeAndAssemble(ref_t, last_cluster, pfile, plogfile);
 #endif
 //#ifdef DEBUG
-     //if(last_cluster->left() > 99000 && last_cluster->right() < 102000){
-//           sort(last_cluster->_hits.begin(),last_cluster->_hits.end());
-//           for(auto &h: last_cluster->_hits){
-//              cout<<"spliced read on strand"<<h.strand()<<"\t"<< h.left_pos()<<"-"<<h.right_pos()<<endl;
-//           }
+
 //            cerr<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
 //                  <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
 //            cerr<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
-         //}
 //#endif
 
      last_cluster = move(cur_cluster);

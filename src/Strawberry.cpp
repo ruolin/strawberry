@@ -122,7 +122,7 @@ int parse_options(int argc, char** argv)
                         output_dir = optarg;
                         break;
                case OPT_ALLOW_MULTIPLE_HITS:
-                        use_unique_hits = false;
+                        use_only_unique_hits = false;
                         break;
                case 'p':
                         num_threads = parseInt(optarg, 1, "-p/--num-threads must be at least 1", print_help);
@@ -277,6 +277,12 @@ int main(int argc, char** argv){
    read_sample.inspectSample(plogfile);
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
+   }
+
+   if(SINGLE_END_EXP){
+      kInsertSizeMean = 200;
+      kInsertSizeSD = 80;
+      infer_the_other_end = false;
    }
 
    if(kInsertSizeMean !=0 && kInsertSizeSD != 0){

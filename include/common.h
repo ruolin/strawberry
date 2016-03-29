@@ -19,6 +19,7 @@ typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
 
+extern bool SINGLE_END_EXP;
 extern bool BIAS_CORRECTION;
 extern int kMaxGeneLength;
 extern int kMaxFragSpan;
@@ -47,7 +48,6 @@ extern int kMaxReadNum4FD;
 //extern int kMinExonLen4FD;
 //extern int kMinExonCov4FD;
 //extern bool singleExon4FD;
-extern bool singleIso4FD;
 
 extern int num_threads;
 
@@ -64,11 +64,10 @@ extern std::string ref_fasta_file;
 extern std::string tracking_log;
 extern bool effective_len_norm;
 extern float kIntronEdgeWeight;
-extern bool use_unique_hits;
-extern bool use_paired_hits;
+extern bool use_only_unique_hits;
+//extern bool use_only_paired_hits;
 extern bool use_threads;
 extern bool filter_by_expression;
-
 
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 #define ENABLE_THREADS 1

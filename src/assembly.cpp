@@ -518,6 +518,11 @@ bool FlowNetwork::createNetwork(
 //   }
 //#endif
    assert(!hits.empty());
+   if(exons.size() == 1) {
+      //std::cout<<exons[0].left()<<"-"<<exons[0].right()<<std::endl;
+      return true;
+   }
+
    std::vector<Graph::Node> nodes;
    std::vector<Graph::Arc> arcs;
    std::map<const GenomicFeature*, Graph::Node> feat2node;
@@ -528,7 +533,6 @@ bool FlowNetwork::createNetwork(
    }
    if(exons.empty() || intron_counter.empty()) return false;
    // single exon case;
-   if(exons.size() == 1) return true;
 
    // 1) add arc defined by intron
    for(auto i = intron_counter.cbegin(); i != intron_counter.cend(); ++i){

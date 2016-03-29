@@ -420,8 +420,14 @@ bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size)
 bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    const bam1_t* hit_buf = (const bam1_t*)orig_bwt_buf;
    uint32_t sam_flag = hit_buf->core.flag;
+
+   /*For unmapped read or partner
+    * core.pos = -1 or
+    * core.mpos = -1
+    * */
    uint pos = hit_buf->core.pos + 1; // BAM file index starts at 0
    uint mate_pos = hit_buf->core.mpos + 1; // BAM file index starts at 0
+
    int target_id = hit_buf->core.tid;
    int mate_target_id = hit_buf->core.mtid;
    string mate_text_name;
@@ -521,13 +527,29 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
 
    string mate_ref;
-   if(mate_target_id >=0){
+
+   if(sam_flag & BAM_FPAIRED) //paired-end read
+   {
+      SINGLE_END_EXP = false;
       if(mate_target_id == target_id){
          mate_ref = _hit_file->header->target_name[mate_target_id];
       }
-      else return false;
-   } else{
-      mate_pos = 0;
+      else {
+         if(sam_flag & 0x8){ // next segment unmapped
+            if( mate_pos != 0 || mate_target_id >= 0) {
+               cerr<<"read "<<bam1_qname(hit_buf)<<" is ill-formed"<<endl;
+            }
+         }
+         else{
+            LOG_WARN("At read ", bam1_qname(hit_buf), " read pair aligns to different chromosome");
+         }
+         return false;
+      }
+   }
+   else{ // single-end read
+      if( mate_pos != 0 || mate_target_id >= 0) {
+         cerr<<"read "<<bam1_qname(hit_buf)<<" is ill-formed"<<endl;
+      }
    }
 
    Strand_t source_strand = Strand_t::StrandUnknown;
@@ -573,10 +595,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
    }
 
-   if(use_unique_hits && num_hits > 1)
+   if(use_only_unique_hits && num_hits > 1)
       return false;
-   if(use_paired_hits && ( sam_flag & 0x8 || mate_target_id != target_id ))
-      return false;
+//   if(use_only_paired_hits && ( sam_flag & 0x8 || mate_target_id != target_id ))
+//      return false;
 
    bh = ReadHit(
                readid,

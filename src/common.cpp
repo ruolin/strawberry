@@ -10,6 +10,8 @@
 #include <iostream>
 #include <errno.h>
 #include "common.h"
+
+bool SINGLE_END_EXP = true;
 bool BIAS_CORRECTION = false;
 int kMaxGeneLength = 2500000;
 int kMaxFragSpan = 1000000;
@@ -38,7 +40,6 @@ int num_threads = 1;
 //bool singleExon4FD = false;
 //int kMinExonLen4FD = 200; // if singleExon4FD is used.
 //int kMinExonCov4FD = 0;  // if singleExon4FD is used.
-bool singleIso4FD = true;
 double kInsertSizeMean = 0;
 //double bothStrandCutoff = 0.05 // Depracated. Now use kMinIsoformFrac
 double kInsertSizeSD = 0;
@@ -52,8 +53,8 @@ bool enforce_ref_models = false;
 bool utilize_ref_models = false;
 std::string tracking_log = "/tracking.log";
 bool effective_len_norm = false;
-bool use_unique_hits = true;
-bool use_paired_hits = false;
+bool use_only_unique_hits = true;
+//bool use_only_paired_hits = false;
 bool use_threads = false;
 bool filter_by_expression = true;
 
