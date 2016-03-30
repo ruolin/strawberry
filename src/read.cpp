@@ -542,8 +542,9 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          }
          else{
             LOG_WARN("At read ", bam1_qname(hit_buf), " read pair aligns to different chromosome");
+            return false;
          }
-         return false;
+
       }
    }
    else{ // single-end read
