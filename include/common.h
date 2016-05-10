@@ -68,7 +68,7 @@ extern bool use_only_unique_hits;
 //extern bool use_only_paired_hits;
 extern bool use_threads;
 extern bool filter_by_expression;
-
+extern bool weight_bias;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 #define ENABLE_THREADS 1
 

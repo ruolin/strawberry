@@ -46,7 +46,7 @@ double kInsertSizeSD = 0;
 bool infer_the_other_end = true;
 bool verbose = true;
 bool kCombineShrotTransfrag = false;
-std::string output_dir = ".";
+std::string output_dir = "./strawberry_out";
 std::string ref_gtf_filename = "";
 std::string ref_fasta_file = "";
 bool enforce_ref_models = false;
@@ -57,7 +57,7 @@ bool use_only_unique_hits = true;
 //bool use_only_paired_hits = false;
 bool use_threads = false;
 bool filter_by_expression = true;
-
+bool weight_bias = false;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

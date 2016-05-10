@@ -12,9 +12,10 @@
 #include<string>
 #include<unordered_map>
 #include<cassert>
-#include "common.h"
 #include <iostream>
+#include "common.h"
 #include "sam/sam.h"
+#include "kmer.h"
 
 using namespace std;
 /*
@@ -56,8 +57,9 @@ private:
    int _num_hits = 1;
    int _trans_left=0; // position relate to transcriptom
    uint32_t _sam_flag = 0; //bitwise FLAG
-   float _read_mass = 0.0;
+   double _read_mass = 0.0;
 public:
+   string _seq;
    ReadHit() = default;
    ReadHit( ReadID readID,
          GenomicInterval iv,
@@ -67,9 +69,15 @@ public:
          int numMismatch,
          int numHit,
          uint32_t samFlag,
-         float mass
+         double mass,
+         char* seq
          );
-
+//   ~ReadHit(){
+//      if(_seq != NULL){
+//         free(_seq);
+//         _seq = NULL;
+//      }
+//   }
    uint read_len() const;
    uint intron_len() const; /*Return intron len, otherwise return 0*/
    std::vector<std::pair<uint,uint>> intron_coords() const;
@@ -86,11 +94,15 @@ public:
    uint left() const;
    uint right() const;
    Strand_t strand() const;
-   float mass() const;
+   double mass() const;
+   double raw_mass() const;
+   void mass(double m);
    bool is_first() const;
    bool reverseCompl() const;
    bool operator==(const ReadHit& rhs) const; // not considering read orientation
    bool operator!=(const ReadHit& rhs) const;
+   bool operator<(const ReadHit& rhs) const;
+   //char* read_seq() const;
    //vector<CigarOp> cigars() const;
 };
 
@@ -222,9 +234,13 @@ typedef shared_ptr<ReadHit> ReadHitPtr;
 
 class PairedHit{
    double _collapse_mass = 0.0;
+   double _mass = 0.0;
 public:
    ReadHitPtr _right_read ;
    ReadHitPtr _left_read ;
+   vector<Kmer> _left_kmers;
+   vector<Kmer> _right_kmers;
+
    PairedHit() = default;
    PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead);
    PairedHit& operator=(const PairedHit& rhs){
@@ -247,13 +263,17 @@ public:
    ReadID read_id() const;
    int numHits() const;
    bool is_multi() const;
-   float raw_mass() const;
+   double raw_mass() const;
    bool operator==(const PairedHit& rhs) const;
    bool operator!=(const PairedHit& rhs) const;
    bool operator<(const PairedHit& rhs) const;
    bool paried_hit_lt(const PairedHit &rhs) const;
-   void add_2_collapse_mass(float add);
-   float collapse_mass() const;
+   void add_2_collapse_mass(double add);
+   double collapse_mass() const;
+   void init_raw_mass();
+   void weighted_mass(double m);
+   double weighted_mass() const;
+   void set_kmers(int num_kmers);
 };
 
 void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd);

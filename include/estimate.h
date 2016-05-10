@@ -137,11 +137,11 @@ class EmSolver{
    vector<vector<double>> _B; // bias matrix, \beta
    vector<vector<double>> _U; // hidden unobserved data matrix.
    static constexpr int _max_iter_num = 1000;
-   static constexpr int _max_bias_it_num = 1000;
+   static constexpr int _max_bias_it_num = 10;
    static constexpr int _max_theta_it_num = 5000;
-   static constexpr int _max_out_it_num = 10;
+   static constexpr int _max_out_it_num = 100;
    static constexpr double _theta_change_limit = 1e-2;
-   static constexpr double _bias_change_limit = 1e-4;
+   static constexpr double _bias_change_limit = 1e-2;
 public:
    vector<double> _theta;
    vector<double> _bias;

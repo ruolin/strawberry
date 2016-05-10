@@ -459,33 +459,82 @@ int HitCluster::collapseHits()
    }
    if(_hits.empty())
       return 0;
+
    sort(_hits.begin(), _hits.end());
 
    for(size_t i = 0; i < _hits.size(); ++i){
       if(_uniq_hits.empty()){
          _uniq_hits.push_back(_hits[i]);
-         _uniq_hits.back().add_2_collapse_mass(_hits[i].raw_mass());
+         _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
       }
       else{
          if(_uniq_hits.back() != _hits[i]){
             _uniq_hits.push_back(_hits[i]);
-            _uniq_hits.back().add_2_collapse_mass(_hits[i].raw_mass());
+            _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
          }
          else{
-            _uniq_hits.back().add_2_collapse_mass(_hits[i].raw_mass());
+            _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
          }
       }
    }
+
    return _uniq_hits.size();
 }
 
-double HitCluster::collapse_mass() const
-{
-   double m = 0.0;
-   for(auto const& hit: _uniq_hits){
-      m += hit.collapse_mass();
+void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers){
+   if(!weight_bias){
+      for(auto & hit:_hits){
+         hit.init_raw_mass();
+         _weighted_mass += hit.raw_mass();
+      }
+      return;
    }
-   return m;
+
+
+   for(auto & hit:_hits){
+      hit.set_kmers(num_kmers);
+      hit.init_raw_mass();
+   }
+   for(auto & hit:_hits){
+      double weight = 0.0;
+      int num = 0;
+      for(auto const & kmer : hit._left_kmers){
+         auto got = kmer_bias.find(kmer.toString());
+         if(got != kmer_bias.end()){
+            weight += got->second;
+            num ++ ;
+         }
+      }
+
+      for(auto const & kmer : hit._right_kmers){
+         auto got = kmer_bias.find(kmer.toString());
+         if(got != kmer_bias.end()){
+            weight += got->second;
+            num ++ ;
+         }
+      }
+
+      double new_mass = hit.weighted_mass() * weight / num;
+      hit.weighted_mass(new_mass);
+//      cout<<"raw mass "<<hit.raw_mass()<<endl;
+//      cout<<"weighted mass "<<hit.weighted_mass()<<" and weight "<<weight<<endl;
+//      if(weight == 0.0) exit(0);
+   }
+
+   for(auto const & hit:_hits){
+      _weighted_mass += hit.weighted_mass();
+   }
+   //cout<<_weighted_mass<<endl;
+}
+
+double HitCluster::weighted_mass() const
+{
+   //cout<<_weighted_mass<<endl;
+   return _weighted_mass;
+}
+
+void HitCluster::addWeightedMass(double m){
+   _weighted_mass += m;
 }
 
 void HitCluster::setBoundaries(){
@@ -803,7 +852,6 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 
          clusterOut.addOpenHit(new_hit, true, true);
          clusterOut.addRawMass(mass);
-
       } else { //add the rest
          if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
             // should never reach here
@@ -952,8 +1000,8 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
       return;
    }
    cluster->clearOpenMates();
+   cluster->reweight_read(_kmer_bias, 5);
    cluster->collapseHits();
-
    if(SINGLE_END_EXP && _is_inspecting){
 #if ENABLE_THREADS
       if(use_threads)
@@ -1010,6 +1058,7 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
    exon_doc.resize(s,0);
    double avg_dep = 0.0;
    avg_dep= compute_doc(cluster->left(), cluster->right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
+   //cout<<avg_dep<<endl;
 
    if(avg_dep < kMinDepth4Locus){
 #if ENABLE_THREADS
@@ -1086,9 +1135,12 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
    map<int, int> iso_2_len_map;
 
    assemble_2_contigs(assembled_feats,cluster->ref_id(), cluster->strand(), assembled_transcripts);
-
    if(_is_inspecting ){ // calculated the fragment length distribution
+      _total_mapped_reads += (int) cluster->weighted_mass();
+
       for(auto const& assembled_transcript: assembled_transcripts){
+         if(assembled_transcripts.size() > 1) continue;
+         //for(assembled_transcripts)
          for(size_t h = 0; h< hits.size(); ++h){
             if(hits[h].is_single_read()) continue;
             if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
@@ -1109,8 +1161,8 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
             _hit_factory->_reads_table._frag_dist.push_back(frag_len);
 #endif
 
-         }
-      }// end if
+         }// end for
+      }// end for
 
 #if ENABLE_THREADS
       if(use_threads){
@@ -1268,9 +1320,10 @@ void Sample::inspectSample(FILE *plogfile)
 #else
       finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
 #endif
-      _total_mapped_reads += last_cluster->raw_mass();
-      //fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
-      //fprintf(plogfile, "Has inspected %d reads\n", _total_mapped_reads);
+      // _total_mapped_reads += (int) last_cluster->raw_mass();
+      //cout<<"weighted cluster mass: "<<last_cluster->_weighted_mass<<endl;
+      fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+      fprintf(plogfile, "Has inspected %d reads\n", (int)_total_mapped_reads);
       last_cluster = move(cur_cluster);
    }
 #if ENABLE_THREADS
@@ -1284,8 +1337,10 @@ void Sample::inspectSample(FILE *plogfile)
    }
 #endif
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(ref_t, last_cluster, NULL, NULL);
-   _total_mapped_reads += (int)last_cluster->collapse_mass();
+   finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
+   fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
+   fprintf(plogfile, "Has inspected %d reads\n", (int)_total_mapped_reads);
+   //_total_mapped_reads += (int)last_cluster->raw_mass();
    _hit_factory->reset();
 #if ENABLE_THREADS
    if(use_threads)

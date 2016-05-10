@@ -693,9 +693,9 @@ void Estimation::calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_b
 //#endif
       ExonBin& eb = it->second;
       vector<double> b;
-      b.reserve(3);
-      b.push_back( eb.bin_len());
-      b.push_back( eb.avg_frag_len());
+      b.reserve(1);
+//      b.push_back( eb.bin_len());
+//      b.push_back( eb.avg_frag_len());
       b.push_back( eb.bin_gc_content(fa_getter, _read_len));
 //      for(auto c:it->first){
 //         cout<<"exon bin: " <<c.first<<"-"<<c.second<<endl;
@@ -860,6 +860,7 @@ bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_b
          fprintf(_p_log_file, "isoform %d has %f raw read count.\n", i+1, em._theta[i]);
       }
       double sum_fpkm = 0.0;
+      //cout<<"num of iso: "<<niso<<endl;
       for(uint i=0; i< niso; ++i){
          uint id = isoforms[i]._isoform_id;
          double kb = 0.0;
@@ -876,6 +877,7 @@ bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_b
          }
          double rpm = 1e6/mass;
          double fpkm = em._theta[i]*rpm*kb;
+         //cout<<"theta: "<<i<<" exp: "<<em._theta[i]<<endl;
          isoforms[i]._FPKM = fpkm;
          sum_fpkm += fpkm;
          isoforms[i]._FPKM_s = to_string(fpkm);
@@ -1035,6 +1037,8 @@ bool EmSolver::run(){
    if(!_B.empty() && !_B[0].empty()){
       Eigen::MatrixXd B(_B.size(), _B[0].size());
       Eigen::VectorXd bias(_B[0].size());
+
+
       for(size_t i =0; i< _B.size(); ++i){
          for(size_t j = 0; j< _B[0].size(); ++j)
             B(i,j) = _B[i][j];
@@ -1070,7 +1074,9 @@ bool EmSolver::run(){
                bias[j] = next_bias[j];
                next_bias[j] = 0.0;
             }
-            if(num_changes == 0) break;
+            if(num_changes == 0) {
+               break;
+            }
          }
 
          for(int theta_it_num = 0; theta_it_num < _max_theta_it_num; ++ theta_it_num){
@@ -1082,7 +1088,7 @@ bool EmSolver::run(){
                   U(i,j) = obs_d[i] * F(i,j) * theta[j] / denom;
             }
             for(uint j=0; j<ncol; ++j){
-               double numer = F.col(j).sum();
+               double numer = U.col(j).sum();
                double denom = 0;
                for (uint i =0; i< nrow; ++i){
                   denom = denom + F(i,j)*bias.dot(B.row(i));
@@ -1097,28 +1103,25 @@ bool EmSolver::run(){
                theta[j] = next_theta[j];
                next_theta[j] = 0.0;
             }
-            if(num_changes == 0) break;
+            if(num_changes == 0) {
+//               cout<<U<<endl;
+//               cout<<" hidden data "<<endl;
+               break;
+            }
          }
 
-         int num_changes = 0;
-         for(uint j = 0; j< ncol; ++j){
-            if( fabs(next_theta[j] - theta[j] )/next_theta[j] > _theta_change_limit )
-                  ++num_changes;
-         }
-         for(uint j = 0; j < B.cols(); ++j){
-               if( fabs( next_bias[j]-bias[j] )/next_bias[j] > _bias_change_limit ){
-                  ++num_changes;
-               }
-         }
-         if(num_changes == 0) {
-             for(size_t j = 0; j< ncol; ++j){
-                _theta[j] = theta[j];
-                //cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
-             }
-            break;
-         }
+
+          for(size_t j = 0; j< ncol; ++j){
+             _theta[j] = theta[j];
+             cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
+          }
+
+
+//               cout<<"theta: "<<endl;
+               //cout<<theta<<endl;
+//               cout<<"bias: "<<bias<<endl;
+               //out<<" fi "<<endl;
       }
-
       return true;
    }// end if
 

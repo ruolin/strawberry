@@ -23,12 +23,14 @@
 #include <algorithm>
 #include <getopt.h>
 #include <chrono>
+#include <fstream>
 
 #include "fasta.h"
 #include "gff.h"
 #include "alignments.h"
 #include "logger.hpp"
 #include "StrawberryConfig.hpp"
+#include "kmer.h"
 //#include "qp.h"
 
 
@@ -80,7 +82,7 @@ void print_help()
    fprintf(stderr, "--------------------------------------\n");
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
-   fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./out ]\n");
+   fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
@@ -217,13 +219,13 @@ int main(int argc, char** argv){
       return 1;
    }
 
-   if(output_dir != "./"){
-      int ret = mkpath(output_dir.c_str(), 0777);
-      if(ret == -1){
-         if(errno != EEXIST){
-            fprintf(stderr, "ERROR: cannot create directory %s\n", output_dir.c_str());
-            exit(1);
-         }
+
+
+   int ret = mkpath(output_dir.c_str(), 0777);
+   if(ret == -1){
+      if(errno != EEXIST){
+         fprintf(stderr, "ERROR: cannot create directory %s\n", output_dir.c_str());
+         exit(1);
       }
    }
    string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
@@ -243,6 +245,19 @@ int main(int argc, char** argv){
    shared_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
    hf->inspect_header();
    Sample read_sample(move(hf));
+
+/*
+ * READ bias from file. NEED TO BE UPDATE.
+ */
+   std::ifstream inputFile("Genominator.bias");
+   string kmer_name;
+   double kmer_weight;
+   while(inputFile >> kmer_name >> kmer_weight){
+      read_sample._kmer_bias[kmer_name] = kmer_weight;
+   }
+/*
+ * READ bias from file. NEED TO BE UPDATE.
+ */
 
    GffReader* greader= NULL;
    if(ref_gtf_filename != ""){
@@ -304,38 +319,6 @@ int main(int argc, char** argv){
    }
 
    read_sample.procSample(pFile, plogfile );
-
-   //const char *path = "/home/ruolin/Dropbox/Strawberry/Arabidopsis";
-   //const char *ara_gtf = "/home/ruolin/Dropbox/Strawberry/TAIR10_GFF3_genes-1.gff";
-   //const char *human_gtf = "/home/ruolin/Downloads/gencode.v21.annotation.gff3";
-   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/accepted_hits.bam";
-   //char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/RD100.control_r1.concordant_uniq.sort.bam";
-   //char *bam_file = "/home/ruolin/git/CompareTransAbun/assembly_comp/RD100/accepted_hits.bam";
-   //const char* bam_dir = stripFileName(bam_file);
-   //size_t len1 = strlen(bam_dir);
-
-   //const char *bam_file = "/home/ruolin/Dropbox/Strawberry/WetFT1.sm.bam";
-
-   //FaInterface fa_api(path);
-   //FaSeqGetter fsg;
-   //fa_api.load2FaSeqGetter(fsg, "mitochondria");
-   //cout<<"success\t"<<fsg.loadSeq()<<endl;
-   //cout<<fsg.fetchSeq(80,4)<<endl;
-   //GffReader greader(ara_gtf);
-   //greader.readAll();
-   //greader.reverseExonOrderInMinusStrand();
-   //ReadTable read_table;
-   //RefSeqTable ref_seq_table(true);
-   //unique_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
-   //hf->inspect_header();
-   //Sample read_sample(move(hf));
-   //read_sample.loadRefmRNAs(greader._g_seqs, ref_seq_table, path);
-
-   //QpSolver qps;
-
-   //read_sample.inspectSample();
-   //double mean, sd;
-
    fclose(pFile);
    fclose(plogfile);
    pFile = NULL;

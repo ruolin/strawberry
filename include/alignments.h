@@ -20,7 +20,8 @@ class FaSeqGetter;
 using IntronMap = std::map<std::pair<uint,uint>,IntronTable>;
 
 class HitCluster{
-   friend Sample;
+friend Sample;
+private:
    uint _leftmost;
    uint _rightmost;
    int _plus_strand_num_hits;
@@ -29,7 +30,7 @@ class HitCluster{
    int _id;
    RefID _ref_id;
    bool _final; // HitCluster is finished
-   double _raw_mass;
+   double _raw_mass = 0.0;
    Strand_t _strand;
    std::unordered_map<ReadID, list<PairedHit>> _open_mates;
    std::vector<PairedHit> _hits;
@@ -37,8 +38,10 @@ class HitCluster{
    std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by Sample
    std::vector<GenomicFeature> _introns;
    std::vector<float> _dep_of_cov;
+   void reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers);
    //std::map<std::pair<int,int>,int> _current_intron_counter;
 public:
+   double _weighted_mass = 0.0;
    //static const int _kMaxGeneLen = 1000000;
    //static const int _kMaxFragPerCluster = 100000;
    static const int _kMinFold4BothStrand = 10;
@@ -70,6 +73,7 @@ public:
    int numOpenMates() const{
       return _open_mates.size();
    }
+
    void addRawMass(double m){
       _raw_mass += m;
    }
@@ -79,7 +83,10 @@ public:
    double raw_mass() const{
       return _raw_mass;
    }
-   double collapse_mass() const;
+   double weighted_mass() const;
+   void addWeightedMass(double m);
+
+
    //void count_current_intron(const ReadHit & hit);
    //bool current_intron_is_reliable() const;
    bool see_both_strands();
@@ -98,6 +105,7 @@ public:
               RefID old_ref_id
               );
 
+
 };
 
 class Sample{
@@ -109,7 +117,7 @@ class Sample{
    size_t _refmRNA_offset;
    bool _has_load_all_refs;
    string _current_chrom;
-   int _total_mapped_reads = 0;
+   atomic_int _total_mapped_reads = {0};
    double compute_doc(const uint left,
                      const uint right,
                      const vector<Contig> & hits,
@@ -121,6 +129,8 @@ public:
    shared_ptr<InsertSize> _insert_size_dist =nullptr;
    shared_ptr<FaSeqGetter> _fasta_getter = nullptr;
    shared_ptr<FaInterface> _fasta_interface = nullptr;
+
+   std::unordered_map<std::string, double> _kmer_bias;
 
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    Sample(shared_ptr<HitFactory> hit_fac):

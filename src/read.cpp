@@ -22,7 +22,10 @@
 #include<assert.h>
 #include <stdexcept>
 #include <string.h>
+//#include <typeinfo>
+#include<cxxabi.h>
 #include "read.h"
+#include "kmer.h"
 
 void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd){
    double sum = accumulate(vec.begin(), vec.end(), 0.0);
@@ -42,7 +45,8 @@ ReadHit::ReadHit(
    int numMismatch,
    int numHit,
    uint32_t samFlag,
-   float mass ):
+   double mass,
+   char* seq):
       _read_id(readID),
       _iv(iv),
       _cigar(cigar),
@@ -51,7 +55,17 @@ ReadHit::ReadHit(
       _num_mismatch(numMismatch),
       _num_hits(numHit),
       _sam_flag(samFlag)
-{}
+{
+   if(seq != NULL){
+      _seq = string(seq);
+   }
+
+   if(is_singleton()){
+      _read_mass = 1.0/_num_hits;
+   }else{
+      _read_mass =  0.5/_num_hits;
+   }
+}
 
 const vector<CigarOp>& ReadHit::cigar() const
 {
@@ -107,12 +121,23 @@ vector<pair<uint,uint>> ReadHit::intron_coords() const
    return coords;
 }
 
-float ReadHit::mass() const{
+double ReadHit::mass() const
+{
+   return _read_mass;
+}
+
+double ReadHit::raw_mass() const
+{
    if(is_singleton()){
-      return 1.0/_num_hits;
+      return  1.0/_num_hits;
    }else{
-      return 0.5/_num_hits;
+      return  0.5/_num_hits;
    }
+}
+
+void ReadHit::mass(double m)
+{
+   _read_mass = m;
 }
 
 bool ReadHit::contains_splice()const{
@@ -168,10 +193,23 @@ bool ReadHit::reverseCompl() const
 }
 
 // not considering read orientation and cigar string
+bool ReadHit::operator<(const ReadHit& rhs) const
+{
+
+   if(left() == rhs.left())
+      return right() < rhs.right();
+   else
+      return left() < rhs.left();
+}
+
 bool ReadHit::operator==(const ReadHit& rhs) const
 {
-   assert(!_cigar.empty() && !rhs._cigar.empty());
-   return (_iv == rhs.interval());
+   //assert(!_cigar.empty() && !rhs._cigar.empty());
+   //return (_iv == rhs.interval());
+   if(left() == rhs.left())
+      return right() == rhs.right();
+   else
+      return false;
 }
 
 bool ReadHit::operator!=(const ReadHit& rhs) const
@@ -441,7 +479,6 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
    RefID parterner_ref_id = ref_table().get_id(mate_text_name);
 
-   int read_len = 0;
    ReadID readid = HitFactory::reads_table().get_id(bam1_qname(hit_buf));
    vector<CigarOp> cigar;
    bool is_spliced_alignment = false;
@@ -456,7 +493,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
                    0,
                    num_hits,
                    sam_flag,
-                   0.0
+                   0.0,
+                   NULL
                    );
       return true;
    }
@@ -470,7 +508,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       return false;
    }
 
-
+   int read_len = 0;
+   int eff_read_len = 0;
    for (int i=0; i<hit_buf->core.n_cigar; ++i){
       int length = bam1_cigar(hit_buf)[i] >> BAM_CIGAR_SHIFT;
       if(length <= 0){
@@ -481,6 +520,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       switch(bam1_cigar(hit_buf)[i] & BAM_CIGAR_MASK){
       case BAM_CMATCH: _type = MATCH;
          read_len += length;
+         eff_read_len += length;
          cigar.push_back(CigarOp(_type, length));
          break;
       case BAM_CINS: _type = INS; // INSERTION does not increase read length
@@ -525,6 +565,8 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
             return false;
       }
    }
+
+   if(eff_read_len <= 1 ) return false;
 
    string mate_ref;
 
@@ -601,6 +643,17 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
 //   if(use_only_paired_hits && ( sam_flag & 0x8 || mate_target_id != target_id ))
 //      return false;
 
+   /*
+    * Get read sequencing
+    * */
+   char *qseq = (char *) malloc(hit_buf->core.l_qseq+1);
+   unsigned char *s   = bam1_seq(hit_buf);
+   int n= 0;
+   for(n = 0;n<(hit_buf->core.l_qseq);n++) {
+     int v = bam1_seqi(s,n);
+     qseq[n] = bam_nt16_rev_table[v];
+   }
+   qseq[n] = 0;
    bh = ReadHit(
                readid,
                GenomicInterval(ref_id, pos, pos+read_len-1, source_strand),
@@ -610,15 +663,61 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
                num_mismatches,
                num_hits,
                sam_flag,
-               mass
+               mass,
+               qseq
                );
-
+   free(qseq);
+   qseq = NULL;
    return true;
 }
 
 
 PairedHit::PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead):
-            _left_read(move(leftRead)), _right_read(move(rightRead)){}
+            _left_read(move(leftRead)), _right_read(move(rightRead))
+{
+}
+
+
+void PairedHit::weighted_mass(double m)
+{
+   _mass = m;
+}
+
+double PairedHit::weighted_mass() const
+{
+   return _mass;
+}
+
+void PairedHit::init_raw_mass()
+{
+   assert(_mass == 0.0);
+   if(_left_read)
+      _mass += _left_read->mass();
+   if(_right_read)
+      _mass += _right_read->mass();
+}
+
+void PairedHit::set_kmers(int num_kmers )
+{
+   if(_left_read ){
+      for(int i = 0; i< num_kmers; ++i){
+         string sub = _left_read->_seq.substr(i, Kmer::_k);
+         Kmer k(sub.c_str());
+         _left_kmers.push_back(k);
+      }
+   }
+
+   if(_right_read){
+      string rev_seq = _right_read->_seq;
+      reverse(rev_seq.begin(), rev_seq.end());
+      for(int i = 0; i< num_kmers; ++i){
+         string sub = rev_seq.substr(i, Kmer::_k);
+         Kmer k(sub.c_str());
+         _right_kmers.push_back(k);
+      }
+   }
+
+}
 
 const ReadHit& PairedHit::left_read_obj() const {return *_left_read;}
 
@@ -741,7 +840,7 @@ RefID PairedHit::ref_id() const
    return -1;
 }
 
-float PairedHit::raw_mass() const
+double PairedHit::raw_mass() const
 {
    double m = 0.0;
    if(_left_read)
@@ -779,6 +878,39 @@ bool PairedHit::operator<(const PairedHit& rhs) const
       return left_pos() < rhs.left_pos();
 }
 
+//bool PairedHit::operator<(const PairedHit& rhs) const
+//{
+//   if(_left_read != nullptr && rhs._left_read != nullptr){
+//      if(left_read_obj() == rhs.left_read_obj()){
+//         if(_right_read ==nullptr && rhs._right_read != nullptr) return true;
+//         else if(_right_read != nullptr && rhs._right_read ==nullptr) return false;
+//         else if(_right_read == nullptr && rhs._right_read == nullptr) return false;
+//         else return right_read_obj() < rhs.right_read_obj();
+//      }
+//      else{
+//         return left_read_obj() < rhs.left_read_obj();
+//      }
+//   }
+//   else if(_left_read == nullptr && rhs._left_read ==nullptr){
+//      return right_read_obj() < rhs.right_read_obj();
+//   }
+//   else if(_left_read == nullptr && rhs._left_read !=nullptr){
+//      if(rhs._right_read != nullptr){
+//         return right_read_obj() < rhs.right_read_obj();
+//      }
+//      else{
+//         if(right_read_obj() == rhs.left_read_obj()) return true;
+//         return right_read_obj() < rhs.left_read_obj();
+//      }
+//   }
+//   else{ // _left_read != nullptr && rhs._left_read ==nullptr
+//      if(_right_read != nullptr)
+//         return right_read_obj() < rhs.right_read_obj();
+//      else
+//         return left_read_obj() < rhs.right_read_obj();
+//   }
+//}
+
 RefID RefSeqTable::get_id(string& name) {
    if (name == "*") return -1;
    string raw_name = name;
@@ -801,10 +933,10 @@ const string RefSeqTable::ref_real_name(int id) const{
    return _id_2_real_name[id];
 }
 
-void PairedHit::add_2_collapse_mass(float add){
+void PairedHit::add_2_collapse_mass(double add){
    _collapse_mass += add;
 }
 
-float PairedHit::collapse_mass() const {
+double PairedHit::collapse_mass() const {
    return _collapse_mass;
 }

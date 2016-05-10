@@ -27,7 +27,9 @@
 #include <lemon/lgf_writer.h>
 #include <lemon/list_graph.h>
 #include <lemon/network_simplex.h>
+#include <lemon/dijkstra.h>
 #include <lemon/core.h>
+#include <stack>
 
 using namespace lemon;
 typedef int LimitValueType;
@@ -42,6 +44,44 @@ void compute_exon_doc(const int left, const std::vector<float> & exon_doc, std::
    }
 }
 
+
+void  constraints_4_single_end(const std::vector<GenomicFeature>& feats,
+                               const std::vector<GenomicFeature> & exons,
+                               std::vector<size_t> &constraint
+                              )
+{
+   uint start = 0;
+   uint end = 0;
+   std::vector<GenomicFeature> introns;
+   for(auto feat = feats.cbegin(); feat != feats.cend(); ++feat){
+      if(feat->_match_op._code == Match_t::S_INTRON){
+         introns.push_back(*feat);
+      }
+      if(start == 0){
+         start = feat->left();
+         end = feat->right();
+      }
+      else{
+         end = feat->right();
+      }
+   }
+
+   assert(end>start);
+   for(size_t i = 0; i< exons.size(); ++i){
+      if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
+         bool valid = true;
+         for(auto intron: introns){
+            if(intron.contains(exons[i])){
+               valid = false;
+               break;
+            }
+         }
+
+         if(valid)
+            constraint.push_back(i);
+      }
+   }
+}
 
 void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembled_feats,
                         const RefID & ref_id,
@@ -569,6 +609,10 @@ bool FlowNetwork::createNetwork(
    InDegMap<Graph> inDeg(_g);
    OutDegMap<Graph> outDeg(_g);
 
+    /*
+    * Single-end path constraint algorithm.
+    */
+
    for(auto c: constraints){
       std::vector<Graph::Arc> path_cstr;
 
@@ -610,6 +654,56 @@ bool FlowNetwork::createNetwork(
             path_cstrs.push_back(path_cstr);
       }
    }
+
+
+   /*
+    * Paired-end path constraint algorithm. Currently defunct.
+    */
+
+//   for(auto c: constraints){
+//      std::vector<Graph::Arc> path_cstr;
+//
+//      for(size_t i = 0; i< c.size()-1; ++i){
+//         const Graph::Node &pre = feat2node[&exons[c[i]]];
+//         const Graph::Node &sec = feat2node[&exons[c[i+1]]];
+//
+//         Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
+//         if(arc_found == INVALID){
+//            Dijkstra<Graph, Graph::ArcMap<int>> shortest_path(_g, cost_map);
+//            shortest_path.run(pre);
+//            std::cout << "The distance of node t from node s: "
+//              << shortest_path.dist(sec) << std::endl;
+//            if(shortest_path.dist(sec) == 0){
+//               LOG("Path Constraints:\t");
+//               LOG("(", exons[c[i]].left(), ",",exons[c[i]].right(),\
+//             ")-(", exons[c[i+1]].left(),",",exons[c[i+1]].right(),")\t");
+//            }
+//            else{
+//                std::stack<Graph::Arc> arcs_stack;
+//                for (Graph::Node v=sec;v != pre; v=shortest_path.predNode(v)) {
+//                   assert(v != INVALID);
+//                   arcs_stack.push(shortest_path.predArc(v));
+//                }
+//                while(!arcs_stack.empty()){
+//
+//                   auto it = find(path_cstr.begin(), path_cstr.end(), arcs_stack.top());
+//                   if(it != path_cstr.end());
+//                      path_cstr.push_back(arcs_stack.top());
+//                   arcs_stack.pop();
+//                }
+//            }
+//
+//         }
+//         else{
+//            auto it = find(path_cstr.begin(), path_cstr.end(), arc_found);
+//            if( it != path_cstr.end());
+//               path_cstr.push_back(arc_found);
+//         }
+//      }
+//      if(path_cstr.size() > 1)
+//         path_cstrs.push_back(path_cstr);
+//   }
+
 
    if(path_cstrs.empty()){
       for(auto arc: arcs){
@@ -711,6 +805,47 @@ void FlowNetwork::addWeight(const std::vector<Contig> &hits,
 }
 
 
+   /*
+    * Paired-end path constraint algorithm. Currently defunct.
+    */
+//std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
+//
+//   const std::vector<GenomicFeature> &exons,
+//   const std::vector<Contig> &hits)
+//{
+//   std::vector<std::vector<size_t>> result;
+//   for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
+//      std::vector<size_t> constraint;
+//      std::vector<GenomicFeature> introns;
+//      for(auto feat = mp->_genomic_feats.cbegin(); feat != mp->_genomic_feats.cend(); ++feat){
+//         if(feat->_match_op._code == Match_t::S_MATCH){
+//            for(size_t i = 0; i< exons.size(); ++i){
+//               if(GenomicFeature::overlap_in_genome(exons[i], feat->left(), feat->right() )  ){
+//                  constraint.push_back(i);
+//               }
+//            }
+//         }
+//         // repeat Match_t::S_GAP
+//         sort(constraint.begin(), constraint.end());
+//         auto new_end = unique(constraint.begin(), constraint.end());
+//         constraint.erase(new_end, constraint.end());
+//         if(constraint.size() > 1){
+//            result.push_back(constraint);
+//         }
+//      }
+//   }
+//   sort(result.begin(), result.end());
+//   auto new_end = unique(result.begin(), result.end());
+//   result.erase(new_end, result.end());
+////   std::cout<<"num exons: "<<exons.size()<<std::endl;
+////   std::cout<<"num constriants: "<<result.size()<<std::endl;
+//   return result;
+//}
+
+
+   /*
+    * Single-end path constraint algorithm.
+    */
 
 std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
 
@@ -719,68 +854,35 @@ std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
 {
    std::vector<std::vector<size_t>> result;
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
-      std::vector<size_t> constraint;
-      std::vector<GenomicFeature> introns;
-      uint start = 0;
-      uint end = 0;
+      std::vector<GenomicFeature> first_read;
+      std::vector<GenomicFeature> second_read;
+
+      bool is_first =true;
       for(auto feat = mp->_genomic_feats.cbegin(); feat != mp->_genomic_feats.cend(); ++feat){
-         if(feat->_match_op._code != Match_t::S_GAP){
-            if(feat->_match_op._code == Match_t::S_INTRON){
-               introns.push_back(*feat);
-            }
-            if(start == 0){
-               start = feat->left();
-               end = feat->right();
-            }
-            else{
-               end = feat->right();
-            }
+         if(feat->_match_op._code == Match_t::S_GAP){
+            is_first = false;
+            continue;
          }
-         // if Match_t::S_GAP
+         if(is_first){
+            first_read.push_back(*feat);
+         }
          else{
-            assert(end>start);
-            for(size_t i = 0; i< exons.size(); ++i){
-               if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
-                  bool valid = true;
-                  for(auto intron: introns){
-                     if(intron.contains(exons[i])){
-                        valid = false;
-                        break;
-                     }
-                  }
-
-                  if(valid)
-                     constraint.push_back(i);
-
-               }
-            }
-            if(constraint.size() > 2){
-               result.push_back(constraint);
-            }
-            start = 0;
-            constraint.clear();
-            introns.clear();
+            second_read.push_back(*feat);
          }
-         // repeat Match_t::S_GAP
-         if(*feat == mp->_genomic_feats.back()){
-            assert(end>start);
-            for(size_t i = 0; i< exons.size(); ++i){
-               if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
-                  bool valid = true;
-                  for(auto intron: introns){
-                     if(intron.contains(exons[i])){
+      }
 
-                        valid = false;
-                        break;
-                     }
-                  }
-                  if(valid)
-                     constraint.push_back(i);
-               }
-            }
-            if(constraint.size() > 2){
-               result.push_back(constraint);
-            }
+      if(!first_read.empty()){
+         std::vector<size_t> constraint;
+         constraints_4_single_end(first_read, exons, constraint);
+         if(constraint.size() > 2){
+            result.push_back(constraint);
+         }
+      }
+      if(!second_read.empty()){
+         std::vector<size_t> constraint;
+         constraints_4_single_end(first_read, exons, constraint);
+         if(constraint.size() > 2){
+            result.push_back(constraint);
          }
       }
    }
@@ -789,6 +891,7 @@ std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
    result.erase(new_end, result.end());
    return result;
 }
+
 
 bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
       const std::vector<GenomicFeature> &exons,
