@@ -530,6 +530,44 @@ bool Contig::is_contained_in(const Contig & small, const Contig & large)
 //   return gap_len;
 //}
 
+
+uint Contig::read_start_from_iso(const Contig &iso, const Contig& hit)
+{
+   //if( !Contig::is_compatible(hit, iso) ) return 0;
+   uint read_start = hit.left();
+   uint dist_from_start = 0;
+   for(size_t i=0; i<iso._genomic_feats.size(); ++i){
+      if(iso._genomic_feats[i]._match_op._code == S_MATCH){
+         if(read_start >= iso._genomic_feats[i].left() && read_start <= iso._genomic_feats[i].right() ){
+            dist_from_start += read_start - iso._genomic_feats[i].left() + 1;
+            break;
+         }
+         else if(read_start > iso._genomic_feats[i].right()){
+            dist_from_start += iso._genomic_feats[i].len();
+         }
+         else{
+            return 0;
+         }
+      }
+   }
+
+   return dist_from_start;
+}
+
+vector<double> Contig::start_site_dist(const Contig & iso, const vector<Contig> & hits)
+{
+   int nsites = iso.exonic_length();
+   vector<double> start_dist(nsites, 0.0);
+   for(auto & h: hits){
+      uint s = Contig::read_start_from_iso(iso, h);
+      if(s == 0) continue;
+      //cerr<<"nistes: " <<nsites<<endl;
+      //cerr<<"s: "<<s<<endl;
+      start_dist[s - 1] += h.mass();
+   }
+   return start_dist;
+}
+
 bool Contig::is_compatible(const Contig &read, const Contig &isoform)
 /*
  * Judge if a read is compatible with a transcript.

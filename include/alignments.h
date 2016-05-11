@@ -39,6 +39,7 @@ private:
    std::vector<GenomicFeature> _introns;
    std::vector<float> _dep_of_cov;
    void reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers);
+   void reweight_read(bool weight_bais);
    //std::map<std::pair<int,int>,int> _current_intron_counter;
 public:
    double _weighted_mass = 0.0;

@@ -246,18 +246,16 @@ int main(int argc, char** argv){
    hf->inspect_header();
    Sample read_sample(move(hf));
 
-/*
- * READ bias from file. NEED TO BE UPDATE.
- */
-   std::ifstream inputFile("Genominator.bias");
-   string kmer_name;
-   double kmer_weight;
-   while(inputFile >> kmer_name >> kmer_weight){
-      read_sample._kmer_bias[kmer_name] = kmer_weight;
-   }
-/*
- * READ bias from file. NEED TO BE UPDATE.
- */
+
+//READ bias from file. obsolete.
+
+//   std::ifstream inputFile("Genominator.bias");
+//   string kmer_name;
+//   double kmer_weight;
+//   while(inputFile >> kmer_name >> kmer_weight){
+//      read_sample._kmer_bias[kmer_name] = kmer_weight;
+//   }
+
 
    GffReader* greader= NULL;
    if(ref_gtf_filename != ""){
@@ -327,7 +325,7 @@ int main(int argc, char** argv){
    greader = NULL;
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
-   cout << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
+   cerr << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
 }
 
 

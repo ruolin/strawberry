@@ -130,6 +130,8 @@ public:
    static bool is_compatible(const Contig &isoform, const GenomicFeature& feat);
    //static int infer_inner_dist(const Contig &isoform, const Contig &hit);
 
+   static uint read_start_from_iso(const Contig &iso, const Contig& hit);
+   static std::vector<double> start_site_dist(const Contig & iso, const std::vector<Contig> & hits);
    bool operator<(const Contig &rhs) const;
    friend bool operator==(const Contig &lhs, const Contig & rhs);
 

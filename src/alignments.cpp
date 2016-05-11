@@ -53,12 +53,7 @@ bool hit_lt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_rad
 }
 
 bool hit_gt_cluster(const ReadHit& hit, const HitCluster& cluster, uint olap_radius){
-//   if (cluster.left() == 1779207){
-//         cout<<hit.left()<<"ca"<<endl;
-//      if(cluster.right() == 23656492){
-//         exit(1);
-//      }
-//   }
+
    if(hit.ref_id() != cluster.ref_id()){
       //cout<<"shouldn't\t"<<hit.ref_id()<<":"<<cluster.ref_id()<<endl;
       return hit.ref_id() > cluster.ref_id();
@@ -481,15 +476,18 @@ int HitCluster::collapseHits()
    return _uniq_hits.size();
 }
 
-void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers){
-   if(!weight_bias){
-      for(auto & hit:_hits){
-         hit.init_raw_mass();
-         _weighted_mass += hit.raw_mass();
-      }
-      return;
+void HitCluster::reweight_read(bool weight_bias)
+{
+   //only when not using kmer freq to weight bias
+   assert(weight_bias == false);
+   for(auto & hit:_hits){
+      hit.init_raw_mass(); // set hit mass
+      _weighted_mass += hit.raw_mass(); // set cluster mass
    }
+   return;
+}
 
+void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers){
 
    for(auto & hit:_hits){
       hit.set_kmers(num_kmers);
@@ -522,9 +520,9 @@ void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bi
    }
 
    for(auto const & hit:_hits){
-      _weighted_mass += hit.weighted_mass();
+      _weighted_mass += hit.weighted_mass(); // set cluster mass
    }
-   //cout<<_weighted_mass<<endl;
+
 }
 
 double HitCluster::weighted_mass() const
@@ -1000,7 +998,8 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
       return;
    }
    cluster->clearOpenMates();
-   cluster->reweight_read(_kmer_bias, 5);
+   //cluster->reweight_read(_kmer_bias, 5);
+   cluster->reweight_read(false);
    cluster->collapseHits();
    if(SINGLE_END_EXP && _is_inspecting){
 #if ENABLE_THREADS
@@ -1138,32 +1137,58 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
    if(_is_inspecting ){ // calculated the fragment length distribution
       _total_mapped_reads += (int) cluster->weighted_mass();
 
-      for(auto const& assembled_transcript: assembled_transcripts){
-         if(assembled_transcripts.size() > 1) continue;
-         //for(assembled_transcripts)
-         for(size_t h = 0; h< hits.size(); ++h){
-            if(hits[h].is_single_read()) continue;
-            if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
-            double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
+      if(assembled_transcripts.size() == 1){
+
+/*
+ * The following code prints read start frequency along transcripts
+ * for H.Sapiens FOXA3 gene.
+ */
+//         if(cluster->ref_id() == 18){
+//         vector<double> start = Contig::start_site_dist(assembled_transcripts[0], hits);
+//#if ENABLE_THREADS
+//      if(use_threads){
+//         out_file_lock.lock();
+//      }
+//#endif
+//
+//      cerr<<assembled_transcripts[0].ref_id()<<": "<<assembled_transcripts[0].left()<<"-"<<assembled_transcripts[0].right()<<endl;
+//         for(size_t i = 0; i< start.size(); ++i){
+//            cerr<<i<<"\t";
+//            cerr<<start[i]<<endl;
+//         }
+//
+//#if ENABLE_THREADS
+//   if(use_threads){
+//      out_file_lock.unlock();
+//   }
+//#endif
+//         }
+
+         for(auto const& assembled_transcript: assembled_transcripts){
+            for(size_t h = 0; h< hits.size(); ++h){
+               if(hits[h].is_single_read()) continue;
+               if(!Contig::is_compatible(hits[h], assembled_transcript)) continue;
+               double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(), hits[h].right());
 //#ifdef DEBUG
 //                  cout<<"frag_len: "<<frag_len<<endl;
 //                  cout<<"frag location>> "<<hits[h].ref_id()<<":"<<hits[h].left()<<"-"<<hits[h].right()<<endl;
 //#endif
 #if ENABLE_THREADS
-            if(use_threads){
-               thread_pool_lock.lock();
-               _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-               thread_pool_lock.unlock();
-            }else{
-               _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-            }
+               if(use_threads){
+                  thread_pool_lock.lock();
+                  _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+                  thread_pool_lock.unlock();
+               }else{
+                  _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+               }
 #else
-            _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+               _hit_factory->_reads_table._frag_dist.push_back(frag_len);
 #endif
 
-         }// end for
-      }// end for
+            }// end for
 
+         }// end for
+      }
 #if ENABLE_THREADS
       if(use_threads){
          out_file_lock.lock();

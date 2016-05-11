@@ -247,10 +247,10 @@ InsertSize::InsertSize(const vector<int> frag_lens):_use_emp(true)
    mean_and_sd_insert_size(frag_lens, _mean, _sd);
    auto result = minmax_element(frag_lens.begin(), frag_lens.end());
    if (verbose){
-      cout<<"Calculated averaged fragment length is: "<<_mean<<endl;
-      cout<<"Calculated fragment length sd is: "<<_sd<<endl;
-      cout<<"Min fragment length is: "<<*result.first<<endl;
-      cout<<"Max fragment length is: "<<*result.second<<endl;
+      cerr<<"Calculated averaged fragment length is: "<<_mean<<endl;
+      cerr<<"Calculated fragment length sd is: "<<_sd<<endl;
+      cerr<<"Min fragment length is: "<<*result.first<<endl;
+      cerr<<"Max fragment length is: "<<*result.second<<endl;
    }
    _start_offset = *result.first;
    _end_offset = *result.second;
