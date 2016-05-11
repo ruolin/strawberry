@@ -1,3 +1,6 @@
+Strawberry source code current version: 0.8.2 beta. 
+==================
+
 What is Strawberry?
 ==================
 Strawberry is a C++ program for fast and accurate ab initio transcript reconstruction and quantification from RNA-seq data. It is written in C++11 and is available as open source software. Strawberry leverages the speed and accuracy of transcript assembly and quantification in such a way that processing 10 million simulated reads (after alignment) requires only 90 seconds using a single thread while achieving over 92% correlation with the ground truth, making it the state-of-the-art method.
