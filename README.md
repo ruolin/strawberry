@@ -31,6 +31,8 @@ Download
 
 `git clone https://github.com/ruolin/Strawberry.git`
 
+Precompiled binary is available on the [release page] (https://github.com/ruolin/Strawberry/releases) for the latest version. 
+
 Installation
 ============
 1. `sh cmake.sh`
