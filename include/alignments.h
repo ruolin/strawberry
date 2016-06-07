@@ -17,7 +17,7 @@
 class Sample;
 class FaInterface;
 class FaSeqGetter;
-using IntronMap = std::map<std::pair<uint,uint>,IntronTable>;
+using IntronMap = map<pair<uint,uint>,IntronTable>;
 
 class HitCluster{
 friend Sample;
@@ -32,15 +32,15 @@ private:
    bool _final; // HitCluster is finished
    double _raw_mass = 0.0;
    Strand_t _strand;
-   std::unordered_map<ReadID, list<PairedHit>> _open_mates;
-   std::vector<PairedHit> _hits;
-   std::vector<PairedHit> _uniq_hits;
-   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by Sample
-   std::vector<GenomicFeature> _introns;
-   std::vector<float> _dep_of_cov;
-   void reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers);
+   unordered_map<ReadID, list<PairedHit>> _open_mates;
+   vector<PairedHit> _hits;
+   vector<PairedHit> _uniq_hits;
+   vector<Contig*> _ref_mRNAs; // the actually objects are owned by Sample
+   vector<GenomicFeature> _introns;
+   vector<float> _dep_of_cov;
+   void reweight_read(const unordered_map<string, double>& kmer_bias, int num_kmers);
    void reweight_read(bool weight_bais);
-   //std::map<std::pair<int,int>,int> _current_intron_counter;
+   //map<pair<int,int>,int> _current_intron_counter;
 public:
    double _weighted_mass = 0.0;
    //static const int _kMaxGeneLen = 1000000;
@@ -61,7 +61,7 @@ public:
       return _strand;
    }
    bool addHit(const PairedHit &hit);
-   void count_current_intron(const std::vector<std::pair<uint,uint>>& cur_intron);
+   void count_current_intron(const vector<pair<uint,uint>>& cur_intron);
    void setBoundaries();
    void clearOpenMates();
    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
@@ -131,9 +131,9 @@ public:
    shared_ptr<FaSeqGetter> _fasta_getter = nullptr;
    shared_ptr<FaInterface> _fasta_interface = nullptr;
 
-   std::unordered_map<std::string, double> _kmer_bias;
+   unordered_map<string, double> _kmer_bias;
 
-   std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
+   vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
    Sample(shared_ptr<HitFactory> hit_fac):
       _refmRNA_offset(0),
       _has_load_all_refs(false),
@@ -142,6 +142,7 @@ public:
    //int max_inner_dist() const;
    int total_mapped_reads() const;
    bool load_chrom_fasta(RefID seq_id);
+   string get_iso_seq(const shared_ptr<FaSeqGetter> &fa_getter, const Contig iso) const;
    bool hasLoadRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }

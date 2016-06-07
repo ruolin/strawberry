@@ -294,6 +294,18 @@ double ExonBin::bin_gc_content(const shared_ptr<FaSeqGetter> &fa_getter, const i
 
 }
 
+
+double ExonBin::bin_gc_content(const shared_ptr<FaSeqGetter> &fa_getter) const
+{
+   vector<double> gc_ratios;
+   for(auto it= _coords.cbegin(); it != _coords.cend(); ++it){
+      double gc = gc_content(fa_getter->fetchSeq(it->first, it->second - it->first+1) );
+      gc_ratios.push_back(gc);
+   }
+   double total_gc = accumulate(gc_ratios.begin(), gc_ratios.end(), 0.0);
+   return total_gc/gc_ratios.size();
+}
+
 double ExonBin::avg_frag_len() const
 {
    assert(_iso_2_frag_lens.empty() == false);
@@ -569,7 +581,7 @@ void Estimation::overlap_exons(const vector<GenomicFeature>& exons,
 
          if (GenomicFeature::overlaps(read_f, gfeat)){
             auto ret = coords.insert(pair<uint,uint>(gfeat.left(),gfeat.right()));
-            //assert(ret.second)
+            //assert(ret.second);
          }
       }
    }
@@ -693,10 +705,13 @@ void Estimation::calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_b
 //#endif
       ExonBin& eb = it->second;
       vector<double> b;
-      b.reserve(1);
-//      b.push_back( eb.bin_len());
-//      b.push_back( eb.avg_frag_len());
-      b.push_back( eb.bin_gc_content(fa_getter, _read_len));
+      b.reserve(3);
+      double gc = eb.bin_gc_content(fa_getter);
+      b.push_back(gc);
+      b.push_back(gc*gc);
+      b.push_back(gc*gc*gc);
+      b.push_back(eb.bin_len());
+      b.push_back(eb.avg_frag_len());
 //      for(auto c:it->first){
 //         cout<<"exon bin: " <<c.first<<"-"<<c.second<<endl;
 //      }
@@ -1113,7 +1128,7 @@ bool EmSolver::run(){
 
           for(size_t j = 0; j< ncol; ++j){
              _theta[j] = theta[j];
-             cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
+             //cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
           }
 
 

@@ -558,6 +558,7 @@ vector<double> Contig::start_site_dist(const Contig & iso, const vector<Contig> 
 {
    int nsites = iso.exonic_length();
    vector<double> start_dist(nsites, 0.0);
+   vector<double> end_dist(nsites, 0.0);
    for(auto & h: hits){
       uint s = Contig::read_start_from_iso(iso, h);
       if(s == 0) continue;
@@ -567,6 +568,8 @@ vector<double> Contig::start_site_dist(const Contig & iso, const vector<Contig> 
    }
    return start_dist;
 }
+
+
 
 bool Contig::is_compatible(const Contig &read, const Contig &isoform)
 /*
@@ -704,7 +707,7 @@ void Contig::print2gtf(FILE *pFile,
    strcat(gff_attr, "FPKM \"");
    strcat(gff_attr, fpkm_c);
    strcat(gff_attr, "\";");
-   strcat(gff_attr, "TPM \"");
+   strcat(gff_attr, "Frac \"");
    strcat(gff_attr, tpm_c);
    strcat(gff_attr, "\";");
 

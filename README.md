@@ -1,4 +1,4 @@
-Strawberry source code current version: 0.8.2 beta. 
+Strawberry source code current version: 0.8.3 beta. 
 ==================
 
 What is Strawberry?

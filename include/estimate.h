@@ -66,6 +66,7 @@ public:
    int num_exons() const;
    int left_exon_len() const;
    double bin_gc_content(const shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const;
+   double bin_gc_content(const shared_ptr<FaSeqGetter> &fa_getter) const;
    double avg_frag_len() const;
    RefID ref_id() const;
 };

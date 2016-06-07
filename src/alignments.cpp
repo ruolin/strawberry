@@ -29,6 +29,7 @@
 #include "fasta.h"
 #include "assembly.h"
 #include "estimate.h"
+#include "bias.h"
 using namespace std;
 
 
@@ -638,6 +639,20 @@ bool Sample::load_chrom_fasta(RefID seq_id)
 }
 
 
+string Sample::get_iso_seq(const shared_ptr<FaSeqGetter> &fa_getter, const Contig iso) const
+{
+   string iso_seq;
+    for(size_t i = 0; i<iso._genomic_feats.size(); ++i){
+      if(iso._genomic_feats[i]._match_op._code == S_MATCH){
+         uint s = iso._genomic_feats[i].left();
+         int l = iso._genomic_feats[i].len();
+         iso_seq += fa_getter->fetchSeq(s, l);
+      }
+   }
+   return iso_seq;
+}
+
+
 bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt)
 {
    cout<<"Has loaded transcripts from "<<gseqs.size()<<" Chromosomes/Scaffolds"<<endl;
@@ -998,8 +1013,16 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
       return;
    }
    cluster->clearOpenMates();
-   //cluster->reweight_read(_kmer_bias, 5);
+
+/*
+ * The hexmer reweighting does not make a different now.
+ */
+//   if(BIAS_CORRECTION)
+//      cluster->reweight_read(_kmer_bias, 5);
+//   else
+//      cluster->reweight_read(false);
    cluster->reweight_read(false);
+
    cluster->collapseHits();
    if(SINGLE_END_EXP && _is_inspecting){
 #if ENABLE_THREADS
@@ -1143,26 +1166,41 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
  * The following code prints read start frequency along transcripts
  * for H.Sapiens FOXA3 gene.
  */
-//         if(cluster->ref_id() == 18){
-//         vector<double> start = Contig::start_site_dist(assembled_transcripts[0], hits);
-//#if ENABLE_THREADS
-//      if(use_threads){
-//         out_file_lock.lock();
-//      }
-//#endif
-//
+         if(cluster->ref_id() == 18){
+         string iso_seq = get_iso_seq(_fasta_getter, assembled_transcripts[0]);
+
+         vector<double> start_count = Contig::start_site_dist(assembled_transcripts[0], hits);
+         vector<double> gc = Bias::isowide_gc_content(_hit_factory->_reads_table._read_len_abs, iso_seq);
+         vector<double> kmer_weights = Bias::start_kmer_bias(7, iso_seq, _kmer_bias);
+#if ENABLE_THREADS
+      if(use_threads){
+         out_file_lock.lock();
+      }
+#endif
+
+      /*
+       *  Position specific bias
+       */
 //      cerr<<assembled_transcripts[0].ref_id()<<": "<<assembled_transcripts[0].left()<<"-"<<assembled_transcripts[0].right()<<endl;
-//         for(size_t i = 0; i< start.size(); ++i){
+//         for(size_t i = 0; i< start_count.size(); ++i){
 //            cerr<<i<<"\t";
-//            cerr<<start[i]<<endl;
+//            cerr<<gc[i]<<"\t";
+//            cerr<<kmer_weights[i]<<"\t";
+//            cerr<<start_count[i]<<endl;
 //         }
-//
-//#if ENABLE_THREADS
-//   if(use_threads){
-//      out_file_lock.unlock();
-//   }
-//#endif
-//         }
+
+
+#if ENABLE_THREADS
+   if(use_threads){
+      out_file_lock.unlock();
+   }
+#endif
+         }
+
+/*
+ * End for H.Sapiens FOXA3 gene
+ */
+
 
          for(auto const& assembled_transcript: assembled_transcripts){
             for(size_t h = 0; h< hits.size(); ++h){
@@ -1278,6 +1316,8 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
       if(use_threads)
          lock_guard<mutex> lock(out_file_lock);
 #endif
+      /* Print locus coordinates*/
+      cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
       for(auto & iso: isoforms){
          iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
 
@@ -1302,6 +1342,9 @@ void Sample::inspectSample(FILE *plogfile)
       return;
    }
 
+   RefID current_ref_id = last_cluster->ref_id();
+   if(BIAS_CORRECTION)
+      load_chrom_fasta(current_ref_id);
    _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
 
    while(true){
@@ -1323,9 +1366,29 @@ void Sample::inspectSample(FILE *plogfile)
          last_cluster = move(cur_cluster);
          continue;
       }
+
+//Begin loading ref seqs
+      if(current_ref_id != last_cluster->ref_id()){
+         current_ref_id = last_cluster->ref_id();
+         if(BIAS_CORRECTION){
+#if ENABLE_THREADS
+            if(use_threads){
+               while(true){
+                  if(curr_thread_num==0){
+                     break;
+                  }
+                  this_thread::sleep_for(chrono::milliseconds(3));
+               }
+               load_chrom_fasta(current_ref_id);
+            }
+#endif
+            load_chrom_fasta(current_ref_id);
+         }
+      }
       if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
          _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
       }
+//End loading ref seqs
       last_cluster->_id = _num_cluster;
 #if ENABLE_THREADS
       if(use_threads){
@@ -1394,7 +1457,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
    }
    _is_inspecting = false;
 
-    RefID current_ref_id = last_cluster->ref_id();
+   RefID current_ref_id = last_cluster->ref_id();
    if(BIAS_CORRECTION)
       load_chrom_fasta(current_ref_id);
 

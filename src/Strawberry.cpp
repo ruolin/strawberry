@@ -247,8 +247,9 @@ int main(int argc, char** argv){
    Sample read_sample(move(hf));
 
 
-//READ bias from file. obsolete.
-
+/*
+ * The hexmer reweighting does not make a different now.
+ */
 //   std::ifstream inputFile("Genominator.bias");
 //   string kmer_name;
 //   double kmer_weight;
