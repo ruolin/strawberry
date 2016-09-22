@@ -1,7 +1,8 @@
 #Build dir
 Build/
 #CLion setting folder
-.idea
+.idea/
+.idea/vcs.xml
 
 # Compiled Object files
 *.slo
