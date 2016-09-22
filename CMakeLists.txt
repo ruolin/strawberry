@@ -14,7 +14,7 @@ set(CPACK_PACKAGE_NAME
   "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME
   "${CMAKE_PROJECT_NAME}-${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}-Source")
-
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 #MESSAGE( STATUS "CMAKE_MODULE_DIR:         " ${CMAKE_MODULE_PATH} )
 set(CMAKE_CXX_FLAGS "-g -pthread -Ofast -funroll-loops -fPIC -fomit-frame-pointer -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
@@ -132,7 +132,7 @@ else()
     message("-- will attempt to fetch and build samtools on version 0.1.19")
 ExternalProject_Add(samtools
   DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
-  URL http://iweb.dl.sourceforge.net/project/samtools/samtools/0.1.19/samtools-0.1.19.tar.bz2
+  URL https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19
 # INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/install
 # PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19

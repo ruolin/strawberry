@@ -1,5 +1,7 @@
 #Build dir
 Build/
+#CLion setting folder
+.idea
 
 # Compiled Object files
 *.slo

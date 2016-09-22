@@ -24,8 +24,8 @@
 #include <string.h>
 //#include <typeinfo>
 #include<cxxabi.h>
-#include "read.h"
-#include "kmer.h"
+#include "read.hpp"
+//#include "kmer.h"
 
 void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd){
    double sum = accumulate(vec.begin(), vec.end(), 0.0);
@@ -697,27 +697,27 @@ void PairedHit::init_raw_mass()
       _mass += _right_read->mass();
 }
 
-void PairedHit::set_kmers(int num_kmers )
-{
-   if(_left_read ){
-      for(int i = 0; i< num_kmers; ++i){
-         string sub = _left_read->_seq.substr(i, Kmer::_k);
-         Kmer k(sub.c_str());
-         _left_kmers.push_back(k);
-      }
-   }
+//void PairedHit::set_kmers(int num_kmers )
+//{
+//   if(_left_read ){
+//      for(int i = 0; i< num_kmers; ++i){
+//         string sub = _left_read->_seq.substr(i, Kmer::_k);
+//         Kmer k(sub.c_str());
+//         _left_kmers.push_back(k);
+//      }
+//   }
 
-   if(_right_read){
-      string rev_seq = _right_read->_seq;
-      reverse(rev_seq.begin(), rev_seq.end());
-      for(int i = 0; i< num_kmers; ++i){
-         string sub = rev_seq.substr(i, Kmer::_k);
-         Kmer k(sub.c_str());
-         _right_kmers.push_back(k);
-      }
-   }
+//   if(_right_read){
+//      string rev_seq = _right_read->_seq;
+//      reverse(rev_seq.begin(), rev_seq.end());
+//      for(int i = 0; i< num_kmers; ++i){
+//         string sub = rev_seq.substr(i, Kmer::_k);
+//         Kmer k(sub.c_str());
+//         _right_kmers.push_back(k);
+//      }
+//   }
 
-}
+//}
 
 const ReadHit& PairedHit::left_read_obj() const {return *_left_read;}
 

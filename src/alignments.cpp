@@ -29,7 +29,7 @@
 #include "fasta.h"
 #include "assembly.h"
 #include "estimate.h"
-#include "bias.h"
+//#include "bias.h"
 using namespace std;
 
 
@@ -488,43 +488,43 @@ void HitCluster::reweight_read(bool weight_bias)
    return;
 }
 
-void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers){
-
-   for(auto & hit:_hits){
-      hit.set_kmers(num_kmers);
-      hit.init_raw_mass();
-   }
-   for(auto & hit:_hits){
-      double weight = 0.0;
-      int num = 0;
-      for(auto const & kmer : hit._left_kmers){
-         auto got = kmer_bias.find(kmer.toString());
-         if(got != kmer_bias.end()){
-            weight += got->second;
-            num ++ ;
-         }
-      }
-
-      for(auto const & kmer : hit._right_kmers){
-         auto got = kmer_bias.find(kmer.toString());
-         if(got != kmer_bias.end()){
-            weight += got->second;
-            num ++ ;
-         }
-      }
-
-      double new_mass = hit.weighted_mass() * weight / num;
-      hit.weighted_mass(new_mass);
-//      cout<<"raw mass "<<hit.raw_mass()<<endl;
-//      cout<<"weighted mass "<<hit.weighted_mass()<<" and weight "<<weight<<endl;
-//      if(weight == 0.0) exit(0);
-   }
-
-   for(auto const & hit:_hits){
-      _weighted_mass += hit.weighted_mass(); // set cluster mass
-   }
-
-}
+//void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers){
+//
+//   for(auto & hit:_hits){
+//      hit.set_kmers(num_kmers);
+//      hit.init_raw_mass();
+//   }
+//   for(auto & hit:_hits){
+//      double weight = 0.0;
+//      int num = 0;
+//      for(auto const & kmer : hit._left_kmers){
+//         auto got = kmer_bias.find(kmer.toString());
+//         if(got != kmer_bias.end()){
+//            weight += got->second;
+//            num ++ ;
+//         }
+//      }
+//
+//      for(auto const & kmer : hit._right_kmers){
+//         auto got = kmer_bias.find(kmer.toString());
+//         if(got != kmer_bias.end()){
+//            weight += got->second;
+//            num ++ ;
+//         }
+//      }
+//
+//      double new_mass = hit.weighted_mass() * weight / num;
+//      hit.weighted_mass(new_mass);
+////      cout<<"raw mass "<<hit.raw_mass()<<endl;
+////      cout<<"weighted mass "<<hit.weighted_mass()<<" and weight "<<weight<<endl;
+////      if(weight == 0.0) exit(0);
+//   }
+//
+//   for(auto const & hit:_hits){
+//      _weighted_mass += hit.weighted_mass(); // set cluster mass
+//   }
+//
+//}
 
 double HitCluster::weighted_mass() const
 {
@@ -1170,8 +1170,8 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
          string iso_seq = get_iso_seq(_fasta_getter, assembled_transcripts[0]);
 
          vector<double> start_count = Contig::start_site_dist(assembled_transcripts[0], hits);
-         vector<double> gc = Bias::isowide_gc_content(_hit_factory->_reads_table._read_len_abs, iso_seq);
-         vector<double> kmer_weights = Bias::start_kmer_bias(7, iso_seq, _kmer_bias);
+//         vector<double> gc = Bias::isowide_gc_content(_hit_factory->_reads_table._read_len_abs, iso_seq);
+//         vector<double> kmer_weights = Bias::start_kmer_bias(7, iso_seq, _kmer_bias);
 #if ENABLE_THREADS
       if(use_threads){
          out_file_lock.lock();

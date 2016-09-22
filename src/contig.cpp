@@ -24,7 +24,7 @@
 //#include <mutex>
 //#include <iterator>
 #include "contig.h"
-#include "read.h"
+#include "read.hpp"
 using namespace std;
 
 

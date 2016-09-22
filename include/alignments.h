@@ -11,7 +11,7 @@
 #include <map>
 #include <climits>
 #include <atomic>
-#include "read.h"
+#include "read.hpp"
 #include "contig.h"
 #include "gff.h"
 class Sample;

@@ -30,7 +30,7 @@
 #include "alignments.h"
 #include "logger.hpp"
 #include "StrawberryConfig.hpp"
-#include "kmer.h"
+//#include "kmer.h"
 //#include "qp.h"
 
 

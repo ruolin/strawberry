@@ -24,8 +24,8 @@ estimate.cpp
 alignments.cpp
 assembly.cpp
 Strawberry.cpp
-kmer.cpp
-bias.cpp
+#kmer.cpp
+#bias.cpp
 )
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)

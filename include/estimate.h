@@ -8,7 +8,7 @@
 #ifndef QP_H_
 #define QP_H_
 #include <contig.h>
-#include <read.h>
+#include <read.hpp>
 class FaSeqGetter;
 class Isoform{
 
