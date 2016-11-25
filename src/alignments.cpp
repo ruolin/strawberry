@@ -1026,15 +1026,20 @@ void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
 
 void Sample::FinalizeCluster(shared_ptr<HitCluster> cluster, bool clear_open_mates ){
    if (cluster->size() == 0) {
-#if ENABLE_THREADS
-       if(use_threads) decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//       if(use_threads) decr_pool_count();
+//#endif
+       return;
    }
    if(clear_open_mates){
       cluster->clearOpenMates();
    }
    cluster->reweight_read(false);
    cluster->collapseHits();
+
+//#if enable_threads
+//    if(use_threads) decr_pool_count();
+//#endif
 }
 
 void Sample::AssembleCluster(const RefSeqTable &ref_t, shared_ptr<HitCluster> cluster, FILE *pfile, FILE *plogfile){
@@ -1445,6 +1450,9 @@ void Sample::inspectSample(FILE *plogfile)
 #if ENABLE_THREADS
    if(use_threads){
       while(true){
+#ifdef DEBUG
+         //cout<<curr_thread_num<<endl;
+#endif
          if(curr_thread_num==0){
             break;
          }
@@ -1479,6 +1487,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
  * assemble each cluster-> Right now only nextCluster_refGuide() is implemented.
  * if no reference mRNA than nextCluster_refGuide will call nextCluster_denovo()
  */
+   cout<<"reach in procSample"<<endl;
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    shared_ptr<HitCluster> last_cluster (new HitCluster());
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
@@ -1516,6 +1525,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
          continue;
       }
 
+       //load fasta genome
       if(current_ref_id != last_cluster->ref_id()){
          current_ref_id = last_cluster->ref_id();
          if(BIAS_CORRECTION){
