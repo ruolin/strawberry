@@ -147,7 +147,7 @@ public:
       return _ref_mRNAs.size() > 0;
    }
    bool loadRefFasta(RefSeqTable &rt, const char *seqFile = NULL);
-   bool loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt);
+   bool loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt);
    int addRef2Cluster(HitCluster &clusterOut);
    void reset_refmRNAs();
    double next_valid_alignment(ReadHit& readin);
@@ -155,7 +155,7 @@ public:
    int nextCluster_denovo(HitCluster &clusterOut,
                            uint next_ref_start_pos = UINT_MAX,
                            RefID next_ref_start_ref=INT_MAX);
-
+    int NextClusterRefDemand(HitCluster & clusterOut);
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
 
@@ -166,7 +166,8 @@ public:
    void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
    void procSample(FILE *f, FILE *log);
    void inspectSample(FILE *log);
-   void finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluster> cluster, FILE *f, FILE *plogfile);
+   void AssembleCluster(const RefSeqTable & ref_t, shared_ptr<HitCluster> cluster, FILE *f, FILE *plogfile);
+    void FinalizeCluster(shared_ptr<HitCluster>, bool);
 };
 
 

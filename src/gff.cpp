@@ -382,7 +382,7 @@ GffExon::GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene, GffReader & gre
    _parent_mrnas.push_back(mrna);
 }
 
-GffLoci* GffSeqData::findGene(const string gene_id){
+GffLoci* GffTree::findGene(const string gene_id){
    if( _genes.back()->_gene_id == gene_id){
       return &(*_genes.back());
    } else{
@@ -394,7 +394,7 @@ GffLoci* GffSeqData::findGene(const string gene_id){
    }
 }
 
-GffmRNA* GffSeqData::findmRNA(const string mrna_id, const Strand_t strand){
+GffmRNA* GffTree::findmRNA(const string mrna_id, const Strand_t strand){
    switch(strand)
    {
       case Strand_t::StrandPlus:
@@ -470,12 +470,12 @@ bool GffReader::nextGffLine(){
 }
 
 void GffReader::readAll(){
-   string last_seq_name;
-   GffSeqData* gseq = nullptr;
+   string previous_chrom;
+   GffTree* gseq = nullptr;
    while(nextGffLine()){
-      if( _gfline->_chrom != last_seq_name){
-         last_seq_name = _gfline->_chrom;
-         unique_ptr<GffSeqData> g_seq(new GffSeqData(last_seq_name));
+      if( _gfline->_chrom != previous_chrom){
+         previous_chrom = _gfline->_chrom;
+         unique_ptr<GffTree> g_seq(new GffTree(previous_chrom));
          GffReader::addGseq(move(g_seq));
          gseq = &(*_g_seqs.back());
       }

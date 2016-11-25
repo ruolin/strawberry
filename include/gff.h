@@ -275,7 +275,10 @@ public:
 using mrnaPtr = unique_ptr <GffmRNA>;
 using genePtr = unique_ptr <GffLoci>;
 
-class GffSeqData {
+class GffTree {
+    /*
+     *
+     */
 public:
    vector<mrnaPtr> _forward_rnas;
    vector<mrnaPtr> _reverse_rnas; // in each GffmRNA object, exon order is from small-to-large
@@ -285,10 +288,10 @@ public:
                            // the order for minus strand is large-to-small.
    string _g_seq_name;
 
-   explicit GffSeqData(const string &g_seq_name):
+   explicit GffTree(const string &g_seq_name):
          _g_seq_name(g_seq_name)
    {}
-   GffSeqData() = default;
+   GffTree() = default;
 
    int get_gseq_id() const{
       assert(!_genes.empty());
@@ -362,17 +365,19 @@ public:
 class GffReader: public SlineReader{
    string _fname;
 public:
-   vector<unique_ptr<GffSeqData> >  _g_seqs;
+   vector<unique_ptr<GffTree> >  _g_seqs;
    LinePtr _gfline;
    GffReader(const char* fname, FILE* stream=NULL);
    void load_gff(const char* f=NULL);
    bool nextGffLine();
    void readAll();
-   void addGseq(unique_ptr<GffSeqData> gseq){
+   void addGseq(unique_ptr<GffTree> gseq){
       _g_seqs.push_back(move(gseq));
    }
    void reverseExonOrderInMinusStrand();
 };
 
 #endif
+
+
 

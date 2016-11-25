@@ -28,8 +28,8 @@
 #include "alignments.h"
 #include "fasta.h"
 #include "assembly.h"
-#include "estimate.h"
-//#include "bias.h"
+#include "estimate.hpp"
+#include "bias.hpp"
 using namespace std;
 
 
@@ -479,7 +479,8 @@ int HitCluster::collapseHits()
 
 void HitCluster::reweight_read(bool weight_bias)
 {
-   //only when not using kmer freq to weight bias
+   // this function is a place holder and does not
+   // weight the reads
    assert(weight_bias == false);
    for(auto & hit:_hits){
       hit.init_raw_mass(); // set hit mass
@@ -515,9 +516,9 @@ void HitCluster::reweight_read(bool weight_bias)
 //
 //      double new_mass = hit.weighted_mass() * weight / num;
 //      hit.weighted_mass(new_mass);
-////      cout<<"raw mass "<<hit.raw_mass()<<endl;
-////      cout<<"weighted mass "<<hit.weighted_mass()<<" and weight "<<weight<<endl;
-////      if(weight == 0.0) exit(0);
+//      cout<<"raw mass "<<hit.raw_mass()<<endl;
+//      cout<<"weighted mass "<<hit.weighted_mass()<<" and weight "<<weight<<endl;
+//      if(weight == 0.0) exit(0);
 //   }
 //
 //   for(auto const & hit:_hits){
@@ -653,11 +654,12 @@ string Sample::get_iso_seq(const shared_ptr<FaSeqGetter> &fa_getter, const Conti
 }
 
 
-bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt)
+
+bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
 {
    cout<<"Has loaded transcripts from "<<gseqs.size()<<" Chromosomes/Scaffolds"<<endl;
    /*
-    * Loading reference FASTA sequence for RNA molecule according to gene model.
+    * Parse transcripts in GffTree to a vector of Contig objects.
     */
 
    //sort gseqs accroding to the observation order in ref_table
@@ -677,7 +679,7 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt
          }
       }
       sort(gseqs.begin(),gseqs.end(),
-            [](const unique_ptr<GffSeqData> &lhs, const unique_ptr<GffSeqData> &rhs){
+            [](const unique_ptr<GffTree> &lhs, const unique_ptr<GffTree> &rhs){
                return lhs->get_gseq_id() < rhs->get_gseq_id();
       });
    }
@@ -689,7 +691,7 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffSeqData>> &gseqs, RefSeqTable &rt
 //      fa_api.initiate(seqFile);
 //   }
    for(uint i = 0; i<gseqs.size(); ++i){// for loop for each chromosome
-      GffSeqData * gseq = &(*gseqs[i]);
+      GffTree * gseq = &(*gseqs[i]);
       int f = 0;
       int r = 0;
       int u = 0;
@@ -799,12 +801,14 @@ int Sample::addRef2Cluster(HitCluster &clusterOut){
       return 0;
    }
 
+   // add first rna
    clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
    if(_refmRNA_offset >= _ref_mRNAs.size()){
       _has_load_all_refs = true;
       return 1;
    }
 
+   // add the rest if overlapped with first
    size_t i = 0;
    while(i < clusterOut._ref_mRNAs.size()){
       Contig* ref = clusterOut._ref_mRNAs[i];
@@ -882,6 +886,29 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
    return clusterOut.size();
 }
 
+int Sample::NextClusterRefDemand(HitCluster &clusterOut){
+   assert(hasLoadRefmRNAs());
+   if (!_hit_factory->recordsRemain()) return -1;
+   int num_added_refmRNA = addRef2Cluster(clusterOut);
+   if (num_added_refmRNA == 0) {
+      return -1;
+   }
+   while (true) {
+      ReadHitPtr new_hit(new ReadHit());
+      double mass = next_valid_alignment(*new_hit);
+      if (hit_lt_cluster(*new_hit, clusterOut, 0)) {  //hit hasn't read this region
+         rewindHit(*new_hit);
+      } else if (hit_gt_cluster(*new_hit, clusterOut, 0)) {
+         rewindHit(*new_hit);
+         break;
+      } else {
+         clusterOut.addOpenHit(new_hit, false, false);
+         clusterOut.addRawMass(mass);
+         if (!_hit_factory->recordsRemain()) return clusterOut.size();
+      }
+   }  //end while loop
+   return clusterOut.size();
+}
 
 int Sample::nextCluster_refGuide(HitCluster &clusterOut)
 {
@@ -892,18 +919,15 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
       return nextCluster_denovo(clusterOut);
    }
    else{
-      //if all ref mRNAs have been loaded but alignments haven't
       int num_added_refmRNA = addRef2Cluster(clusterOut);
+      //if all ref mRNAs have been loaded but alignments haven't
       if( num_added_refmRNA == 0){
          return nextCluster_denovo(clusterOut);
       }
-      //else
-      // add as many as possible until encounter gap > kMaxOlapDist
+      //else add as many as alignment possible
       while(true){
          ReadHitPtr new_hit(new ReadHit());
          double mass = next_valid_alignment(*new_hit);
-         if(!_hit_factory->recordsRemain())
-            return clusterOut.size();
 
          if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // hit hasn't reach reference region
             rewindHit(*new_hit);
@@ -931,7 +955,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
 
          clusterOut.addOpenHit(new_hit, false, false);
          clusterOut.addRawMass(mass);
-
+         if (!_hit_factory->recordsRemain()) return clusterOut.size();
       } // end while loop
    } // end loadRefmRNAs
    return clusterOut.size();
@@ -1000,30 +1024,31 @@ void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
 }
 
 
-void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluster> cluster, FILE *pfile, FILE *plogfile){
+void Sample::FinalizeCluster(shared_ptr<HitCluster> cluster, bool clear_open_mates ){
+   if (cluster->size() == 0) {
+#if ENABLE_THREADS
+       if(use_threads) decr_pool_count();
+#endif
+   }
+   if(clear_open_mates){
+      cluster->clearOpenMates();
+   }
+   cluster->reweight_read(false);
+   cluster->collapseHits();
+}
+
+void Sample::AssembleCluster(const RefSeqTable &ref_t, shared_ptr<HitCluster> cluster, FILE *pfile, FILE *plogfile){
    /*
     * Isoform id is integer from 1. The index
     * for each isoform in vector<Isoform> is id+1.
     * */
    if(cluster->size() == 0){
 #if ENABLE_THREADS
-      if(use_threads)
-         decr_pool_count();
+      if(use_threads) decr_pool_count();
 #endif
       return;
    }
-   cluster->clearOpenMates();
 
-/*
- * The hexmer reweighting does not make a different now.
- */
-//   if(BIAS_CORRECTION)
-//      cluster->reweight_read(_kmer_bias, 5);
-//   else
-//      cluster->reweight_read(false);
-   cluster->reweight_read(false);
-
-   cluster->collapseHits();
    if(SINGLE_END_EXP && _is_inspecting){
 #if ENABLE_THREADS
       if(use_threads)
@@ -1060,7 +1085,7 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
    vector<Contig> hits;
    cluster->_strand = cluster->guessStrand();
 
-   for(auto r = cluster->_uniq_hits.cbegin(); r< cluster->_uniq_hits.cend(); ++r){
+   for(auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r){
 //#ifdef DEBUG
 //         if(r->_left_read && r->_right_read)
 //            cout<<"read: "<<r->left_read_obj().left()<<"-"<<r->left_read_obj().right()<<"===="<<
@@ -1166,17 +1191,17 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
  * The following code prints read start frequency along transcripts
  * for H.Sapiens FOXA3 gene.
  */
-         if(cluster->ref_id() == 18){
-         string iso_seq = get_iso_seq(_fasta_getter, assembled_transcripts[0]);
-
-         vector<double> start_count = Contig::start_site_dist(assembled_transcripts[0], hits);
+//         if(cluster->ref_id() == 18){
+//         string iso_seq = get_iso_seq(_fasta_getter, assembled_transcripts[0]);
+//
+//         vector<double> start_count = Contig::start_site_dist(assembled_transcripts[0], hits);
 //         vector<double> gc = Bias::isowide_gc_content(_hit_factory->_reads_table._read_len_abs, iso_seq);
 //         vector<double> kmer_weights = Bias::start_kmer_bias(7, iso_seq, _kmer_bias);
-#if ENABLE_THREADS
-      if(use_threads){
-         out_file_lock.lock();
-      }
-#endif
+//#if ENABLE_THREADS
+//            if(use_threads){
+//               out_file_lock.lock();
+//            }
+//#endif
 
       /*
        *  Position specific bias
@@ -1190,12 +1215,12 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
 //         }
 
 
-#if ENABLE_THREADS
-   if(use_threads){
-      out_file_lock.unlock();
-   }
-#endif
-         }
+//#if ENABLE_THREADS
+//            if(use_threads){
+//               out_file_lock.unlock();
+//            }
+//#endif
+//         }
 
 /*
  * End for H.Sapiens FOXA3 gene
@@ -1222,11 +1247,10 @@ void Sample::finalizeAndAssemble(const RefSeqTable & ref_t, shared_ptr<HitCluste
 #else
                _hit_factory->_reads_table._frag_dist.push_back(frag_len);
 #endif
-
             }// end for
-
          }// end for
-      }
+
+      } // end if
 #if ENABLE_THREADS
       if(use_threads){
          out_file_lock.lock();
@@ -1399,14 +1423,18 @@ void Sample::inspectSample(FILE *plogfile)
             this_thread::sleep_for(chrono::milliseconds(3));
          }
          ++curr_thread_num;
-         thread worker ([=] {this-> finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);});
-         //thread worker{&Sample::finalizeAndAssemble, this, ref_t, last_cluster, NULL, NULL};
+         thread worker ([=] {
+               FinalizeCluster(last_cluster, true);
+               this-> AssembleCluster(ref_t, last_cluster, NULL, plogfile);
+               });
+         //thread worker{&Sample::finalizeAndAssembleCluster, this, ref_t, last_cluster, NULL, NULL};
          worker.detach();
       }else{
-         finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
+         FinalizeCluster(last_cluster, true);
+         AssembleCluster(ref_t, last_cluster, NULL, plogfile);
       }
 #else
-      finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
+      finalizeAndAssembleCluster(ref_t, last_cluster, NULL, plogfile);
 #endif
       // _total_mapped_reads += (int) last_cluster->raw_mass();
       //cout<<"weighted cluster mass: "<<last_cluster->_weighted_mass<<endl;
@@ -1425,7 +1453,8 @@ void Sample::inspectSample(FILE *plogfile)
    }
 #endif
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(ref_t, last_cluster, NULL, plogfile);
+   FinalizeCluster(last_cluster, true);
+   AssembleCluster(ref_t, last_cluster, NULL, plogfile);
    fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
    fprintf(plogfile, "Has inspected %d reads\n", (int)_total_mapped_reads);
    //_total_mapped_reads += (int)last_cluster->raw_mass();
@@ -1448,7 +1477,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
 /*
  * The major function which calls nextCluster() and finalizes cluster and
  * assemble each cluster-> Right now only nextCluster_refGuide() is implemented.
- * if no reference mRNA than nextCluster_refGuide will will nextCluster_denovo()
+ * if no reference mRNA than nextCluster_refGuide will call nextCluster_denovo()
  */
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    shared_ptr<HitCluster> last_cluster (new HitCluster());
@@ -1515,13 +1544,16 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
             this_thread::sleep_for(chrono::milliseconds(3));
          }
          ++curr_thread_num;
-         thread worker ([=] {this-> finalizeAndAssemble(ref_t, last_cluster, pfile, plogfile);});
+         thread worker ([=] {
+               FinalizeCluster(last_cluster, true);
+               this-> AssembleCluster(ref_t, last_cluster, pfile, plogfile);});
          worker.detach();
       }else{
-         finalizeAndAssemble(ref_t, last_cluster, pfile, plogfile);
+         FinalizeCluster(last_cluster, true);
+         AssembleCluster(ref_t, last_cluster, pfile, plogfile);
       }
 #else
-      finalizeAndAssemble(ref_t, last_cluster, pfile, plogfile);
+      finalizeAndAssembleCluster(ref_t, last_cluster, pfile, plogfile);
 #endif
 //#ifdef DEBUG
 
@@ -1544,7 +1576,8 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
    }
 #endif
    last_cluster->_id = ++_num_cluster;
-   finalizeAndAssemble(ref_t, last_cluster, pfile, plogfile);
+   FinalizeCluster(last_cluster, true);
+   AssembleCluster(ref_t, last_cluster, pfile, plogfile);
 }
 
 

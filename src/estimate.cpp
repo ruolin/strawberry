@@ -26,10 +26,10 @@
 #include <random>
 #include <Eigen/Dense>
 #include <stdexcept>
-#include "estimate.h"
+#include "estimate.hpp"
 #include "fasta.h"
 #include "contig.h"
-
+#include "bias.hpp"
 // choose exact integral type
 
 // program and solution types
@@ -590,15 +590,15 @@ void Estimation::overlap_exons(const vector<GenomicFeature>& exons,
 
 
 void Estimation::assign_exon_bin(
-/*
- * assign reads and transcripts to exon bin.
- */
       const vector<Contig> &hits,
       const vector<Isoform> &transcripts,
       const vector<GenomicFeature> & exon_segs,
       map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
       map<int, set<set<pair<uint,uint>>>> &iso_2_bins_map)
 {
+/*
+ * assign reads and transcripts to exon bin.
+ */
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
 
       map<set<uint>, pair<set<int>, int>> frag_mult_exonbin;
@@ -618,7 +618,7 @@ void Estimation::assign_exon_bin(
          if(Contig::is_compatible(*mp, iso->_contig)){
             set<pair<uint,uint>> coords;
             int frag_len = 0;
-
+            //Bias::iso_bias(*mp, *iso);
             /*For singleton, we random generate the other end */
             if(mp->is_single_read()){
                if(infer_the_other_end){

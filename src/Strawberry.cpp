@@ -38,6 +38,7 @@
 #define OPT_MIN_DEPTH_4_TRANSCRIPT     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
+#define OPT_NO_ASSEMBLY 264
 using namespace std;
 
 
@@ -54,7 +55,7 @@ static struct option long_options[] = {
 #endif
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
-//      {"enforce-ref-model",               no_argument,            0,       'G'},
+      {"no-assembly",                     no_argument,            0,       OPT_NO_ASSEMBLY},
       {"min-transcript-size",             required_argument,      0,       't'},
       {"max-overlap-distance",            required_argument,      0,       'd'},
       {"small-anchor-size",               required_argument,      0,       's'},
@@ -84,6 +85,8 @@ void print_help()
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
+   fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file.                                                               [default:     NULL]\n");
+   fprintf(stderr, "   --no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
@@ -92,7 +95,6 @@ void print_help()
    fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
    fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
    fprintf(stderr, "\n Assembly Options:\n");
-   fprintf(stderr, "   -g/--GTF                              Use reference transcripts annotation to guide assembly.                                              [default:     NULL]\n");
 //   fprintf(stderr, "   -G/--enforce-ref-model                Omit assembled transcripts that are not in the reference.                    [default:     false]\n");
    fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                                             [default:     200]\n");
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
@@ -146,9 +148,10 @@ int parse_options(int argc, char** argv)
                         ref_gtf_filename = optarg;
                         utilize_ref_models = true;
                         break;
-//               case 'G':
-//                        enforce_ref_models = true;
-//                        break;
+               case OPT_NO_ASSEMBLY:
+                        no_assembly = true;
+                        enforce_ref_models = true;
+                        break;
                case 't':
                         kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);
                         break;

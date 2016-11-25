@@ -460,6 +460,14 @@ int Contig::exonic_overlaps_len(const Contig &iso,
    return collected_len;
 }
 
+int Contig::fragment_len(const Contig& read, const Contig& iso) 
+{
+   if(is_compatible(read, iso))
+      return exonic_overlaps_len(iso, read.left(), read.right());     
+   else
+      return 0;
+}
+   
 int Contig::exonic_length() const
 {
    int len = 0;

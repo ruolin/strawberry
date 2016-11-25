@@ -51,6 +51,8 @@ std::string ref_gtf_filename = "";
 std::string ref_fasta_file = "";
 bool enforce_ref_models = false;
 bool utilize_ref_models = false;
+bool no_assembly = false;
+
 std::string tracking_log = "/tracking.log";
 bool effective_len_norm = false;
 bool use_only_unique_hits = true;

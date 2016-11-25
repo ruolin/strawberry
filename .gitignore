@@ -1,8 +1,10 @@
-#Build dir
+bin/
 Build/
+external/
 #CLion setting folder
 .idea/
 .idea/vcs.xml
+.project
 
 # Compiled Object files
 *.slo
@@ -35,6 +37,9 @@ Build/
 
 # Emacs save files
 *~
-
+#tag
+tags
 #Log files
 *.log
+#vimrc
+.vimrc

@@ -35,6 +35,7 @@ extern double kMinIsoformFrac;
 extern double kBinomialOverHangAlpha;
 extern bool enforce_ref_models;
 extern bool utilize_ref_models;
+extern bool no_assembly;
 extern float kMinJuncSupport; // min number of spliced aligned reads for a valid intron
 extern int kMinDist4ExonEdge; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
