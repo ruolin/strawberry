@@ -84,10 +84,6 @@ GenomicFeature::GenomicFeature(const Match_t& code, uint offset, int len):
    _avg_cov=0.0;
 //   if(len <= 0)
 //   cout<<len<<endl;
-   if(len ==0 && code != Match_t::S_GAP){
-      assert (false);
-   }
-   assert(len >= 0);
 }
 
 
@@ -672,7 +668,7 @@ void Contig::print2gtf(FILE *pFile,
                        const RefSeqTable &ref_lookup,
                        const string fpkm,
                        const string tpm,
-                       int gene_id, int tscp_id){
+                       int gene_id, int tscp_id) const {
 
    const char* ref = ref_lookup.ref_real_name(_ref_id).c_str();
 

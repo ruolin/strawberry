@@ -7,6 +7,7 @@
    #include<stdio.h>
 #endif
 
+using namespace std;
 unique_ptr<GffInfoTable> GffObj::_infotable = unique_ptr<GffInfoTable> (new GffInfoTable());
 
 void GffLine::extractAttr(const string attr, string &val) {

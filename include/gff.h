@@ -14,7 +14,6 @@
 #include <set>
 #include "contig.h"
 #include "common.h"
-using namespace std;
 
 enum GffFeat_t{
    OTHERS = 0,
@@ -31,9 +30,9 @@ enum GffFeat_t{
 class GffAttr{
 public:
    int _attr_id;
-   string _attr_val;
+   std::string _attr_val;
    GffAttr()=default;
-   GffAttr(int id, string val){
+   GffAttr(int id, std::string val){
       _attr_id = id;
       _attr_val = val;
    }
@@ -47,9 +46,9 @@ class GffInfo{
     */
 public:
    int _id;
-   string _name;
+   std::string _name;
    GffInfo() = default;
-   GffInfo(int id, string name){
+   GffInfo(int id, std::string name){
       _id = id;
       _name = name;
    }
@@ -62,10 +61,10 @@ public:
 };
 
 class GffInfoVec{
-   vector<GffInfo> _gff_info_vec;
+   std::vector<GffInfo> _gff_info_vec;
 public:
-   unordered_map<string, int> _name2id;
-   int addInfo(const string name);
+   std::unordered_map<std::string, int> _name2id;
+   int addInfo(const std::string name);
 };
 
 class GffInfoTable{
@@ -74,17 +73,17 @@ class GffInfoTable{
     * FIXME: Attribute names has not been used yet.
     */
 public:
-   unique_ptr<GffInfoVec> _seq_names;
-   //unique_ptr<GffInfoVec> _attr_names;
+   std::unique_ptr<GffInfoVec> _seq_names;
+   //std::unique_ptr<GffInfoVec> _attr_names;
    GffInfoTable(){
-      _seq_names = unique_ptr<GffInfoVec>(new GffInfoVec());
-     // _attr_names = unique_ptr<GffInfoVec>(new GffInfoVec());
+      _seq_names = std::unique_ptr<GffInfoVec>(new GffInfoVec());
+     // _attr_names = std::unique_ptr<GffInfoVec>(new GffInfoVec());
    }
 };
 
 class GffLine{
    char* _info;
-   void extractAttr(const string attr, string &val);
+   void extractAttr(const std::string attr, std::string &val);
    bool _is_gff3;
    char* _line;
 public:
@@ -92,28 +91,28 @@ public:
    int _llen;
    uint _end;
    uint _start;
-   string _source;
+   std::string _source;
    Strand_t _strand;
    bool _skip;
    float _score;
-   string _chrom;
-   string _gffline_type; // the type indicated by gff line
+   std::string _chrom;
+   std::string _gffline_type; // the type indicated by gff line
    //bool _is_cds; // for future
    GffFeat_t _feat_type; // the type which has been parsed
    char _phase;
-   string _ID;
-   string _name;
-   string _parent;
-   vector<string> _parents;
+   std::string _ID;
+   std::string _name;
+   std::string _parent;
+   std::vector<std::string> _parents;
    GffLine(const char* l);
    GffLine(const GffLine &l);
    GffLine(GffLine &&l);
    GffLine& operator = (const GffLine &rhs) = delete;
    GffLine& operator = (GffLine &&rhs) = default;
-   const string parent() const
+   const std::string parent() const
    {
       if(_parents.size() != 1){
-         cerr<<"No parent gene or multiple parents for a mRNA object in "<< _dupline<<endl;;
+         std::cerr<<"No parent gene or multiple parents for a mRNA object in "<< _dupline<<std::endl;;
          exit(0);
       }
 
@@ -122,19 +121,19 @@ public:
    GffLine();
    ~GffLine();
 };
-typedef shared_ptr<GffLine> LinePtr;
+typedef std::shared_ptr<GffLine> LinePtr;
 
 class GffReader;
 class GffObj{
 protected:
    double _score;
-   vector<GffAttr> _attrs; // Attr id is the vector idx
+   std::vector<GffAttr> _attrs; // Attr id is the vector idx
    char _phase;
-   string _source;
+   std::string _source;
    GffReader & _greader;
 public:
    GenomicInterval _iv;
-   static unique_ptr<GffInfoTable> _infotable;
+   static std::unique_ptr<GffInfoTable> _infotable;
    GffObj() = default;
    GffObj(LinePtr gl, GffReader & greader);
    virtual ~GffObj(){};
@@ -166,15 +165,15 @@ class GffExon: public GffObj{
 public:
    bool _within_3UTR;
    bool _within_5UTR;
-   vector<GffmRNA*> _parent_mrnas;
-   string _exon_id;
-   string _exon_name;
+   std::vector<GffmRNA*> _parent_mrnas;
+   std::string _exon_id;
+   std::string _exon_name;
    GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene, GffReader & greader);
    GffLoci* const parent_gene()
    {
       return _parent_gene;
    }
-   void add_parent_mrna(const vector<GffmRNA*> & mrnas){
+   void add_parent_mrna(const std::vector<GffmRNA*> & mrnas){
       for(size_t i=0; i<mrnas.size(); i++){
          _parent_mrnas.push_back(mrnas[i]);
       }
@@ -191,9 +190,9 @@ class GffIntron: public GffObj{
 public:
    bool _within_3UTR;
    bool _within_5UTR;
-   string _intron_id;
-   string _intron_name;
-   vector<GffmRNA*> _parents_mrnas;
+   std::string _intron_id;
+   std::string _intron_name;
+   std::vector<GffmRNA*> _parents_mrnas;
    GffIntron(LinePtr gl, GffLoci &gene, GffReader & greader);
    const GffLoci* const parent_gene() const
    {
@@ -206,9 +205,9 @@ public:
 class GffUTR: public GffObj{
    const GffLoci* const _parent_gene;
 public:
-   string _utr_id;
-   string _utr_name;
-   vector<GffmRNA*> _parents_mrnas;
+   std::string _utr_id;
+   std::string _utr_name;
+   std::vector<GffmRNA*> _parents_mrnas;
    GffUTR(LinePtr gl, GffReader & greader);
    const GffLoci* const parent_gene() const
    {
@@ -219,9 +218,9 @@ public:
 class GffCDS: public GffObj{
    const GffLoci* const _parent_gene;
 public:
-   string _cds_id;
-   string _cds_name;
-   vector<GffmRNA*> _parents_mrnas;
+   std::string _cds_id;
+   std::string _cds_name;
+   std::vector<GffmRNA*> _parents_mrnas;
    GffCDS(LinePtr gl, GffmRNA mrna, GffLoci &gene, GffReader &greader);
    const GffLoci* const parent_gene() const
    {
@@ -229,26 +228,26 @@ public:
    }
 };
 
-using exonPtr = unique_ptr<GffExon>;
-using intronPtr = unique_ptr<GffIntron>;
-using utrPtr= unique_ptr<GffUTR>;
-using cdsPtr = unique_ptr<GffCDS>;
+using exonPtr = std::unique_ptr<GffExon>;
+using intronPtr = std::unique_ptr<GffIntron>;
+using utrPtr= std::unique_ptr<GffUTR>;
+using cdsPtr = std::unique_ptr<GffCDS>;
 
 class GffLoci: public GffObj{
 public:
-   vector<GffmRNA* > _mrnas;
-   string _gene_id;
-   string _gene_name;
-   vector<exonPtr> _non_dup_exons;
-   vector<intronPtr> _non_dup_introns;
-   vector<utrPtr> _non_dup_utrs;
+   std::vector<GffmRNA* > _mrnas;
+   std::string _gene_id;
+   std::string _gene_name;
+   std::vector<exonPtr> _non_dup_exons;
+   std::vector<intronPtr> _non_dup_introns;
+   std::vector<utrPtr> _non_dup_utrs;
    GffLoci(LinePtr gl, GffReader & greader);
    void add_mRNA(GffmRNA *gffmrna)
    {
       _mrnas.push_back(gffmrna);
    }
    void add_exon(exonPtr exon, GffmRNA* exon_parent);
-   GffmRNA* getRNA(const string rna);
+   GffmRNA* getRNA(const std::string rna);
    int num_mRNAs() const{
       return _mrnas.size();
    }
@@ -258,11 +257,11 @@ public:
 class GffmRNA: public GffObj{
    GffLoci* const _parent;
 public:
-   string _transcript_id;
-   string _transcript_name;
-   vector<GffExon* > _exons;
-   vector<GffIntron* > _introns;
-   vector<GffUTR* > _UTRs;
+   std::string _transcript_id;
+   std::string _transcript_name;
+   std::vector<GffExon* > _exons;
+   std::vector<GffIntron* > _introns;
+   std::vector<GffUTR* > _UTRs;
    GffmRNA(LinePtr gl, GffLoci* gene, GffReader & greader);
    GffLoci* const getParentGene() const{
       return _parent;
@@ -272,23 +271,23 @@ public:
    }
 };
 
-using mrnaPtr = unique_ptr <GffmRNA>;
-using genePtr = unique_ptr <GffLoci>;
+using mrnaPtr = std::unique_ptr<GffmRNA>;
+using genePtr = std::unique_ptr<GffLoci>;
 
 class GffTree {
     /*
      *
      */
 public:
-   vector<mrnaPtr> _forward_rnas;
-   vector<mrnaPtr> _reverse_rnas; // in each GffmRNA object, exon order is from small-to-large
-   vector<mrnaPtr> _unstranded_rnas;
-   vector<genePtr> _genes; // in each GffLoci object, non_dup_exons contain the exons
+   std::vector<mrnaPtr> _forward_rnas;
+   std::vector<mrnaPtr> _reverse_rnas; // in each GffmRNA object, exon order is from small-to-large
+   std::vector<mrnaPtr> _unstranded_rnas;
+   std::vector<genePtr> _genes; // in each GffLoci object, non_dup_exons contain the exons
                            // according to the order in gff file. Usually in Gff3 format
                            // the order for minus strand is large-to-small.
-   string _g_seq_name;
+   std::string _g_seq_name;
 
-   explicit GffTree(const string &g_seq_name):
+   explicit GffTree(const std::string &g_seq_name):
          _g_seq_name(g_seq_name)
    {}
    GffTree() = default;
@@ -357,21 +356,23 @@ public:
       _unstranded_rnas.push_back(move(mrna));
    }
 
-   GffLoci* findGene(const string gene_id);
-   GffmRNA* findmRNA(const string mrna_id, const Strand_t strand);
+   GffLoci* findGene(const std::string gene_id);
+   GffmRNA* findmRNA(const std::string mrna_id, const Strand_t strand);
+
+   std::vector<Contig> loadRnas() const;
 };
 
 
 class GffReader: public SlineReader{
-   string _fname;
+   std::string _fname;
 public:
-   vector<unique_ptr<GffTree> >  _g_seqs;
+   std::vector<std::unique_ptr<GffTree> >  _g_seqs;
    LinePtr _gfline;
    GffReader(const char* fname, FILE* stream=NULL);
    void load_gff(const char* f=NULL);
    bool nextGffLine();
    void readAll();
-   void addGseq(unique_ptr<GffTree> gseq){
+   void addGseq(std::unique_ptr<GffTree> gseq){
       _g_seqs.push_back(move(gseq));
    }
    void reverseExonOrderInMinusStrand();

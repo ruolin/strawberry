@@ -17,7 +17,7 @@
 class Sample;
 class FaInterface;
 class FaSeqGetter;
-using IntronMap = map<pair<uint,uint>,IntronTable>;
+using IntronMap = std::map<std::pair<uint,uint>,IntronTable>;
 
 class HitCluster{
 friend Sample;
@@ -32,15 +32,15 @@ private:
    bool _final; // HitCluster is finished
    double _raw_mass = 0.0;
    Strand_t _strand;
-   unordered_map<ReadID, list<PairedHit>> _open_mates;
-   vector<PairedHit> _hits;
-   vector<PairedHit> _uniq_hits;
-   vector<Contig*> _ref_mRNAs; // the actually objects are owned by Sample
-   vector<GenomicFeature> _introns;
-   vector<float> _dep_of_cov;
-   void reweight_read(const unordered_map<string, double>& kmer_bias, int num_kmers);
+   std::unordered_map<ReadID, std::list<PairedHit>> _open_mates;
+   std::vector<PairedHit> _hits;
+   std::vector<PairedHit> _uniq_hits;
+   std::vector<Contig*> _ref_mRNAs; // the actually objects are owned by Sample
+   std::vector<GenomicFeature> _introns;
+   std::vector<float> _dep_of_cov;
+   void reweight_read(const std::unordered_map<std::string, double>& kmer_bias, int num_kmers);
    void reweight_read(bool weight_bais);
-   //map<pair<int,int>,int> _current_intron_counter;
+   //map<std::pair<int,int>,int> _current_intron_counter;
 public:
    double _weighted_mass = 0.0;
    //static const int _kMaxGeneLen = 1000000;
@@ -61,7 +61,7 @@ public:
       return _strand;
    }
    bool addHit(const PairedHit &hit);
-   void count_current_intron(const vector<pair<uint,uint>>& cur_intron);
+   void count_current_intron(const std::vector<std::pair<uint,uint>>& cur_intron);
    void setBoundaries();
    void clearOpenMates();
    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
@@ -117,24 +117,25 @@ class Sample{
    uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
    size_t _refmRNA_offset;
    bool _has_load_all_refs;
-   string _current_chrom;
-   atomic_int _total_mapped_reads = {0};
+   std::string _current_chrom;
+   std::atomic_int _total_mapped_reads = {0};
    double compute_doc(const uint left,
                      const uint right,
-                     const vector<Contig> & hits,
-                     vector<float> &exon_doc,
+                     const std::vector<Contig> & hits,
+                     std::vector<float> &exon_doc,
                      IntronMap &intron_doc,
                      uint smallOverhang);
 public:
-   shared_ptr<HitFactory> _hit_factory;
-   shared_ptr<InsertSize> _insert_size_dist =nullptr;
-   shared_ptr<FaSeqGetter> _fasta_getter = nullptr;
-   shared_ptr<FaInterface> _fasta_interface = nullptr;
+   std::shared_ptr<HitFactory> _hit_factory;
+   std::shared_ptr<InsertSize> _insert_size_dist =nullptr;
+   std::shared_ptr<FaSeqGetter> _fasta_getter = nullptr;
+   std::shared_ptr<FaInterface> _fasta_interface = nullptr;
 
-   unordered_map<string, double> _kmer_bias;
+   std::unordered_map<std::string, double> _kmer_bias;
 
-   vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
-   Sample(shared_ptr<HitFactory> hit_fac):
+   std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
+   //std::vector<std::vector<Contig>> _assembly;
+   Sample(std::shared_ptr<HitFactory> hit_fac):
       _refmRNA_offset(0),
       _has_load_all_refs(false),
       _hit_factory(move(hit_fac))
@@ -142,12 +143,12 @@ public:
    //int max_inner_dist() const;
    int total_mapped_reads() const;
    bool load_chrom_fasta(RefID seq_id);
-   string get_iso_seq(const shared_ptr<FaSeqGetter> &fa_getter, const Contig iso) const;
+   std::string get_iso_seq(const std::shared_ptr<FaSeqGetter> &fa_getter, const Contig iso) const;
    bool hasLoadRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
    bool loadRefFasta(RefSeqTable &rt, const char *seqFile = NULL);
-   bool loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt);
+   bool loadRefmRNAs(std::vector<std::unique_ptr<GffTree>> &gseqs, RefSeqTable &rt);
    int addRef2Cluster(HitCluster &clusterOut);
    void reset_refmRNAs();
    double next_valid_alignment(ReadHit& readin);
@@ -155,19 +156,21 @@ public:
    int nextCluster_denovo(HitCluster &clusterOut,
                            uint next_ref_start_pos = UINT_MAX,
                            RefID next_ref_start_ref=INT_MAX);
-    int NextClusterRefDemand(HitCluster & clusterOut);
+   int nextClusterRefDemand(HitCluster & clusterOut);
    int nextCluster_refGuide(HitCluster & clusterOut);
    void rewindReference(HitCluster &clusterOut, int num_regress);
 
    void mergeClusters(HitCluster & dest, HitCluster &resource);
-   //void compute_doc_4_cluster(const HitCluster & hit_cluster, vector<float> &exon_doc,
-                              //map<pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
+   //void compute_doc_4_cluster(const HitCluster & hit_cluster, std::vector<float> &exon_doc,
+                             //map<std::pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
+   void quantifyCluster(const RefSeqTable &ref_t, const std::shared_ptr<HitCluster> cluster,
+                                   const std::vector<Contig>& assembled_transcripts, FILE *pfile, FILE *plogfile) const;
 
-   void filter_intron(uint cluster_left, vector<float> &exon_doc, IntronMap& intron_counter);
+   void filter_intron(uint cluster_left, std::vector<float> &exon_doc, IntronMap& intron_counter);
    void procSample(FILE *f, FILE *log);
    void inspectSample(FILE *log);
-   void AssembleCluster(const RefSeqTable & ref_t, shared_ptr<HitCluster> cluster, FILE *f, FILE *plogfile);
-    void FinalizeCluster(shared_ptr<HitCluster>, bool);
+   std::vector<Contig> assembleCluster(const RefSeqTable & ref_t, std::shared_ptr<HitCluster> cluster, FILE *plogfile);
+   void finalizeCluster(std::shared_ptr<HitCluster>, bool);
 };
 
 

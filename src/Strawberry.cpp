@@ -30,6 +30,7 @@
 #include "alignments.h"
 #include "logger.hpp"
 #include "StrawberryConfig.hpp"
+#include "interval.hpp"
 //#include "kmer.h"
 //#include "qp.h"
 
@@ -207,8 +208,22 @@ int parse_options(int argc, char** argv)
    return 0;
 }
 
+int driver(int, char**);
 
 int main(int argc, char** argv){
+   driver(argc, argv);
+//   GenomicFeature gf1 (Match_t::S_MATCH, 1u, 12);
+//   GenomicFeature gf2 (Match_t::S_MATCH, 8u, 14);
+//   vector<GenomicFeature> gfs;
+//   gfs.push_back(gf1);
+//   gfs.push_back(gf2);
+//   IRanges<GenomicFeature, false> test_invs(gfs);
+//   vector<GenomicFeature> invs = test_invs.disjoint();
+//   for(const auto& inv : invs) cout<<inv.left()<<"-"<<inv.right()<<endl;
+   fprintf(stdout, "Program finished");
+}
+
+int driver(int argc, char** argv){
    auto start = chrono::steady_clock::now();
    string cmdline;
    for(int i=0; i<argc; i++){
@@ -330,6 +345,7 @@ int main(int argc, char** argv){
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cerr << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
+   return 1;
 }
 
 

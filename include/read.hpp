@@ -6,7 +6,6 @@
 
 #ifndef READ_HPP
 #define READ_HPP
-#include<string>
 #include<vector>
 #include<memory>
 #include<string>
@@ -17,7 +16,7 @@
 #include "sam/sam.h"
 //#include "kmer.h"
 
-using namespace std;
+//using namespace std;
 /*
  * COMMON PARAMETERS
  */
@@ -50,7 +49,7 @@ private:
 
    ReadID _read_id;
    GenomicInterval _iv;
-   vector<CigarOp> _cigar;
+   std::vector<CigarOp> _cigar;
    RefID _partner_ref_id;
    uint _partner_pos;
    int _num_mismatch = -1;
@@ -59,11 +58,11 @@ private:
    uint32_t _sam_flag = 0; //bitwise FLAG
    double _read_mass = 0.0;
 public:
-   string _seq;
+   std::string _seq;
    ReadHit() = default;
    ReadHit( ReadID readID,
          GenomicInterval iv,
-         const vector<CigarOp> & cigar,
+         const std::vector<CigarOp> & cigar,
          RefID partnerRef,
          int partnerPos,
          int numMismatch,
@@ -85,7 +84,7 @@ public:
    bool contains_splice() const;
    GenomicInterval interval() const;
    RefID partner_ref_id() const;
-   const vector<CigarOp>& cigar() const;
+   const std::vector<CigarOp>& cigar() const;
    uint partner_pos() const;
    RefID ref_id() const; // chromosome id or scaffold id containing the read
    int num_mismatch() const;
@@ -103,7 +102,7 @@ public:
    bool operator!=(const ReadHit& rhs) const;
    bool operator<(const ReadHit& rhs) const;
    //char* read_seq() const;
-   //vector<CigarOp> cigars() const;
+   //std::vector<CigarOp> cigars() const;
 };
 
 
@@ -114,9 +113,9 @@ class ReadTable
  public:
 	 
    // This function should NEVER return zero
-   ReadID get_id(const string& name);
+   ReadID get_id(const std::string& name);
    uint _read_len_abs = 0;
-   vector<int> _frag_dist;
+   std::vector<int> _frag_dist;
 private:
    // This is FNV-1, see http://en.wikipedia.org/wiki/Fowler_Noll_Vo_hash
    inline uint64_t hashString(const char* __s)
@@ -135,7 +134,7 @@ class InsertSize{
 public:
 
    double _total_reads;
-   vector<double> _emp_dist;
+   std::vector<double> _emp_dist;
    double _mean;
    double _sd;
    bool _use_emp;
@@ -143,7 +142,7 @@ public:
    int _end_offset;
    InsertSize();
    InsertSize(double mean, double sd);
-   InsertSize(const vector<int> frag_lens);
+   InsertSize(const std::vector<int> frag_lens);
    double emp_dist_pdf(uint insert_size) const;
    bool empty() const;
    //double truncated_normal_pdf(uint insert_size) const;
@@ -155,27 +154,27 @@ class RefSeqTable
 
 private:
 //_id is the observation order.
-//_id start from 0 which is used as the index in vector<GffSeqData>;
-   string _seq;
+//_id start from 0 which is used as the index in std::vector<GffSeqData>;
+   std::string _seq;
    bool _keep_seq;
-   unordered_map<string, int> _name2id;
-   vector<string> _id2name;
-   vector<string> _id_2_real_name;
+   std::unordered_map<std::string, int> _name2id;
+   std::vector<std::string> _id2name;
+   std::vector<std::string> _id_2_real_name;
 
 public:
    RefSeqTable(bool keep_seq) : _keep_seq(keep_seq){}
-   int get_id(string& name);
+   int get_id(std::string& name);
    int size() const{
       return _name2id.size();
    }
-   const string ref_real_name(int id) const;
+   const std::string ref_real_name(int id) const;
 };
 
 
 class HitFactory
 {
 private:
-   virtual platform_t str2platform(const string pl_str);
+   virtual platform_t str2platform(const std::string pl_str);
 protected:
    static const unsigned MAX_HEADER_LEN = 4 * 1024 * 1024; // 4 MB
    static const size_t kHitBufMaxSize = 10 * 1024;
@@ -199,7 +198,7 @@ public:
    virtual RefSeqTable& ref_table() { return _ref_table; }
    virtual ReadTable& reads_table(){return _reads_table;}
    virtual void undo_hit() = 0;
-   virtual bool parse_header_line(const string& hline);
+   virtual bool parse_header_line(const std::string& hline);
    virtual bool inspect_header() = 0;
    virtual void reset() = 0;
 };
@@ -216,7 +215,7 @@ private:
    bool _eof_encountered;
 
 public:
-   BAMHitFactory(const string& bam_file_name,
+   BAMHitFactory(const std::string& bam_file_name,
                  ReadTable& read_table,
                  RefSeqTable &ref_table);
    ~BAMHitFactory();
@@ -229,7 +228,7 @@ public:
    bool inspect_header();
 };
 
-typedef shared_ptr<ReadHit> ReadHitPtr;
+typedef std::shared_ptr<ReadHit> ReadHitPtr;
 
 
 class PairedHit{
@@ -238,8 +237,8 @@ class PairedHit{
 public:
    ReadHitPtr _right_read ;
    ReadHitPtr _left_read ;
-   //vector<Kmer> _left_kmers;
-   //vector<Kmer> _right_kmers;
+   //std::vector<Kmer> _left_kmers;
+   //std::vector<Kmer> _right_kmers;
 
    PairedHit() = default;
    PairedHit(ReadHitPtr leftRead, ReadHitPtr rightRead);
@@ -276,5 +275,5 @@ public:
    //void set_kmers(int num_kmers);
 };
 
-void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd);
+void mean_and_sd_insert_size(const std::vector<int> & vec, double & mean, double &sd);
 #endif /* READ_HPP */

@@ -49,16 +49,18 @@ struct MatchOp{
 class GenomicFeature{
 
 public:
+    using TDepth = int;
    uint _genomic_offset;
    MatchOp _match_op;
    double _avg_cov; // average coverage
    GenomicFeature(const Match_t& op, uint offset, int len);
-   //GenomicFeature(const Match_t& op, uint offset, int len, double avg_doc);
+   GenomicFeature(): GenomicFeature(Match_t::S_MATCH, 0u, 0) {};
    int len() const;
    void left(uint left);
    uint left() const;
    void right(uint right);
    uint right() const;
+   int depth() const {return 1;}
    void avg_doc(double coverage);
    double avg_doc() const;
    bool compatible_2_read(const Contig& read) const;
@@ -77,13 +79,31 @@ public:
    bool operator<(const GenomicFeature & rhs) const;
 
    friend bool operator!=(const GenomicFeature &lhs, const GenomicFeature &rhs);
+    friend std::ostream& operator<<(std::ostream&, const GenomicFeature& );
 
    void printOut(){
       printf("<%d,%d>\n", left(), right());
    }
    static void mergeFeatures(const std::vector<GenomicFeature> & feats, std::vector<GenomicFeature> & result);
-
 };
+
+inline std::ostream& operator<<(std::ostream& os, const GenomicFeature& gf){
+    switch(gf._match_op._code){
+        case Match_t::S_MATCH:
+            os<<"exon:["<<gf.left()<<"-"<<gf.right()<<"]\t";
+            break;
+        case Match_t::S_INTRON:
+            os<<"intron:["<<gf.left()<<"-"<<gf.right()<<"]\t";
+            break;
+        case Match_t::S_GAP:
+            os<<"gap:["<<gf.left()<<"-"<<gf.right()<<"]\t";
+            break;
+        default:
+            break;
+    }
+    return os;
+}
+
 
 
 bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature> & feats);
@@ -147,10 +167,18 @@ public:
                   const RefSeqTable &ref_lookup,
                   const std::string fpkm,
                   const std::string tpm,
-                  int gene_id, int tscp_id);
+                  int gene_id, int tscp_id) const;
 
    SingleOrit_t single_read_orit() const;
    double avg_doc() const;
 };
+
+//template<typename TContig>
+//class ContigGroup<TContig>{
+//private:
+//    vector<TContig> contigs_;
+//public:
+//    decltype(auto) contigs() {return contigs_;}
+//};
 
 #endif /* CONTIG_H_ */

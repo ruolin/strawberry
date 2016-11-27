@@ -27,6 +27,7 @@
 #include "read.hpp"
 //#include "kmer.h"
 
+using namespace std;
 void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd){
    double sum = accumulate(vec.begin(), vec.end(), 0.0);
    mean = sum / vec.size();

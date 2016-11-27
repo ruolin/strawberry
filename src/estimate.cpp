@@ -33,7 +33,7 @@
 // choose exact integral type
 
 // program and solution types
-
+using namespace std;
 const double Estimation::_kMinTPM = kMinIsoformFrac * 1e6;
 //const double Estimation::_kMinTPM = 0;
 
@@ -334,8 +334,8 @@ vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
  * segments under its compatible isoform. This is because the fragment gap.
  *
  * Return two things.
- * First, the implicit whole exon segments under a isoform
- * Second, the idx of the exon segments that are implicit.
+ * First, the implicit whole exon segments under a isoform. This is returned by second input argument.
+ * Second, the idx of the exon segments that are implicit. This is returned by return value.
  */
 {
    vector<uint> idx;
@@ -370,11 +370,12 @@ vector<uint> ExonBin::bin_under_iso(const Isoform& iso,
          ++c;
       }
       else{
-
-         cout<<"false"<<endl;
-         for(auto e: exons)
-            cout<<e.left()<<"-"<<e.right()<<endl;
-         cout<<"coordiantes"<<endl;
+         cout<<"bin: "<<c->first<<"-"<<c->second<<endl;
+         cout<<"exon: "<<exon_coords[i].first<<"-"<<exon_coords[i].second<<endl;
+//         cout<<"false"<<endl;
+//         for(auto e: exons)
+//            cout<<e.left()<<"-"<<e.right()<<endl;
+//         cout<<"coordiantes"<<endl;
          assert(false);
       }
    }
@@ -695,7 +696,7 @@ void Estimation::calculate_raw_iso_counts(const map<int, set<set<uint>>> &iso_2_
 }
 
 void Estimation::calculate_bin_bias( map<set<pair<uint,uint>>, ExonBin> & exon_bin_map,
-                                     shared_ptr<FaSeqGetter> &fa_getter,
+                                     const shared_ptr<FaSeqGetter> &fa_getter,
                                      vector<vector<double>> &bias){
    for(auto it = exon_bin_map.begin(); it != exon_bin_map.end(); ++it){
 //#ifdef DEBUG
@@ -825,7 +826,7 @@ bool Estimation::estimate_abundances(map<set<pair<uint,uint>>, ExonBin> & exon_b
                      map<int, int>& iso_2_len_map,
                      vector<Isoform>& isoforms,
                      bool with_bias_correction,
-                     shared_ptr<FaSeqGetter> &fa_getter)
+                     const shared_ptr<FaSeqGetter> &fa_getter)
 {
    size_t nrow = exon_bin_map.size();
    size_t niso = isoforms.size();
