@@ -28,7 +28,8 @@ private:
    int _minus_strand_num_hits;
    Strand_t _first_encounter_strand;
    int _id;
-   RefID _ref_id;
+   std::string _gene_id;
+   RefID _ref_id = -1;
    bool _final; // HitCluster is finished
    double _raw_mass = 0.0;
    Strand_t _strand;
@@ -55,6 +56,7 @@ public:
    uint right() const;
    int size() const;
    int len() const;
+    decltype(auto) gene_id() { return _gene_id;}
    Strand_t ref_strand() const;
    Strand_t guessStrand() const;
    Strand_t strand() const{
@@ -70,6 +72,15 @@ public:
    bool hasRefmRNAs() const {
       return _ref_mRNAs.size() > 0;
    }
+
+    std::vector<Contig> ref_mRNAs() const {
+        std::vector<Contig> result;
+        for (auto it : _ref_mRNAs) {
+            result.push_back(*it);
+        }
+        return result;
+    }
+
    void addRefContig(Contig *contig);
    int numOpenMates() const{
       return _open_mates.size();
@@ -134,7 +145,7 @@ public:
    std::unordered_map<std::string, double> _kmer_bias;
 
    std::vector<Contig> _ref_mRNAs; // sort by seq_id in reference_table
-   //std::vector<std::vector<Contig>> _assembly;
+   std::vector<Contig> _assembly;
    Sample(std::shared_ptr<HitFactory> hit_fac):
       _refmRNA_offset(0),
       _has_load_all_refs(false),
@@ -171,6 +182,7 @@ public:
    void inspectSample(FILE *log);
    std::vector<Contig> assembleCluster(const RefSeqTable & ref_t, std::shared_ptr<HitCluster> cluster, FILE *plogfile);
    void finalizeCluster(std::shared_ptr<HitCluster>, bool);
+   void addAssembly(std::vector<Contig>& assembs);
 };
 
 

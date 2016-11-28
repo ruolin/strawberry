@@ -83,22 +83,6 @@ void  constraints_4_single_end(const std::vector<GenomicFeature>& feats,
    }
 }
 
-void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembled_feats,
-                        const RefID & ref_id,
-                        const Strand_t & strand,
-                        std::vector<Contig> &transcript)
-{
-
-   for(auto const &feats: assembled_feats){
-      std::vector<GenomicFeature> merged_feats;
-      GenomicFeature::mergeFeatures(feats, merged_feats);
-      Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
-      if(assembled_transcript.avg_doc() < kMinDepth4Contig) {
-         continue;
-      }
-      transcript.push_back(assembled_transcript);
-   }
-}
 
 bool FlowNetwork::comp_lt_first(const std::pair<uint, uint> & lhs, const std::pair<uint,uint> &rhs)
 {

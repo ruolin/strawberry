@@ -10,10 +10,10 @@
 #include <lemon/list_graph.h>
 #include<map>
 #include "common.h"
+#include "contig.h"
 
 
 class IntronTable;
-class GenomicFeature;
 class Contig;
 class ExonBin;
 class Isoform;
@@ -101,10 +101,23 @@ public:
          std::map<std::pair<uint,uint>, IntronTable> &intron_counter);
 };
 
-void assemble_2_contigs(const std::vector<std::vector<GenomicFeature>>& assembled_feats,
-                        const RefID & ref_id,
-                        const Strand_t & strand,
-                        std::vector<Contig>& transcript);
-
 void compute_exon_doc(const int left, const std::vector<float>& exon_doc, std::vector<GenomicFeature>& exons);
+
+inline std::vector<Contig> assemble_2_contigs(const std::vector<std::vector<GenomicFeature>> & assembled_feats,
+                                       const RefID & ref_id,
+                                       const Strand_t & strand)
+{
+    std::vector<Contig> results;
+    for(auto const &feats: assembled_feats){
+        std::vector<GenomicFeature> merged_feats;
+        GenomicFeature::mergeFeatures(feats, merged_feats);
+        Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
+        if(assembled_transcript.avg_doc() < kMinDepth4Contig) {
+            continue;
+        }
+        results.push_back(assembled_transcript);
+    }
+    return results;
+}
+
 #endif /* ASSEMBLY_H_ */

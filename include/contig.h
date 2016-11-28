@@ -117,6 +117,7 @@ class Contig{
    std::string _seq;
    Strand_t _strand;
    std::string _annotated_trans_id;
+   std::string _parent_id;
    double _mass = 0.0;
    SingleOrit_t _single_read_orit = SingleOrit_t::NotSingle;
 public:
@@ -136,6 +137,8 @@ public:
 
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
+
+    decltype(auto) parent_id() {return _parent_id;}
    uint left() const;
    uint right() const;
    uint gap_left() const; // left coordinate of gap if exists; otherwise return 0
@@ -173,6 +176,15 @@ public:
    double avg_doc() const;
 };
 
+inline std::ostream& operator<<(std::ostream& os, const Contig& contig){
+    os<<"contig ";
+    os<<contig.ref_id()<<":"<<contig.left()<<"-"<<contig.right()<<"\t";
+    for (const auto& gf: contig._genomic_feats) {
+        os<<gf;
+    }
+    os<<std::endl;
+    return os;
+}
 //template<typename TContig>
 //class ContigGroup<TContig>{
 //private:

@@ -113,6 +113,8 @@ void HitCluster::addRefContig(Contig *contig)
     else{
         _ref_id = contig->ref_id();
     }
+    if (gene_id().empty()) gene_id() = contig->parent_id();
+    else assert(gene_id() == contig->parent_id());
     _leftmost = min(_leftmost, contig->left());
     _rightmost = max(_rightmost, contig->right());
     _ref_mRNAs.push_back(contig);
@@ -739,6 +741,7 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
             }
             Contig ref_contig(ref_id, strand,1.0, feats, true);
             ref_contig.annotated_trans_id(mrna->_transcript_id);
+            ref_contig.parent_id() = mrna->getParentGene()->_gene_id;
             ref_contig.mass(1.0);
             //cout<<"ref contig left pos "<<ref_contig.left()<<endl;
             ref_mrna_for_chr.push_back(ref_contig);
@@ -804,6 +807,8 @@ int Sample::addRef2Cluster(HitCluster &clusterOut){
     }
 
     // add first rna
+    //cout<<"offset: "<<_refmRNA_offset<<endl;
+    //cout<<"_ref_mRNAs size: "<<_ref_mRNAs[0].parent_id()<<endl;
     clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
     if(_refmRNA_offset >= _ref_mRNAs.size()){
         _has_load_all_refs = true;
@@ -814,7 +819,7 @@ int Sample::addRef2Cluster(HitCluster &clusterOut){
     size_t i = 0;
     while(i < clusterOut._ref_mRNAs.size()){
         Contig* ref = clusterOut._ref_mRNAs[i];
-        if(Contig::overlaps_directional(*ref, _ref_mRNAs[_refmRNA_offset])){
+        if (Contig::overlaps_directional(*ref, _ref_mRNAs[_refmRNA_offset])) {
             clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
             if(_refmRNA_offset >= _ref_mRNAs.size()){
                 _has_load_all_refs = true;
@@ -843,6 +848,10 @@ void Sample::reset_refmRNAs()
 {
     _refmRNA_offset = 0;
     _has_load_all_refs = false;
+    _ref_mRNAs.clear();
+    move(_assembly.begin(), _assembly.end(), back_inserter(_ref_mRNAs));
+    _assembly.clear();
+    sort(_ref_mRNAs.begin(), _ref_mRNAs.end());
 }
 
 int Sample::nextCluster_denovo(HitCluster &clusterOut,
@@ -896,17 +905,19 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
         return -1;
     }
     while (true) {
+        if(!_hit_factory->recordsRemain()){
+            break;
+        }
         ReadHitPtr new_hit(new ReadHit());
         double mass = next_valid_alignment(*new_hit);
         if (hit_lt_cluster(*new_hit, clusterOut, 0)) {  //hit hasn't read this region
-            rewindHit(*new_hit);
+
         } else if (hit_gt_cluster(*new_hit, clusterOut, 0)) {
             rewindHit(*new_hit);
             break;
         } else {
             clusterOut.addOpenHit(new_hit, false, false);
             clusterOut.addRawMass(mass);
-            if (!_hit_factory->recordsRemain()) return clusterOut.size();
         }
     }  //end while loop
     return clusterOut.size();
@@ -1052,37 +1063,37 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
     vector<Contig> hits;
 
      if (cluster->size() == 0) {
-#if ENABLE_THREADS
-          if (use_threads) decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads) decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
      // if single-end library not need to calculate fragment length distribution
      if (SINGLE_END_EXP && _is_inspecting) {
-#if ENABLE_THREADS
-          if (use_threads)
-                decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads)
+//                decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
      //enough read for calculating empirical distribution of reads.
      if (_is_inspecting &&
           _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD) {
-#if ENABLE_THREADS
-          if (use_threads)
-                decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads)
+//                decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
 
      if (cluster->len() > kMaxGeneLength) {
-#if ENABLE_THREADS
-          if (use_threads)
-                decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads)
+//                decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
@@ -1108,10 +1119,10 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
      //cout<<avg_dep<<endl;
 
      if (avg_dep < kMinDepth4Locus) {
-#if ENABLE_THREADS
-          if (use_threads)
-                decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads)
+//                decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
@@ -1146,23 +1157,24 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
      bool stat = flow_network.createNetwork(hits, exons, intron_counter,
                                                          constraints, node_map, cost_map, min_flow_map, path_cstrs);
      if (!stat) {
-#if ENABLE_THREADS
-          if (use_threads)
-                decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads)
+//                decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
      bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs, cost_map, min_flow_map, assembled_feats);
      if (!stat2) {
-#if ENABLE_THREADS
-          if (use_threads)
-                decr_pool_count();
-#endif
+//#if ENABLE_THREADS
+//          if (use_threads)
+//                decr_pool_count();
+//#endif
           return assembled_transcripts;
      }
 
-     assemble_2_contigs(assembled_feats, cluster->ref_id(), cluster->strand(), assembled_transcripts);
+     assembled_transcripts = assemble_2_contigs(assembled_feats, cluster->ref_id(), cluster->strand());
+     if (assembled_transcripts.empty()) return assembled_transcripts;
 
      // calculate fragment length distribution
      if (_is_inspecting) { // calculated the fragment length distribution
@@ -1206,7 +1218,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 #if ENABLE_THREADS
           if (use_threads) {
                 out_file_lock.unlock();
-                decr_pool_count();
+//                decr_pool_count();
           }
 #endif
           return assembled_transcripts;
@@ -1282,6 +1294,7 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
         hits.push_back(hit);
     }
 
+    assert(assembled_transcripts.size());
     // prepare exon segments
     for(const auto &t: assembled_transcripts) {
         for (const auto &f: t._genomic_feats) {
@@ -1295,7 +1308,6 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
     vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
     exons = reduced_exons;
 
-    //
     int tscp_id = 0;
     for(const auto &t: assembled_transcripts){
         ++tscp_id;
@@ -1313,7 +1325,7 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
     if(success){
 #if ENABLE_THREADS
         if(use_threads)
-            lock_guard<mutex> lock(out_file_lock);
+           out_file_lock.lock();
 #endif
         /* Print locus coordinates*/
         cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
@@ -1324,8 +1336,23 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
         fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
     }
 #if ENABLE_THREADS
-    if(use_threads)
+    if(use_threads) {
+        out_file_lock.unlock();
         decr_pool_count();
+    }
+#endif
+}
+
+void Sample::addAssembly(std::vector<Contig>& assembs) {
+
+#if ENABLE_THREADS
+    if (use_threads) thread_pool_lock.lock();
+#endif
+    
+    if (!assembs.empty()) std::move(assembs.begin(), assembs.end(), std::back_inserter(_assembly));
+
+#if ENABLE_THREADS
+    if(use_threads) thread_pool_lock.unlock();
 #endif
 }
 
@@ -1340,6 +1367,7 @@ void Sample::inspectSample(FILE *plogfile)
     if( -1 == nextCluster_refGuide(*last_cluster) ) {
         return;
     }
+    _num_cluster = 1;
 
     RefID current_ref_id = last_cluster->ref_id();
     if(BIAS_CORRECTION)
@@ -1400,16 +1428,21 @@ void Sample::inspectSample(FILE *plogfile)
             ++curr_thread_num;
             thread worker ([=] {
                     finalizeCluster(last_cluster, true);
-                    this-> assembleCluster(ref_t, last_cluster, plogfile);
+                    vector<Contig> asmb = this-> assembleCluster(ref_t, last_cluster, plogfile);
+                    this->addAssembly(asmb);
+                    --curr_thread_num;
                     });
             //thread worker{&Sample::finalizeAndassembleCluster, this, ref_t, last_cluster, NULL, NULL};
             worker.detach();
         }else{
             finalizeCluster(last_cluster, true);
-            assembleCluster(ref_t, last_cluster, plogfile);
+            vector<Contig> asmb = assembleCluster(ref_t, last_cluster, plogfile);
+            this->addAssembly(asmb);
         }
 #else
-        finalizeAndassembleCluster(ref_t, last_cluster, NULL, plogfile);
+    finalizeCluster(last_cluster, true);
+    assembleCluster(ref_t, last_cluster, plogfile);
+    this->addAssembly(asmb);
 #endif
         // _total_mapped_reads += (int) last_cluster->raw_mass();
         //cout<<"weighted cluster mass: "<<last_cluster->_weighted_mass<<endl;
@@ -1417,6 +1450,8 @@ void Sample::inspectSample(FILE *plogfile)
         fprintf(plogfile, "Has inspected %d reads\n", (int)_total_mapped_reads);
         last_cluster = move(cur_cluster);
     }
+
+//make sure all threads have finished
 #if ENABLE_THREADS
     if(use_threads){
         while(true){
@@ -1432,7 +1467,8 @@ void Sample::inspectSample(FILE *plogfile)
 #endif
     last_cluster->_id = ++_num_cluster;
     finalizeCluster(last_cluster, true);
-    assembleCluster(ref_t, last_cluster, plogfile);
+    vector<Contig> asmb = assembleCluster(ref_t, last_cluster, plogfile);
+    this->addAssembly(asmb);
     fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
     fprintf(plogfile, "Has inspected %d reads\n", (int)_total_mapped_reads);
     //_total_mapped_reads += (int)last_cluster->raw_mass();
@@ -1460,45 +1496,20 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
     //cout<<"reach in procSample"<<endl;
     _is_inspecting = false;
     const RefSeqTable & ref_t = _hit_factory->_ref_table;
-
-    shared_ptr<HitCluster> last_cluster (new HitCluster());
-    if( -1 == nextCluster_refGuide(*last_cluster) ) {
-        return;
-    }
-
-    RefID current_ref_id = last_cluster->ref_id();
-    if(BIAS_CORRECTION)
-        load_chrom_fasta(current_ref_id);
+    int current_ref_id = INT_MAX;
+    _num_cluster = 0;
 
     while(true){
-        shared_ptr<HitCluster> cur_cluster (new HitCluster());
-        if(!last_cluster->hasRefmRNAs() && last_cluster->see_both_strands()){
-            cur_cluster->left(last_cluster->left());
-            cur_cluster->right(last_cluster->right());
-            cur_cluster->ref_id(last_cluster->ref_id());
-        }
-        else{
-            if(-1 == nextCluster_refGuide(*cur_cluster)){
-                break;
-            }
-        }
         ++_num_cluster;
-        if(cur_cluster->overlaps(*last_cluster) ){
-//            if(!cur_cluster->hasRefmRNAs() && !last_cluster->hasRefmRNAs()) {
-//                LOG_ERR("Error: It is unlikely that novo cluster overlaps");
-//                LOG_ERR(last_cluster->ref_id(), ":", last_cluster->left(), "-", last_cluster->right());
-//                LOG_ERR(cur_cluster->ref_id(),":", cur_cluster->left(), "-", cur_cluster->right());
-//            }
-            mergeClusters(*last_cluster, *cur_cluster);
+        shared_ptr<HitCluster> cluster (new HitCluster());
+        if(-1 == nextClusterRefDemand(*cluster)){
+            break;
         }
-        if(last_cluster->ref_id() == -1){
-            last_cluster = move(cur_cluster);
-            continue;
-        }
+        if(cluster->ref_id() == -1) continue;
 
-         //load fasta genome
-        if(current_ref_id != last_cluster->ref_id()){
-            current_ref_id = last_cluster->ref_id();
+         //begin load fasta genome
+        if(current_ref_id != cluster->ref_id()){
+            current_ref_id = cluster->ref_id();
             if(BIAS_CORRECTION){
 #if ENABLE_THREADS
                 if(use_threads){
@@ -1514,8 +1525,9 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
                 load_chrom_fasta(current_ref_id);
             }
         }
+        //end load fasta genome
 
-        last_cluster->_id = _num_cluster;
+        cluster->_id = _num_cluster;
 #if ENABLE_THREADS
         if(use_threads){
             while(true){
@@ -1526,33 +1538,20 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
             }
             ++curr_thread_num;
             thread worker ([=] {
-                    finalizeCluster(last_cluster, true);
-                    vector<Contig> transcripts = this-> assembleCluster(ref_t, last_cluster, plogfile);
-                    if (!transcripts.empty()) {
-                        this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
-                    }
+                    finalizeCluster(cluster, true);
+                    this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile);
             });
             worker.detach();
         }else {
-            finalizeCluster(last_cluster, true);
-            vector<Contig> transcripts = assembleCluster(ref_t, last_cluster, plogfile);
-            if (!transcripts.empty()) {
-                this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
-            }
+            finalizeCluster(cluster, true);
+            this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile);
         }
 #else
-        finalizeAndassembleCluster(ref_t, last_cluster, pfile, plogfile);
+        finalizeCluster(last_cluster, true);
+        this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
 #endif
-//#ifdef DEBUG
+    } //end while(true)
 
-//                cerr<<"number of Ref mRNAs "<<last_cluster->_ref_mRNAs.size()<<"\tRef cluster: "\
-//                        <<last_cluster->ref_id()<<"\t"<<last_cluster->left()<<"-"<<last_cluster->right()<<"\t"<<last_cluster->size()<<endl;
-//                cerr<<"number of unique hits\t"<<last_cluster->_uniq_hits.size()<<endl;
-//#endif
-
-      last_cluster = move(cur_cluster);
-      //if(last_cluster->ref_id() == 0 && last_cluster->left() > 6850811) exit(0);
-    }
 #if ENABLE_THREADS
     if(use_threads){
         while(true){
@@ -1563,12 +1562,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
         }
     }
 #endif
-    last_cluster->_id = ++_num_cluster;
-    finalizeCluster(last_cluster, true);
-    vector<Contig> transcripts = assembleCluster(ref_t, last_cluster, plogfile);
-    if (!transcripts.empty()) {
-        this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
-    }
+
 }
 
 
