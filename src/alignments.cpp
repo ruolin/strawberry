@@ -800,7 +800,7 @@ double Sample::rewindHit(const ReadHit& rh)
     return mass;
 }
 
-int Sample::addRef2Cluster(HitCluster &clusterOut){
+int Sample::addRef2Cluster(HitCluster &cluster_out){
     if(_refmRNA_offset >=  _ref_mRNAs.size()) {
         _has_load_all_refs = true;
         return 0;
@@ -809,7 +809,9 @@ int Sample::addRef2Cluster(HitCluster &clusterOut){
     // add first rna
     //cout<<"offset: "<<_refmRNA_offset<<endl;
     //cout<<"_ref_mRNAs size: "<<_ref_mRNAs[0].parent_id()<<endl;
-    clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+
+    cluster_out.gene_id() = _ref_mRNAs[_refmRNA_offset].parent_id();
+    cluster_out.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
     if(_refmRNA_offset >= _ref_mRNAs.size()){
         _has_load_all_refs = true;
         return 1;
@@ -817,13 +819,13 @@ int Sample::addRef2Cluster(HitCluster &clusterOut){
 
     // add the rest if overlapped with first
     size_t i = 0;
-    while(i < clusterOut._ref_mRNAs.size()){
-        Contig* ref = clusterOut._ref_mRNAs[i];
+    while(i < cluster_out._ref_mRNAs.size()){
+        Contig* ref = cluster_out._ref_mRNAs[i];
         if (Contig::overlaps_directional(*ref, _ref_mRNAs[_refmRNA_offset])) {
-            clusterOut.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+            cluster_out.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
             if(_refmRNA_offset >= _ref_mRNAs.size()){
                 _has_load_all_refs = true;
-                return clusterOut._ref_mRNAs.size();
+                return cluster_out._ref_mRNAs.size();
             }
             i=0;
         }
@@ -831,7 +833,7 @@ int Sample::addRef2Cluster(HitCluster &clusterOut){
             ++i;
         }
     }
-    return clusterOut._ref_mRNAs.size();
+    return cluster_out._ref_mRNAs.size();
 }
 
 void Sample::rewindReference(HitCluster &clusterOut , int num_regress)
@@ -848,10 +850,12 @@ void Sample::reset_refmRNAs()
 {
     _refmRNA_offset = 0;
     _has_load_all_refs = false;
-    _ref_mRNAs.clear();
-    move(_assembly.begin(), _assembly.end(), back_inserter(_ref_mRNAs));
-    _assembly.clear();
-    sort(_ref_mRNAs.begin(), _ref_mRNAs.end());
+    if (!no_assembly) {
+        _ref_mRNAs.clear();
+        move(_assembly.begin(), _assembly.end(), back_inserter(_ref_mRNAs));
+        _assembly.clear();
+        sort(_ref_mRNAs.begin(), _ref_mRNAs.end());
+    }
 }
 
 int Sample::nextCluster_denovo(HitCluster &clusterOut,
@@ -898,7 +902,10 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 }
 
 int Sample::nextClusterRefDemand(HitCluster &clusterOut){
-    assert(hasLoadRefmRNAs());
+    if (!hasLoadRefmRNAs()) {
+        std::cerr<<"if you use --no-assembly option, you must provide gff file through -g option!"<<std::endl;
+        assert(false);
+    }
     if (!_hit_factory->recordsRemain()) return -1;
     int num_added_refmRNA = addRef2Cluster(clusterOut);
     if (num_added_refmRNA == 0) {
@@ -921,6 +928,53 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
         }
     }  //end while loop
     return clusterOut.size();
+}
+
+void Sample::preProcess(FILE *log) {
+    _is_inspecting = true;
+    curr_thread_num = 0;
+    const RefSeqTable & ref_t = _hit_factory->_ref_table;
+
+    _num_cluster = 0;
+    while(true){
+        shared_ptr<HitCluster> cluster (new HitCluster());
+        if(-1 == nextClusterRefDemand(*cluster)){
+            break;
+        }
+        if(cluster->ref_id() == -1) continue;
+        cluster->_id = ++_num_cluster;
+#if ENABLE_THREADS
+        if(use_threads){
+            while(true){
+                if(curr_thread_num < num_threads){
+                    break;
+                }
+                this_thread::sleep_for(chrono::milliseconds(3));
+            }
+            ++curr_thread_num;
+            thread worker ([=] {
+                finalizeCluster(cluster, true);
+                fragLenDist(ref_t, cluster->ref_mRNAs(), cluster, log);
+                --curr_thread_num;
+            });
+            worker.detach();
+        }else {
+            finalizeCluster(cluster, true);
+            fragLenDist(ref_t, cluster->ref_mRNAs(), cluster, log);
+        }
+#endif
+    } //end while(true)
+
+#if ENABLE_THREADS
+    if(use_threads){
+        while(true){
+            if(curr_thread_num==0){
+                break;
+            }
+            this_thread::sleep_for(chrono::milliseconds(5));
+        }
+    }
+#endif
 }
 
 int Sample::nextCluster_refGuide(HitCluster &clusterOut)
@@ -1049,6 +1103,61 @@ void Sample::finalizeCluster(shared_ptr<HitCluster> cluster, bool clear_open_mat
     cluster->setBoundaries(); // set boundaries if reference exist.
 }
 
+void Sample::fragLenDist(const RefSeqTable &ref_t,
+                         const std::vector<Contig> &transcripts,
+                         const shared_ptr<HitCluster> cluster,
+                         FILE *plogfile) {
+
+    if (transcripts.empty()) return;
+    _total_mapped_reads += (int) cluster->weighted_mass();
+
+    vector<Contig> hits;
+    for (auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r) {
+        Contig hit(*r);
+        hits.push_back(hit);
+    }
+
+    if (transcripts.size() == 1) {
+        for (auto const &assembled_transcript: transcripts) {
+            for (size_t h = 0; h < hits.size(); ++h) {
+                if (hits[h].is_single_read()) continue;
+                if (!Contig::is_compatible(hits[h], assembled_transcript)) continue;
+                double frag_len = Contig::exonic_overlaps_len(assembled_transcript,
+                                                              hits[h].left(),
+                                                              hits[h].right());
+
+#if ENABLE_THREADS
+                if (use_threads) {
+                    thread_pool_lock.lock();
+                    _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+                    thread_pool_lock.unlock();
+                } else {
+                    _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+                }
+#else
+                _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+#endif
+            }// end for
+        }// end for
+    } // end if (assembled_transcripts.size()==1)
+
+#if ENABLE_THREADS
+    if (use_threads) {
+        out_file_lock.lock();
+    }
+#endif
+    fprintf(plogfile, "Finish inspecting locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(),
+            cluster->left(), cluster->right());
+    fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", cluster->_ref_mRNAs.size());
+    fprintf(plogfile, "Number of total unique hits: %d\n\n", cluster->_uniq_hits.size());
+
+#if ENABLE_THREADS
+    if (use_threads) {
+        out_file_lock.unlock();
+    }
+#endif
+}
+
 vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitCluster> cluster, FILE *plogfile) {
      /*
       * Isoform id is integer from 1. The index
@@ -1174,55 +1283,8 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
      }
 
      assembled_transcripts = assemble_2_contigs(assembled_feats, cluster->ref_id(), cluster->strand());
-     if (assembled_transcripts.empty()) return assembled_transcripts;
 
-     // calculate fragment length distribution
-     if (_is_inspecting) { // calculated the fragment length distribution
-          _total_mapped_reads += (int) cluster->weighted_mass();
-          if (assembled_transcripts.size() == 1) {
-                for (auto const &assembled_transcript: assembled_transcripts) {
-                     for (size_t h = 0; h < hits.size(); ++h) {
-                          if (hits[h].is_single_read()) continue;
-                          if (!Contig::is_compatible(hits[h], assembled_transcript)) continue;
-                          double frag_len = Contig::exonic_overlaps_len(assembled_transcript, hits[h].left(),
-                                                                                        hits[h].right());
-//#ifdef DEBUG
-//                        cout<<"frag_len: "<<frag_len<<endl;
-//                        cout<<"frag location>> "<<hits[h].ref_id()<<":"<<hits[h].left()<<"-"<<hits[h].right()<<endl;
-//#endif
-#if ENABLE_THREADS
-                          if (use_threads) {
-                                thread_pool_lock.lock();
-                                _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-                                thread_pool_lock.unlock();
-                          } else {
-                                _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-                          }
-#else
-                          _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-#endif
-                     }// end for
-                }// end for
-
-          } // end if (assembled_transcripts.size()==1)
-#if ENABLE_THREADS
-          if (use_threads) {
-                out_file_lock.lock();
-          }
-#endif
-          fprintf(plogfile, "Finish inspecting locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(),
-                     cluster->left(), cluster->right());
-          fprintf(plogfile, "Found %d of ref mRNAs from the reference gtf file.\n", cluster->_ref_mRNAs.size());
-          fprintf(plogfile, "Number of total unique hits: %d\n\n", cluster->_uniq_hits.size());
-
-#if ENABLE_THREADS
-          if (use_threads) {
-                out_file_lock.unlock();
-//                decr_pool_count();
-          }
-#endif
-          return assembled_transcripts;
-     }//end if(_is_inspecting)
+     this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
 
      /* Merge transfrags if they
       *  do not overlaps.
@@ -1308,11 +1370,11 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
     vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
     exons = reduced_exons;
 
-    int tscp_id = 0;
+    int idx = 0;
     for(const auto &t: assembled_transcripts){
-        ++tscp_id;
-        Isoform iso(exons, t, cluster->_id, tscp_id);
-        iso_2_len_map[tscp_id] = t.exonic_length();
+        ++idx;
+        Isoform iso(exons, t, t.parent_id(), t.annotated_trans_id(), cluster->_id, idx);
+        iso_2_len_map[idx] = t.exonic_length();
         isoforms.push_back(iso);
     }
     Estimation est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs, plogfile);
@@ -1330,8 +1392,8 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
         /* Print locus coordinates*/
         cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
         for(auto & iso: isoforms){
-            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s, iso._TPM_s, iso._gene_id, iso._isoform_id);
-
+            iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
+                                  iso._TPM_s, iso._gene_str, iso._isoform_str);
         }
         fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
     }
@@ -1343,12 +1405,18 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #endif
 }
 
-void Sample::addAssembly(std::vector<Contig>& assembs) {
+void Sample::addAssembly(std::vector<Contig>& assembs, int cluster_id) {
+    int tid=0;
+    for (Contig& asmb: assembs) {
+        ++tid;
+        asmb.parent_id() = "gene."+to_string(cluster_id);
+        asmb.annotated_trans_id("transcript." + to_string(cluster_id) + "." + to_string(tid));
+    }
 
 #if ENABLE_THREADS
     if (use_threads) thread_pool_lock.lock();
 #endif
-    
+
     if (!assembs.empty()) std::move(assembs.begin(), assembs.end(), std::back_inserter(_assembly));
 
 #if ENABLE_THREADS
@@ -1416,7 +1484,7 @@ void Sample::inspectSample(FILE *plogfile)
             _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
         }
 //End loading ref seqs
-        last_cluster->_id = _num_cluster;
+        last_cluster->_id = ++_num_cluster;
 #if ENABLE_THREADS
         if(use_threads){
             while(true){
@@ -1429,7 +1497,7 @@ void Sample::inspectSample(FILE *plogfile)
             thread worker ([=] {
                     finalizeCluster(last_cluster, true);
                     vector<Contig> asmb = this-> assembleCluster(ref_t, last_cluster, plogfile);
-                    this->addAssembly(asmb);
+                    this->addAssembly(asmb, last_cluster->_id);
                     --curr_thread_num;
                     });
             //thread worker{&Sample::finalizeAndassembleCluster, this, ref_t, last_cluster, NULL, NULL};
@@ -1437,7 +1505,7 @@ void Sample::inspectSample(FILE *plogfile)
         }else{
             finalizeCluster(last_cluster, true);
             vector<Contig> asmb = assembleCluster(ref_t, last_cluster, plogfile);
-            this->addAssembly(asmb);
+            this->addAssembly(asmb, last_cluster->_id);
         }
 #else
     finalizeCluster(last_cluster, true);
@@ -1468,17 +1536,15 @@ void Sample::inspectSample(FILE *plogfile)
     last_cluster->_id = ++_num_cluster;
     finalizeCluster(last_cluster, true);
     vector<Contig> asmb = assembleCluster(ref_t, last_cluster, plogfile);
-    this->addAssembly(asmb);
+    this->addAssembly(asmb, last_cluster->_id);
     fprintf(plogfile, "Inspect gene: %s:%d-%d\n", ref_t.ref_real_name(last_cluster->ref_id()).c_str(), last_cluster->left(), last_cluster->right());
     fprintf(plogfile, "Has inspected %d reads\n", (int)_total_mapped_reads);
     //_total_mapped_reads += (int)last_cluster->raw_mass();
-    _hit_factory->reset();
 #if ENABLE_THREADS
     if(use_threads)
         curr_thread_num = 0;
 #endif
-    _is_inspecting = false;
-    reset_refmRNAs();
+    //_is_inspecting = false;
 }
 
 int Sample::total_mapped_reads() const
@@ -1495,12 +1561,13 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
  */
     //cout<<"reach in procSample"<<endl;
     _is_inspecting = false;
+    _hit_factory->reset();
+    reset_refmRNAs();
     const RefSeqTable & ref_t = _hit_factory->_ref_table;
     int current_ref_id = INT_MAX;
-    _num_cluster = 0;
 
     while(true){
-        ++_num_cluster;
+        //++_num_cluster;
         shared_ptr<HitCluster> cluster (new HitCluster());
         if(-1 == nextClusterRefDemand(*cluster)){
             break;
@@ -1527,7 +1594,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
         }
         //end load fasta genome
 
-        cluster->_id = _num_cluster;
 #if ENABLE_THREADS
         if(use_threads){
             while(true){

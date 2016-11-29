@@ -522,8 +522,21 @@ void ExonBin::add_frag_len(const int iso, const int frag_len, const float mass)
 }
 
 
+Isoform::Isoform(const vector<GenomicFeature>& exons, Contig contig,
+                 string gene_name, string iso_name, int gene_id, int iso_id):
+      _contig(contig), _gene_str(gene_name), _isoform_str(iso_name),
+      _isoform_id(iso_id), _gene_id(gene_id)
+{
+   for(uint i = 0; i< exons.size(); ++i){
+      if(Contig::is_compatible(_contig, exons[i])){
+         _exon_segs.push_back(exons[i]);
+      }
+   }
+   _bais_factor = 0.0;
+}
+
 Isoform::Isoform(const vector<GenomicFeature>& exons, Contig contig, int gene, int iso_id):
-      _contig(contig), _gene_id(gene), _isoform_id(iso_id)
+      Isoform(exons, contig, "default gene", "default iso", gene, iso_id)
 {
    for(uint i = 0; i< exons.size(); ++i){
       if(Contig::is_compatible(_contig, exons[i])){

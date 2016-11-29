@@ -668,7 +668,7 @@ void Contig::print2gtf(FILE *pFile,
                        const RefSeqTable &ref_lookup,
                        const string fpkm,
                        const string tpm,
-                       int gene_id, int tscp_id) const {
+                       string gene_id, string tscp_id) const {
 
    const char* ref = ref_lookup.ref_real_name(_ref_id).c_str();
 
@@ -685,28 +685,17 @@ void Contig::print2gtf(FILE *pFile,
       break;
    }
    char gff_attr[200];
-   char locus[13] = "gene.";
-   char tscp[24] = "transcript.";
-   char gene_str[7];
-   char tscp_str[7];
    char fpkm_c[12];
    char tpm_c[12];
-   Sitoa(gene_id, gene_str, 10);
-   Sitoa(tscp_id,tscp_str, 10);
    strncpy(fpkm_c, fpkm.c_str(), sizeof(fpkm_c));
    fpkm_c[sizeof(fpkm_c) - 1] = 0;
    strncpy(tpm_c, tpm.c_str(), sizeof(tpm_c));
    tpm_c[sizeof(tpm_c) - 1] = 0;
 
-   strcat(locus, gene_str);
-   strcat(tscp, gene_str);
-   strcat(tscp, ".");
-   strcat(tscp, tscp_str);
-
    strcpy(gff_attr, "gene_id \"");
-   strcat(gff_attr, locus);
+   strcat(gff_attr, gene_id.c_str());
    strcat(gff_attr, "\"; transcript_id \"");
-   strcat(gff_attr, tscp);
+   strcat(gff_attr, tscp_id.c_str());
    strcat(gff_attr, "\";");
    strcat(gff_attr, "FPKM \"");
    strcat(gff_attr, fpkm_c);

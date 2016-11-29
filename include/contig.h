@@ -138,7 +138,8 @@ public:
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
 
-    decltype(auto) parent_id() {return _parent_id;}
+   decltype(auto) parent_id() {return (_parent_id);}
+   decltype(auto) parent_id() const {return (_parent_id);}
    uint left() const;
    uint right() const;
    uint gap_left() const; // left coordinate of gap if exists; otherwise return 0
@@ -170,7 +171,7 @@ public:
                   const RefSeqTable &ref_lookup,
                   const std::string fpkm,
                   const std::string tpm,
-                  int gene_id, int tscp_id) const;
+                  std::string gene_id, std::string tscp_id) const;
 
    SingleOrit_t single_read_orit() const;
    double avg_doc() const;

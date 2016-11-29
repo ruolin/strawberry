@@ -86,7 +86,7 @@ void print_help()
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
-   fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file.                                                               [default:     NULL]\n");
+   fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current only support GFF3 format.                             [default:     NULL]\n");
    fprintf(stderr, "   --no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
@@ -306,7 +306,8 @@ int driver(int argc, char** argv){
    if(verbose){
       cerr<<"Inspecting sample......"<<endl;
    }
-   read_sample.inspectSample(plogfile);
+   if (no_assembly) read_sample.preProcess(plogfile);
+   else read_sample.inspectSample(plogfile);
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
    }
