@@ -108,6 +108,45 @@ public:
         setBoundries();
     }
 
+    std::vector<TInterval> reduce(){
+        /*
+         *  Merge redundant	ranges,	and return the minimum
+         *  non-overlapping ranges covering all the input ranges.
+         */
+        std::vector<typename TInterval::TDepth> cov = coverage<TInterval, true> (invs_);
+        std::vector<TInterval> result;
+
+        bool prev_base_is_covered = false;
+        bool open = false;
+
+        for (auto it = cov.begin(); it != cov.end(); ++it) {
+            if (*it > 0) {
+                if (prev_base_is_covered) {
+
+                } else {
+                    TInterval inv;
+                    inv.left(std::distance(cov.begin(), it));
+                    result.push_back(inv);
+                    open = true;
+                }
+                prev_base_is_covered = true;
+            } else {
+                if (prev_base_is_covered) {
+                    result.back().right(std::distance(cov.begin(), it));
+                    open = false;
+                } else {
+
+                }
+                prev_base_is_covered = false;
+            }
+        }
+        if (open) {
+            result.back().right(cov.size());
+        }
+
+        return result;
+    }
+
     std::vector<TInterval> disjoint(){
     /*
      * return non-overlapping intervals

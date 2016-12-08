@@ -214,11 +214,15 @@ int main(int argc, char** argv){
    driver(argc, argv);
 //   GenomicFeature gf1 (Match_t::S_MATCH, 1u, 12);
 //   GenomicFeature gf2 (Match_t::S_MATCH, 8u, 14);
+//   GenomicFeature gf3 (Match_t::S_MATCH, 25, 4);
+//   GenomicFeature gf4 (Match_t::S_MATCH, 4, 4);
 //   vector<GenomicFeature> gfs;
 //   gfs.push_back(gf1);
 //   gfs.push_back(gf2);
+//   gfs.push_back(gf3);
+//   gfs.push_back(gf4);
 //   IRanges<GenomicFeature, false> test_invs(gfs);
-//   vector<GenomicFeature> invs = test_invs.disjoint();
+//   vector<GenomicFeature> invs = test_invs.reduce();
 //   for(const auto& inv : invs) cout<<inv.left()<<"-"<<inv.right()<<endl;
    fprintf(stdout, "Program finished");
 }
