@@ -267,7 +267,7 @@ bool HitCluster::addHit(const PairedHit &hit){
 //    return false;
 //}
 
-bool HitCluster::addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
+bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner)
 {
     if(this->size() > kMaxFragPerCluster)
         return false;

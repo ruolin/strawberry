@@ -98,7 +98,7 @@ public:
 
     void clearOpenMates();
 
-    bool addOpenHit(ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
+    bool addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
 
     int collapseHits();
 
