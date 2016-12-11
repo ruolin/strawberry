@@ -239,26 +239,10 @@ void GenomicFeature::mergeFeatures(const vector<GenomicFeature> & feats, vector<
 
 
 
-Contig::Contig(
-         RefID ref_id,
-         Strand_t strand,
-        double mass,
-      vector<GenomicFeature> feats,
-        bool is_ref):
-      _ref_id(ref_id),
-      _strand(strand),
-      _mass(mass),
-      _genomic_feats(feats),
-      _is_ref(is_ref)
-   {
-      assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
-      assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
-   }
-
-
 Contig::Contig(const PairedHit& ph):
       _is_ref(false),
       _ref_id(ph.ref_id()),
+      _contig_id(ph.read_id()),
       _strand(ph.strand())
 {
    if (!ph.is_paired()) {

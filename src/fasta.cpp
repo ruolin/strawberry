@@ -6,7 +6,7 @@
 #include <iostream>
 #include <mutex>
 
-
+using namespace std;
 // for now this function free whole sequence and setup a
 // new _my_subseq object for FaSeqGetter. This is not an efficient way.
 void SubSeq::setup(uint s, uint l){

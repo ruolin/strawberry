@@ -114,7 +114,9 @@ bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature>
 class Contig{
    //std::vector<const PairedHit* > _mates_in_contig;
    RefID _ref_id;
-   std::string _seq;
+   ReadID _contig_id ;
+
+   //std::string _seq;
    Strand_t _strand;
    std::string _annotated_trans_id;
    std::string _parent_id;
@@ -128,12 +130,22 @@ public:
    Contig(const PairedHit& ph);
 
    Contig(
-         RefID ref_id,
-         Strand_t strand,
-         double mass,
-         std::vector<GenomicFeature> feats,
-         bool is_ref
-         );
+           RefID ref_id,
+           ReadID cid,
+           Strand_t strand,
+           double mass,
+           std::vector<GenomicFeature> feats,
+           bool is_ref):
+           _ref_id(ref_id),
+           _contig_id(cid),
+           _strand(strand),
+           _mass(mass),
+           _genomic_feats(feats),
+           _is_ref(is_ref)
+   {
+      assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
+      assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
+   }
 
    const std::string annotated_trans_id() const;
    void annotated_trans_id(std::string str);
@@ -145,6 +157,11 @@ public:
    uint gap_left() const; // left coordinate of gap if exists; otherwise return 0
    uint gap_right() const; // left coordiante of gap if exists; otherwise return 0
    int exonic_length() const;
+   ReadID contig_id() const {
+      if (_is_ref) return 0;
+      else return _contig_id;
+   }
+
    static int exonic_overlaps_len(const Contig &iso,
          const uint left,
          const uint right);
@@ -178,7 +195,7 @@ public:
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Contig& contig){
-    os<<"contig ";
+    os<<"contig<"<<contig.contig_id()<<"> ";
     os<<contig.ref_id()<<":"<<contig.left()<<"-"<<contig.right()<<"\t";
     for (const auto& gf: contig._genomic_feats) {
         os<<gf;
