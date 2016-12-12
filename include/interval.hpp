@@ -50,7 +50,7 @@ inline std::ostream& operator<<(std::ostream& os, const BasicInterval& bi){
 }
 
 template<typename TInterval, bool half_open>
-inline decltype (auto) coverage(const vector<TInterval>& );
+inline decltype (auto) coverage(const std::vector<TInterval>& );
 
 
 template<typename TInterval = BasicInterval , bool half_open = true>
@@ -192,7 +192,7 @@ public:
 };
 
 template<typename TInterval, bool half_open>
-inline decltype (auto) coverage(vector<TInterval>& invs){
+inline decltype (auto) coverage(std::vector<TInterval>& invs){
 
 typedef typename TInterval::TDepth CovType;
 

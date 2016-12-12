@@ -9,7 +9,6 @@
 
 #include<unordered_map>
 #include<memory>
-using namespace std;
 
 class FaRecord{
    /*
@@ -24,12 +23,12 @@ class FaRecord{
  *  One FaRecord is such an entry.
     */
 public:
-   string _seq_name; // e.g. gi|31563518|ref|NP_852610.1|
+   std::string _seq_name; // e.g. gi|31563518|ref|NP_852610.1|
    uint _seq_len = 0;
    off_t _fpos = 0; // seq fpos in the file
    int _line_len = 0; //effective line length (without EoL)
    int _line_blen = 0; //length of line including EoL characters
-   FaRecord(string name, uint len, off_t fpos, int llen, int blen):
+   FaRecord(std::string name, uint len, off_t fpos, int llen, int blen):
       _seq_name(name),
       _seq_len(len),
       _fpos(fpos),
@@ -44,16 +43,16 @@ class FaIndex{
     * In some cases, it is one fasta file per chromosome, therefore multiple objects.
     * In other cases, it is one fasta file contains all chromosomes, therefore one object.
     */
-   string _fa_name; // fasta file name
-   string _fai_name; // fasta index file name
+   std::string _fa_name; // fasta file name
+   std::string _fai_name; // fasta index file name
    bool _haveFai;
 public:
-   unordered_map<string, FaRecord> _records; // map seq name to record.
-   using FaRecord_p = unordered_map<string, FaRecord>::const_iterator;
+   std::unordered_map<std::string, FaRecord> _records; // map seq name to record.
+   using FaRecord_p = std::unordered_map<std::string, FaRecord>::const_iterator;
    FaIndex(const char* fname, const char* finame=NULL);
-   bool add_record(string seqname, const uint seqlen, const off_t fpos, const int linelen, const int lineblen);
-   bool getRecord(const string& seqname, FaRecord &got) const;
-   const string get_faidx_name() const;
+   bool add_record(std::string seqname, const uint seqlen, const off_t fpos, const int linelen, const int lineblen);
+   bool getRecord(const std::string& seqname, FaRecord &got) const;
+   const std::string get_faidx_name() const;
    bool hasIndex();
    int loadIndex(); //return the number of record loaded
    int buildIndex(); //this function has not been implemented //return the number of record
@@ -101,19 +100,19 @@ class FaSeqGetter{
    /*
     * One seq at a time in memory
     */
-   string _fname;
+   std::string _fname;
    FILE* _fh = nullptr;
    SubSeq _my_subseq;
    FaRecord _my_record;
 public:
    const static int MAX_LEN_TO_READ = 0x20000000;
    FaSeqGetter() = default;
-   void initiate(const string fname, const FaRecord &rec);
-   string get_fname() const;
+   void initiate(const std::string fname, const FaRecord &rec);
+   std::string get_fname() const;
    // Default parameters mean loading a whole sequence
    // for the first time.
    uint loadSeq(uint start = 1, uint len = 0);
-   string fetchSeq(uint start, uint len);
+   std::string fetchSeq(uint start, uint len);
    ~FaSeqGetter();
    FaSeqGetter(const FaSeqGetter &other) = delete;
    FaSeqGetter& operator=(const FaSeqGetter &other) = delete;
@@ -124,12 +123,12 @@ public:
 class FaInterface{
    bool _has_load = false;
 public:
-   string _fa_path;
-   unordered_map<string, unique_ptr<FaIndex>> _fa_indexes; //map fasta file name to faidx
-   unordered_map<string, string> _seqname_2_fafile;   // map seq name to fasta file name.
-   using ItFaidx = unordered_map<string, unique_ptr<FaIndex>>::iterator;
+   std::string _fa_path;
+   std::unordered_map<std::string, std::unique_ptr<FaIndex>> _fa_indexes; //map fasta file name to faidx
+   std::unordered_map<std::string, std::string> _seqname_2_fafile;   // map seq name to fasta file name.
+   using ItFaidx = std::unordered_map<std::string, std::unique_ptr<FaIndex>>::iterator;
    void initiate(const char* fpath=nullptr);
-   void load2FaSeqGetter(FaSeqGetter &getter, const string seqname);
+   void load2FaSeqGetter(FaSeqGetter &getter, const std::string seqname);
    bool hasLoad() const{
       return _has_load;
    }

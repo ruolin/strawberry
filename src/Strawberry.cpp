@@ -31,6 +31,8 @@
 #include "logger.hpp"
 #include "StrawberryConfig.hpp"
 #include "interval.hpp"
+#include "isoform.h"
+
 //#include "kmer.h"
 //#include "qp.h"
 

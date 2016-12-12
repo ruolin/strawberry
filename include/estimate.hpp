@@ -7,125 +7,108 @@
 
 #ifndef QP_H_
 #define QP_H_
-#include <contig.h>
-#include <read.hpp>
-class FaSeqGetter;
-class Isoform{
-
-public:
-   Contig _contig;
-   std::vector<GenomicFeature> _exon_segs;
-   int _gene_id;
-   int _isoform_id;
-   std::string _isoform_str;
-   std::string _gene_str;
-   double _bais_factor;
-   double _TPM = 0.0;
-   double _FPKM = 0.0;
-   std::string _TPM_s = "nan";
-   std::string _FPKM_s = "nan";
-   //Isoform() = default;
-   Isoform(const std::vector<GenomicFeature>&, Contig, int, int);
-   Isoform(const std::vector<GenomicFeature>&, Contig, std::string, std::string, int, int );
-};
-
-class ExonBin{
-   /*
-    * ExonBin is a set a continuous exons defined by an overlapping fragment.
-    */
-private:
-   //uint _left_most;
-   //uint _right_most;
-   //RefID _ref_id;
-
-   float _whole_read_mass = 0;
-   /*  exon boundaries left1,right1,left2,right2,... */
-   std::set<std::pair<uint,uint>> _coords;
-   double _GC_content;
-public:
-   std::set<Contig> _frags;
-   void add_read_mass(float mass);
-
-   std::map<int, double> _bin_weight_map; // iso -> bin_weight
-   std::map<int, std::vector<std::pair<int,float>>> _iso_2_frag_lens; // iso -> (frag_len, mass)
-   ExonBin(std::set<std::pair<uint,uint>> coordinates);
-   uint left() const;
-   uint right() const;
-   float read_count() const;
-   void add_frag_len(const int iso, const int frag_len, const float mass);
-   double read_depth() const;
-   int bin_len() const;
-   std::vector<uint> bin_under_iso(const Isoform& iso,
-         std::vector<std::pair<uint, uint>> & exon_coords) const;
-
-   int effective_len(const std::vector<uint> & exons,
-         const std::vector<uint>& implicit_idx,
-         const int fl,
-         const int rl
-         ) const;
-   bool operator==(const ExonBin& rhs) const;
-   bool add_frag(const Contig& fg);
-   int num_exons() const;
-   int left_exon_len() const;
-   double bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const;
-   double bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter) const;
-   double avg_frag_len() const;
-   RefID ref_id() const;
-};
+#include "contig.h"
+#include "read.hpp"
+#include "bias.hpp"
 
 
-class Estimation {
+class LocusContext {
 //typedef CGAL::Quadratic_program<double> Program;
 //typedef CGAL::Quadratic_program_solution<ET> Solution;
    static const double _kMinTPM;
    static constexpr double _kMinFPKM = 1e-2;
+
    std::shared_ptr<InsertSize> _insert_size_dist;
    int _read_len;
    FILE* _p_log_file;
-   void set_maps(const int& iso_id, const int& fg_len,
-                const float& mass,
-                const Contig& read,
-                const std::set<std::pair<uint,uint>>& coords,
-                std::map<std::set<std::pair<uint,uint>>, ExonBin> & exon_bin_map,
-                std::map<int, std::set<std::set<std::pair<uint,uint>>>> &iso_2_bins_map);
+   std::vector<ExonBin> exon_bins;
+   std::map<int, std::set<int>> iso_2_bins_map;
+
+   void set_maps(
+           const int& iso_id,
+           const int& fg_len,
+           const float& mass,
+           const Contig& read,
+           const std::set<std::pair<uint, uint>>& coords){
+
+      if(coords.empty()) return;
+
+      ExonBin eb(coords);
+
+      int ebid = UniqPushAndReturnIdx<ExonBin>(eb, exon_bins);
+      exon_bins[ebid].add_frag(read);
+      exon_bins[ebid].add_frag_len(iso_id, fg_len, mass);
+
+      auto find_it2 = iso_2_bins_map.find(iso_id);
+      if (find_it2 == iso_2_bins_map.end()){
+         std::set<int> bin_ids = {ebid};
+         iso_2_bins_map.emplace(iso_id, bin_ids);
+      }
+      else{
+         find_it2->second.insert(ebid);
+      }
+   }
+
+   void assign_exon_bin(
+           const std::vector<Contig> &hits,
+           const std::vector<Isoform> &transcripts,
+           const std::vector<GenomicFeature> & exon_segs);
 
 public:
-   Estimation(std::shared_ptr<InsertSize> insert_size, int read_len, FILE* tracker);
+   LocusContext(std::shared_ptr<InsertSize> insert_size,
+                              int read_len, FILE* tracker,
+                              const std::vector<Contig> &hits,
+                              const std::vector<Isoform> &transcripts,
+                              const std::vector<GenomicFeature> &exon_segs):
+         _insert_size_dist(insert_size), _read_len(read_len), _p_log_file(tracker)
+   {
+      assign_exon_bin(hits, transcripts, exon_segs);
+   }
+
    void test();
    void overlap_exons(const std::vector<GenomicFeature>& exons,
                      const Contig& read,
                      std::set<std::pair<uint,uint>> &coords);
 
-   void assign_exon_bin(
-      const std::vector<Contig> &hits,
-      const std::vector<Isoform> &transcripts,
-      const std::vector<GenomicFeature> & exon_segs,
-      std::map<std::set<std::pair<uint,uint>>, ExonBin> & exon_bin_map,
-      std::map<int, std::set<std::set<std::pair<uint,uint>>>> &iso_2_bins_map);
+   void set_theory_bin_weight(const std::map<int, int> &iso_2_len_map,
+                          const std::vector<Isoform>& isoforms);
 
-   void theory_bin_weight(const std::map<int, std::set<std::set<std::pair<uint,uint>>>> &iso_2_bins_map,
-                          const std::map<int,int> &iso_2_len_map,
-                          const std::vector<Isoform>& isoforms,
-                          std::map<std::set<std::pair<uint,uint>>, ExonBin> & exon_bin_map
-                          );
+   void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);
 
-   void empirical_bin_weight(const std::map<int, std::set<std::set<std::pair<uint,uint>>>> &iso_2_bins_map,
-                          const std::map<int,int> &iso_2_len_map,
-                          const int m,
-                          std::map<std::set<std::pair<uint,uint>>, ExonBin> & exon_bin_map);
+   void calculate_raw_iso_counts();
 
-   void calculate_raw_iso_counts(const std::map<int, std::set<std::set<uint>>> &iso_2_bins_map,
-          const std::map<std::set<uint>, ExonBin> & exon_bin_map);
+   bool estimate_abundances(const double mass,
+                            std::map<int, int>& iso_2_len_map,
+                            std::vector<Isoform>& isoforms,
+                            bool with_bias_correction,
+                            const std::shared_ptr<FaSeqGetter> & fa_getter);
 
-   bool estimate_abundances(std::map<std::set<std::pair<uint,uint>>, ExonBin> & exon_bin_map,
-                     const double mass,
-                     std::map<int, int>& iso_2_len_map,
-                     std::vector<Isoform>& isoforms,
-                     bool with_bias_correction,
-                     const std::shared_ptr<FaSeqGetter> & fa_getter);
-   void calculate_bin_bias( std::map<std::set<std::pair<uint,uint>>, ExonBin> & exon_bin_map,
-                            const std::shared_ptr<FaSeqGetter> &fa_getter,
-                            std::vector<std::vector<double>> &bias);
+
+   std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {
+
+      std::vector<std::vector<double>> bias;
+      for (auto it = exon_bins.cbegin(); it != exon_bins.cend(); ++it) {
+//#ifdef DEBUG
+//      for(auto e: it->first){
+//         cout<<"exon bin "<<e.first<<"="<<e.second<<endl;
+//      }
+//#endif
+         std::vector<double> b;
+         b.reserve(3);
+         double gc = it->bin_gc_content(fa_getter);
+         b.push_back(gc);
+         b.push_back(gc * gc);
+         b.push_back(gc * gc * gc);
+         b.push_back(it->bin_len());
+         b.push_back(it->avg_frag_len());
+//      for(auto c:it->first){
+//         cout<<"exon bin: " <<c.first<<"-"<<c.second<<endl;
+//      }
+         bias.push_back(b);
+      }
+      return bias;
+   }
+
 };
 
 

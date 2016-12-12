@@ -111,7 +111,7 @@ inline std::vector<Contig> assemble_2_contigs(const std::vector<std::vector<Geno
     for(auto const &feats: assembled_feats){
         std::vector<GenomicFeature> merged_feats;
         GenomicFeature::mergeFeatures(feats, merged_feats);
-        Contig assembled_transcript(ref_id, strand, -1,merged_feats, false);
+        Contig assembled_transcript(ref_id, 0, strand, 1.0, merged_feats, true);
         if(assembled_transcript.avg_doc() < kMinDepth4Contig) {
             continue;
         }
