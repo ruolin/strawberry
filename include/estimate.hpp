@@ -34,10 +34,10 @@ class LocusContext {
       if(coords.empty()) return;
 
       ExonBin eb(coords);
-      eb.add_frag(read);
-      eb.add_frag_len(iso_id, fg_len, mass);
 
       int ebid = UniqPushAndReturnIdx<ExonBin>(eb, exon_bins);
+      exon_bins[ebid].add_frag(read);
+      exon_bins[ebid].add_frag_len(iso_id, fg_len, mass);
 
       auto find_it2 = iso_2_bins_map.find(iso_id);
       if (find_it2 == iso_2_bins_map.end()){
