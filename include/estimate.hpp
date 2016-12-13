@@ -21,8 +21,12 @@ class LocusContext {
    std::shared_ptr<InsertSize> _insert_size_dist;
    int _read_len;
    FILE* _p_log_file;
+
    std::vector<ExonBin> exon_bins;
    std::map<int, std::set<int>> iso_2_bins_map;
+   const std::vector<Contig>& _hits;
+   const std::vector<Isoform>& _isoforms;
+   const std::shared_ptr<FaSeqGetter> & _fa_getter;
 
    void set_maps(
            const int& iso_id,
@@ -57,10 +61,12 @@ class LocusContext {
 public:
    LocusContext(std::shared_ptr<InsertSize> insert_size,
                               int read_len, FILE* tracker,
-                              const std::vector<Contig> &hits,
-                              const std::vector<Isoform> &transcripts,
-                              const std::vector<GenomicFeature> &exon_segs):
-         _insert_size_dist(insert_size), _read_len(read_len), _p_log_file(tracker)
+                              const std::vector<Contig>& hits,
+                              const std::vector<Isoform>& transcripts,
+                              const std::vector<GenomicFeature>& exon_segs,
+                              const std::shared_ptr<FaSeqGetter> & fa_getter):
+         _insert_size_dist(insert_size), _read_len(read_len), _p_log_file(tracker),
+         _hits(hits), _isoforms(transcripts), _fa_getter(fa_getter)
    {
       assign_exon_bin(hits, transcripts, exon_segs);
    }
@@ -77,11 +83,57 @@ public:
 
    void calculate_raw_iso_counts();
 
+   float bin_gc_under_iso(const ExonBin& eb, const Isoform& iso) const {
+      std::vector<std::pair<uint, uint>> coords;
+      eb.bin_under_iso(iso, coords);
+      std::vector<GenomicFeature> exon_segs;
+      for (const auto& c: coords) {
+         GenomicFeature ex(Match_t::S_MATCH, c.first, c.second - c.first + 1);
+         exon_segs.push_back(ex);
+      }
+      return Contig::contig_gc_content(exon_segs, _fa_getter);
+
+   }
+
+   std::vector<double> GetXikl(int i, int k, int l) const {
+      // Covariants: by order
+      // fragment length, fragment relative ends
+      // isoform length, isoform gc_content
+      // exon bin length, exon bin gc content.
+      std::vector<double> result;
+
+      const Contig& hit = _hits[i];
+      const Isoform& iso = _isoforms[k];
+      const ExonBin& eb = exon_bins[l];
+
+      double frag_len = Contig::fragment_len(hit, iso._contig);
+      result.push_back(frag_len);
+
+      double from_left = Contig::relative_pos_from_left(hit, iso._contig);
+      result.push_back(from_left);
+
+      double from_right = Contig::relative_pos_from_right(hit, iso._contig);
+      result.push_back(from_right);
+
+      double iso_len = iso._contig.exonic_length();
+      result.push_back(iso_len);
+
+      double iso_gc = Contig::contig_gc_content(iso._contig, _fa_getter);
+      result.push_back(iso_gc);
+
+      double exon_bin_len = eb.len_under_iso(iso);
+      result.push_back(exon_bin_len);
+
+      double exon_bin_gc = bin_gc_under_iso(eb, iso);
+      result.push_back(exon_bin_gc);
+
+      return result;
+   }
+
    bool estimate_abundances(const double mass,
                             std::map<int, int>& iso_2_len_map,
                             std::vector<Isoform>& isoforms,
-                            bool with_bias_correction,
-                            const std::shared_ptr<FaSeqGetter> & fa_getter);
+                            bool with_bias_correction);
 
 
    std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {

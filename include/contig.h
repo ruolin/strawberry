@@ -14,8 +14,11 @@
 #include<vector>
 #include<set>
 #include<map>
+#include<algorithm>
 #include<iostream>
 #include "common.h"
+#include "fasta.h"
+
 
 class PairedHit;
 class ReadHit;
@@ -172,8 +175,69 @@ public:
    //static int infer_inner_dist(const Contig &isoform, const Contig &hit);
 
    static uint read_start_from_iso(const Contig &iso, const Contig& hit);
-   static int fragment_len(const Contig& read, const Contig& iso); 
-      
+   static int fragment_len(const Contig& read, const Contig& iso);
+
+   static int relative_pos_from_left(const Contig& read, const Contig& iso){
+      if (is_compatible(read, iso)) {
+         int start = 0;
+         assert(read.left() >= iso.left());
+         for (const auto& gfeat : iso._genomic_feats) {
+            if (gfeat._match_op._code == Match_t::S_MATCH) {
+               if (read.left() > gfeat.left()) {
+                  if (read.left() > gfeat.right()) start += gfeat.right() - gfeat.left();
+                  else start += read.left() - gfeat.left() + 1;
+               }
+            }
+         }
+         return start;
+      }
+      else {
+         return 0;
+      }
+   }
+
+   static int relative_pos_from_right(const Contig& read, const Contig& iso){
+      if (is_compatible(read, iso)) {
+         int start = 0;
+         assert(read.right() <= iso.right());
+         for (auto rit = iso._genomic_feats.crbegin(); rit != iso._genomic_feats.crend(); ++rit) {
+            if (rit->_match_op._code == Match_t::S_MATCH) {
+               if (read.right() < rit->right()) {
+                  if (read.right() < rit->left()) start += rit->right() - rit->left() +1;
+                  else start += rit->right() - read.right() + 1;
+               }
+            }
+         }
+         return start;
+      }
+      else {
+         return 0;
+      }
+   }
+
+   static float contig_gc_content(const Contig& contig, const std::shared_ptr<FaSeqGetter> &fa_getter) {
+      return contig_gc_content(contig._genomic_feats, fa_getter);
+   }
+
+
+   static float contig_gc_content(const std::vector<GenomicFeature>& gfeats, const std::shared_ptr<FaSeqGetter> &fa_getter) {
+      assert(fa_getter != nullptr);
+      std::vector<int> lengths;
+      std::vector<float> gcs;
+      for (const auto& gf : gfeats) {
+         if (gf._match_op._code == Match_t::S_MATCH) {
+            float gc = gc_content(fa_getter->fetchSeq(gf.left(), gf.len()));
+            gcs.push_back(gc);
+            lengths.push_back(gf.len());
+         }
+      }
+      float sum = 0.0;
+      for (size_t i = 0; i < lengths.size(); ++i) {
+         sum += gcs[i] * lengths[i];
+      }
+      return sum / std::accumulate(lengths.begin(), lengths.end(), 0);
+   }
+
    static std::vector<double> start_site_dist(const Contig & iso, const std::vector<Contig> & hits);
    bool operator<(const Contig &rhs) const;
    friend bool operator==(const Contig &lhs, const Contig & rhs);

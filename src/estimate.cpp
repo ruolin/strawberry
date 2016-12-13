@@ -296,8 +296,7 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
 bool LocusContext::estimate_abundances(const double mass,
                                        map<int, int>& iso_2_len_map,
                                        vector<Isoform>& isoforms,
-                                       bool with_bias_correction,
-                                       const shared_ptr<FaSeqGetter> &fa_getter)
+                                       bool with_bias_correction)
 {
    size_t nrow = exon_bins.size();
    size_t niso = isoforms.size();
@@ -327,7 +326,7 @@ bool LocusContext::estimate_abundances(const double mass,
    EmSolver em;
    if(with_bias_correction){
       vector<vector<double>> bias;
-      bias = calculate_bin_bias(fa_getter);
+      bias = calculate_bin_bias(_fa_getter);
 //      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> X;
 //      X.setRandom(nrow, 3);
 //      X = X+Eigen::MatrixXd::Ones(nrow,3);

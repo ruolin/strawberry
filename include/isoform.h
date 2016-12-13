@@ -32,7 +32,6 @@ int PushAndReturnIdx(Item& item, std::vector<Item>& container) {
    return idx;
 }
 
-class FaSeqGetter;
 
 class Isoform{
 
@@ -40,7 +39,7 @@ class Isoform{
    int _gene_id;
 public:
    Contig _contig;
-   std::vector<GenomicFeature> _exon_segs;
+   std::vector<GenomicFeature> _exon_segs; // non-overlapping exon segments
    std::string _isoform_str;
    std::string _gene_str;
    double _bais_factor;
@@ -140,6 +139,15 @@ public:
 
    std::vector<uint> bin_under_iso(const Isoform& iso,
                                    std::vector<std::pair<uint, uint>> & exon_coords) const;
+
+   int len_under_iso(const Isoform& iso) const {
+      std::vector<std::pair<uint, uint>> coords;
+      bin_under_iso(iso, coords);
+      int result = 0;
+      for (const auto& c: coords) result += c.second - c.first + 1;
+      return result;
+   }
+
 
    int effective_len(const std::vector<uint> & exons,
                      const std::vector<uint>& implicit_idx,

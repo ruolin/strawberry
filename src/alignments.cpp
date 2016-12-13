@@ -31,6 +31,7 @@
 #include "estimate.hpp"
 #include "bias.hpp"
 #include "interval.hpp"
+#include "utils.h"
 
 using namespace std;
 
@@ -638,6 +639,8 @@ bool Sample::load_chrom_fasta(RefID seq_id)
    /*
    * Loading reference FASTA sequence without gene model
    */
+   if (_fasta_getter == nullptr) throw std::runtime_error("ref fasta file not provided. Did \
+                                                          you forget -f option?");
    string seq_name = _hit_factory->_ref_table.ref_real_name(seq_id);
    _fasta_interface->load2FaSeqGetter(*_fasta_getter, seq_name);
    return _fasta_getter->loadSeq();
@@ -1374,13 +1377,14 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
      iso_2_len_map[idx] = t.exonic_length();
    }
    LocusContext est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs,
-                    plogfile, hits, isoforms, exons);
+                    plogfile, hits, isoforms, exons, _fasta_getter);
 
+   cout<<est.GetXikl(0,0,0)<<endl;
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    est.set_theory_bin_weight(iso_2_len_map, isoforms);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
    bool success = est.estimate_abundances(this->total_mapped_reads(), \
-                                iso_2_len_map, isoforms, BIAS_CORRECTION, _fasta_getter);
+                                iso_2_len_map, isoforms, BIAS_CORRECTION);
    if(success){
 #if ENABLE_THREADS
      if(use_threads)

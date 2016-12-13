@@ -69,13 +69,13 @@ static struct option long_options[] = {
       {"combine-short-transfrag",          no_argument,            0,       'c'},
 //quantification
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
-      {"bias-correction",                 required_argument,      0,       'b'},
+      {"ref-fasta",                       required_argument,      0,       'f'},
       {"infer-missing-end",               no_argument,            0,       'm'},
       {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:cvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:f:cvGcm";
 #else
 const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:cvGcm";
 #endif
@@ -90,6 +90,7 @@ void print_help()
 #if ENABLE_THREADS
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current only support GFF3 format.                             [default:     NULL]\n");
    fprintf(stderr, "   --no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
+   fprintf(stderr, "   -f/--ref-fasta                        ref fasta file for bias correction.                                                                  [default:     NULL]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
@@ -111,7 +112,6 @@ void print_help()
    fprintf(stderr, "\n Quantification Options:\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
-   fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
 }
 
@@ -182,7 +182,7 @@ int parse_options(int argc, char** argv)
                case 'm':
                         infer_the_other_end = false;
                         break;
-               case 'b':
+               case 'f':
                         ref_fasta_file = optarg;
                         BIAS_CORRECTION = true;
                         break;
