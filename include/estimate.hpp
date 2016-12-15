@@ -7,6 +7,7 @@
 
 #ifndef QP_H_
 #define QP_H_
+#include "utils.h"
 #include "contig.h"
 #include "read.hpp"
 #include "bias.hpp"
@@ -71,7 +72,10 @@ public:
       assign_exon_bin(hits, transcripts, exon_segs);
    }
 
-   void test();
+   size_t num_exon_bin() { return exon_bins.size();}
+   size_t num_isoform() { return _isoforms.size();}
+   size_t num_hit() { return _hits.size();}
+
    void overlap_exons(const std::vector<GenomicFeature>& exons,
                      const Contig& read,
                      std::set<std::pair<uint,uint>> &coords);
@@ -84,27 +88,34 @@ public:
    void calculate_raw_iso_counts();
 
    float bin_gc_under_iso(const ExonBin& eb, const Isoform& iso) const {
+      if (!eb.is_compatible(iso)) return 0.0;
       std::vector<std::pair<uint, uint>> coords;
-      eb.bin_under_iso(iso, coords);
+      std::vector<uint> implicit_idx = eb.bin_under_iso(iso, coords);
+      if (!implicit_idx.empty()) return 0.0;
       std::vector<GenomicFeature> exon_segs;
       for (const auto& c: coords) {
          GenomicFeature ex(Match_t::S_MATCH, c.first, c.second - c.first + 1);
          exon_segs.push_back(ex);
       }
       return Contig::contig_gc_content(exon_segs, _fa_getter);
-
    }
 
    std::vector<double> GetXikl(int i, int k, int l) const {
       // Covariants: by order
-      // fragment length, fragment relative ends
-      // isoform length, isoform gc_content
-      // exon bin length, exon bin gc content.
+      // ik: fragment length, fragment ends relative to isoform. 0 if incompatible
+      // i:  isoform length, isoform gc_content
+      // kl: exon bin length, exon bin gc content relative to isoform. 0 if incompatible
+
       std::vector<double> result;
 
       const Contig& hit = _hits[i];
       const Isoform& iso = _isoforms[k];
       const ExonBin& eb = exon_bins[l];
+
+      std::cout<<"\n";
+      std::cout<<"iso: "<<iso._contig;
+      std::cout<<"reads: "<<hit;
+      std::cout<<"exon path: "<<eb;
 
       double frag_len = Contig::fragment_len(hit, iso._contig);
       result.push_back(frag_len);
@@ -121,11 +132,11 @@ public:
       double iso_gc = Contig::contig_gc_content(iso._contig, _fa_getter);
       result.push_back(iso_gc);
 
-      double exon_bin_len = eb.len_under_iso(iso);
-      result.push_back(exon_bin_len);
+      double eb_len_under_iso = eb.len_under_iso(iso);
+      result.push_back(eb_len_under_iso);
 
-      double exon_bin_gc = bin_gc_under_iso(eb, iso);
-      result.push_back(exon_bin_gc);
+      double eb_gc_under_iso = bin_gc_under_iso(eb, iso);
+      result.push_back(eb_gc_under_iso);
 
       return result;
    }

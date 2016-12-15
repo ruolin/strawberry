@@ -70,12 +70,12 @@ static struct option long_options[] = {
 //quantification
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"ref-fasta",                       required_argument,      0,       'f'},
-      {"infer-missing-end",               no_argument,            0,       'm'},
+//      {"infer-missing-end",               no_argument,            0,       'm'},
       {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:f:cvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:f:cvGc";
 #else
 const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:cvGcm";
 #endif
@@ -112,7 +112,7 @@ void print_help()
    fprintf(stderr, "\n Quantification Options:\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
-   fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
+//   fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
 }
 
 int parse_options(int argc, char** argv)
@@ -179,9 +179,9 @@ int parse_options(int argc, char** argv)
                case 'c':
                         kCombineShrotTransfrag = true;
                         break;
-               case 'm':
-                        infer_the_other_end = false;
-                        break;
+//               case 'm':
+//                        infer_the_other_end = false;
+//                        break;
                case 'f':
                         ref_fasta_file = optarg;
                         BIAS_CORRECTION = true;
@@ -321,7 +321,7 @@ int driver(int argc, char** argv){
    if(SINGLE_END_EXP){
       kInsertSizeMean = 200;
       kInsertSizeSD = 80;
-      infer_the_other_end = false;
+//      infer_the_other_end = false;
    }
 
    if(kInsertSizeMean !=0 && kInsertSizeSD != 0){

@@ -54,7 +54,7 @@ extern int num_threads;
 
 extern double kInsertSizeMean;
 extern double kInsertSizeSD;
-extern bool infer_the_other_end;
+//extern bool infer_the_other_end;
 extern bool verbose;
 extern double kSimDepthCorrect;
 extern bool kCombineShrotTransfrag;

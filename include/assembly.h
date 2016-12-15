@@ -10,6 +10,7 @@
 #include <lemon/list_graph.h>
 #include<map>
 #include "common.h"
+#include "utils.h"
 #include "contig.h"
 
 
@@ -115,7 +116,7 @@ inline std::vector<Contig> assemble_2_contigs(const std::vector<std::vector<Geno
         if(assembled_transcript.avg_doc() < kMinDepth4Contig) {
             continue;
         }
-        results.push_back(assembled_transcript);
+        PushAndReturnIdx<Contig>(assembled_transcript, results);
     }
     return results;
 }

@@ -93,13 +93,13 @@ public:
 inline std::ostream& operator<<(std::ostream& os, const GenomicFeature& gf){
     switch(gf._match_op._code){
         case Match_t::S_MATCH:
-            os<<"exon:["<<gf.left()<<"-"<<gf.right()<<"]\t";
+            os<<"exon:["<<gf.left()<<"-"<<gf.right()<<"]("<<gf.len()<<")\t";
             break;
         case Match_t::S_INTRON:
-            os<<"intron:["<<gf.left()<<"-"<<gf.right()<<"]\t";
+            os<<"intron:["<<gf.left()<<"-"<<gf.right()<<"]("<<gf.len()<<")\t";
             break;
         case Match_t::S_GAP:
-            os<<"gap:["<<gf.left()<<"-"<<gf.right()<<"]\t";
+            os<<"gap:["<<gf.left()<<"-"<<gf.right()<<"]("<<gf.len()<<")\t";
             break;
         default:
             break;
@@ -126,7 +126,7 @@ class Contig{
    double _mass = 0.0;
    SingleOrit_t _single_read_orit = SingleOrit_t::NotSingle;
 public:
-   bool _is_ref;
+   bool _is_ref = false;
    std::vector<GenomicFeature> _genomic_feats;
    Contig() = default;
 
@@ -160,10 +160,8 @@ public:
    uint gap_left() const; // left coordinate of gap if exists; otherwise return 0
    uint gap_right() const; // left coordiante of gap if exists; otherwise return 0
    int exonic_length() const;
-   ReadID contig_id() const {
-      if (_is_ref) return 0;
-      else return _contig_id;
-   }
+   decltype(auto) id() { return (_contig_id);}
+   decltype(auto) id() const { return (_contig_id);}
 
    static int exonic_overlaps_len(const Contig &iso,
          const uint left,
@@ -183,7 +181,7 @@ public:
          assert(read.left() >= iso.left());
          for (const auto& gfeat : iso._genomic_feats) {
             if (gfeat._match_op._code == Match_t::S_MATCH) {
-               if (read.left() > gfeat.left()) {
+               if (read.left() >= gfeat.left()) {
                   if (read.left() > gfeat.right()) start += gfeat.right() - gfeat.left();
                   else start += read.left() - gfeat.left() + 1;
                }
@@ -202,7 +200,7 @@ public:
          assert(read.right() <= iso.right());
          for (auto rit = iso._genomic_feats.crbegin(); rit != iso._genomic_feats.crend(); ++rit) {
             if (rit->_match_op._code == Match_t::S_MATCH) {
-               if (read.right() < rit->right()) {
+               if (read.right() <= rit->right()) {
                   if (read.right() < rit->left()) start += rit->right() - rit->left() +1;
                   else start += rit->right() - read.right() + 1;
                }
@@ -259,7 +257,7 @@ public:
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Contig& contig){
-    os<<"contig<"<<contig.contig_id()<<"> ";
+    os<<"contig<"<<contig.id()<<"> ";
     os<<contig.ref_id()<<":"<<contig.left()<<"-"<<contig.right()<<"\t";
     for (const auto& gf: contig._genomic_feats) {
         os<<gf;

@@ -10,28 +10,6 @@
 #include "contig.h"
 
 
-template<typename Item>
-int UniqPushAndReturnIdx(Item& item, std::vector<Item>& container) {
-   int idx;
-   auto search = std::find(container.begin(), container.end(), item);
-   if (search == container.end()) {
-      idx = container.size();
-      item.id() = idx;
-      container.push_back(item);
-   } else {
-      idx = std::distance(container.begin(), search);
-   }
-   return idx;
-}
-
-template<typename Item>
-int PushAndReturnIdx(Item& item, std::vector<Item>& container) {
-   int idx = container.size();
-   item.id() = idx;
-   container.push_back(item);
-   return idx;
-}
-
 
 class Isoform{
 
@@ -140,10 +118,21 @@ public:
    std::vector<uint> bin_under_iso(const Isoform& iso,
                                    std::vector<std::pair<uint, uint>> & exon_coords) const;
 
+   bool is_compatible(const Isoform& iso) const {
+      std::set<std::pair<uint,uint>> iso_exon_segs;
+      for (const auto& ex : iso._exon_segs) {
+         iso_exon_segs.emplace(std::make_pair<uint, uint>(ex.left(), ex.right()));
+      }
+      return std::includes(iso_exon_segs.begin(), iso_exon_segs.end(), _coords.begin(), _coords.end() );
+   }
+
    int len_under_iso(const Isoform& iso) const {
-      std::vector<std::pair<uint, uint>> coords;
-      bin_under_iso(iso, coords);
       int result = 0;
+      if (!is_compatible(iso)) return result;
+
+      std::vector<std::pair<uint, uint>> coords;
+      std::vector<uint> implicit_idx =bin_under_iso(iso, coords);
+      if (!implicit_idx.empty()) return result;
       for (const auto& c: coords) result += c.second - c.first + 1;
       return result;
    }
@@ -165,8 +154,16 @@ public:
    friend bool operator==(const ExonBin& lhs, const ExonBin& rhs);
    friend bool operator!=(const ExonBin& lhs, const ExonBin& rhs);
    friend bool operator<(const ExonBin& lhs, const ExonBin& rhs);
+   friend std::ostream& operator<<(std::ostream&, const ExonBin& );
 };
 
+   inline std::ostream& operator<<(std::ostream& os, const ExonBin& eb){
+      for (auto c: eb._coords) {
+         os <<"[" << c.first <<"-" <<c.second<<"]("<<c.second-c.first+1<<")\t";
+      }
+      os<<std::endl;
+      return os;
+   }
 
 inline bool operator==(const ExonBin& lhs, const ExonBin& rhs) {
    return lhs._coords == rhs._coords;
@@ -180,40 +177,6 @@ inline bool operator< (const ExonBin& lhs, const ExonBin& rhs) {
    return lhs._coords < rhs._coords;
 }
 
-//RefID ExonBin::ref_id() const
-//{
-//   return _ref_id;
-//}
-//
-//bool ExonBin::insert_exon(const GenomicFeature *exon)
-//{
-//   bool status;
-//   set<uint>::iterator it_ret = _coords.find(exon->left());
-//   if(it_ret == _coords.end()){
-//      _coords.insert(exon->left());
-//      _coords.insert(exon->right());
-//      _exons_in_bin.push_back(exon);
-//      status = true;
-//   }
-//   else{
-//      assert(_coords.find(exon->right()) != _coords.end());
-//      status = false;
-//   }
-//   return status;
-//}
-//
-//void ExonBin::add_isoform(const std::vector<Isoform> &isoforms){
-//
-//   for(size_t i = 0; i< isoforms.size(); ++i){
-//      bool compatible = true;
-//      //cout<<this->_exons_in_bin.size()<<endl;
-//      Contig exons(*this);
-//
-//      if(Contig::is_contained_in(exons, isoforms[i]._contig)){
-//         _parent_isoforms.push_back(isoforms[i]._isoform_id);
-//      }
-//   }
-//}
 
 inline uint ExonBin::left() const
 {

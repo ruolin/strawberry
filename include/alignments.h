@@ -157,8 +157,12 @@ public:
                RefID old_ref_id
     );
 
-
+    friend bool operator==(const HitCluster& lhs, const HitCluster& rhs);
 };
+
+inline bool operator==(const HitCluster& lhs, const HitCluster& rhs) {
+    return lhs.left() == rhs.left() && lhs.right() == rhs.right() && lhs.ref_id() == rhs.ref_id();
+}
 
 class Sample {
     bool _is_inspecting;
@@ -227,7 +231,7 @@ public:
 
     void rewindReference(HitCluster &clusterOut, int num_regress);
 
-    void mergeClusters(HitCluster &dest, HitCluster &resource);
+    void reAssignClusters(HitCluster &dest, HitCluster &resource);
 
     //void compute_doc_4_cluster(const HitCluster & hit_cluster, std::vector<float> &exon_doc,
     //map<std::pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);

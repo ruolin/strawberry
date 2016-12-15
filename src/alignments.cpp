@@ -140,7 +140,7 @@ void HitCluster::right(uint right)
 }
 
 int HitCluster::size() const {
-   return _hits.size();
+   return _hits.size() + _open_mates.size();
 }
 
 int HitCluster::len() const{
@@ -454,12 +454,15 @@ void HitCluster::clearOpenMates()
 int HitCluster::collapseHits()
 {
    if(!_uniq_hits.empty()){
-     cout<<this->left()<<"-"<<this->right()<<endl;
-     cout<<_uniq_hits.size()<<endl;
+   //   cout<<this->left()<<"-"<<this->right()<<endl;
+   //  cout<<_uniq_hits.size()<<endl;
      assert(false);
    }
-   if(_hits.empty())
-     return 0;
+
+   for (const auto& mates : _open_mates) {
+      for (auto const& i : mates.second) _hits.push_back(i);
+   }
+   if(_hits.empty()) return 0;
 
    sort(_hits.begin(), _hits.end());
 
@@ -542,19 +545,19 @@ void HitCluster::addWeightedMass(double m){
    _weighted_mass += m;
 }
 
-void HitCluster::setBoundaries(){
-/*
- * Call this after collapseHits
- */
-   if(enforce_ref_models && hasRefmRNAs()){
-     _leftmost = INT_MAX;
-     _rightmost = 0;
-     for(auto r : _ref_mRNAs){
-       _leftmost = min(_leftmost, r->left());
-       _rightmost = max(_rightmost, r->right());
-     }
-   }
-}
+//void HitCluster::setBoundaries(){
+///*
+// * Call this after collapseHits
+// */
+//   if(enforce_ref_models && hasRefmRNAs()){
+//     _leftmost = INT_MAX;
+//     _rightmost = 0;
+//     for(auto r : _ref_mRNAs){
+//       _leftmost = min(_leftmost, r->left());
+//       _rightmost = max(_rightmost, r->right());
+//     }
+//   }
+//}
 
 
 bool HitCluster::overlaps( const HitCluster& rhs) const{
@@ -905,27 +908,33 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 }
 
 int Sample::nextClusterRefDemand(HitCluster &clusterOut){
+   int wiggle_room = utilize_ref_models ? 0 : kMaxOlapDist;
+
    if (!hasLoadRefmRNAs()) {
      std::cerr<<"if you use --no-assembly option, you must provide gff file through -g option!"<<std::endl;
      assert(false);
    }
    if (!_hit_factory->recordsRemain()) return -1;
    int num_added_refmRNA = addRef2Cluster(clusterOut);
+
    if (num_added_refmRNA == 0) {
      return -1;
    }
+
+   //cout<<"cluster: "<<clusterOut.left()<<"-"<<clusterOut.right()<<endl;
    while (true) {
      if(!_hit_factory->recordsRemain()){
        break;
      }
      ReadHitPtr new_hit(new ReadHit());
      double mass = next_valid_alignment(*new_hit);
-     if (hit_lt_cluster(*new_hit, clusterOut, 0)) {  //hit hasn't read this region
+     if (hit_lt_cluster(*new_hit, clusterOut, wiggle_room)) {  //hit hasn't read this region
 
-     } else if (hit_gt_cluster(*new_hit, clusterOut, 0)) {
+     } else if (hit_gt_cluster(*new_hit, clusterOut, wiggle_room)) {
        rewindHit(*new_hit);
        break;
      } else {
+       //cout<<"new_hit :"<<new_hit->left()<<"-"<<new_hit->right()<<endl;
        clusterOut.addOpenHit(new_hit, false, false);
        clusterOut.addRawMass(mass);
      }
@@ -984,6 +993,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
 {
    //bool skip_read = false;
    if(!_hit_factory->recordsRemain()) return -1;
+   int wiggle_room = utilize_ref_models ? 0 : kMaxOlapDist;
 
    if(!hasLoadRefmRNAs()){
      return nextCluster_denovo(clusterOut);
@@ -999,7 +1009,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
        ReadHitPtr new_hit(new ReadHit());
        double mass = next_valid_alignment(*new_hit);
 
-       if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // hit hasn't reach reference region
+       if(hit_lt_cluster(*new_hit, clusterOut, wiggle_room)){ // hit hasn't reach reference region
          rewindHit(*new_hit);
          if(_has_load_all_refs){
             rewindReference(clusterOut, num_added_refmRNA);
@@ -1018,7 +1028,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
          }
        }
 
-       if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // read has gone too far.
+       if(hit_gt_cluster(*new_hit, clusterOut, wiggle_room)){ // read has gone too far.
          rewindHit(*new_hit);
          break;
        }
@@ -1031,7 +1041,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
    return clusterOut.size();
 }
 
-void Sample::mergeClusters(HitCluster & last, HitCluster &cur){
+void Sample::reAssignClusters(HitCluster & last, HitCluster &cur){
    /*
    * reassign paired hits;
    */
@@ -1103,7 +1113,7 @@ void Sample::finalizeCluster(shared_ptr<HitCluster> cluster, bool clear_open_mat
    }
    cluster->reweight_read(false);
    cluster->collapseHits();
-   cluster->setBoundaries(); // set boundaries if reference exist.
+   //cluster->setBoundaries(); // set boundaries if reference exist.
 }
 
 void Sample::fragLenDist(const RefSeqTable &ref_t,
@@ -1166,6 +1176,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
     * Isoform id is integer from 1. The index
     * for each isoform in vector<Isoform> is id+1.
     * */
+
 
    //local variables
    vector<Contig> assembled_transcripts;
@@ -1356,6 +1367,7 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
      Contig hit(*r);
      hits.push_back(hit);
    }
+   //cout<<"open hit "<<cluster->_open_mates.size()<<endl;
 
    assert(assembled_transcripts.size());
    // prepare exon segments
@@ -1379,7 +1391,15 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
    LocusContext est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs,
                     plogfile, hits, isoforms, exons, _fasta_getter);
 
-   cout<<est.GetXikl(0,0,0)<<endl;
+   for (size_t i = 0; i < est.num_hit(); ++i) {
+      for (size_t k = 0; k < est.num_isoform(); ++k) {
+         for (size_t l = 0; l < est.num_exon_bin(); ++l) {
+            cout<<est.GetXikl(i,k,l)<<endl;
+         }
+      }
+   }
+
+   exit(0);
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    est.set_theory_bin_weight(iso_2_len_map, isoforms);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
@@ -1445,20 +1465,19 @@ void Sample::inspectSample(FILE *plogfile)
 
    while(true){
      shared_ptr<HitCluster> cur_cluster (new HitCluster());
-     if(!last_cluster->hasRefmRNAs() && last_cluster->see_both_strands()){
+     if (!last_cluster->hasRefmRNAs() && last_cluster->see_both_strands()){
        cur_cluster->left(last_cluster->left());
        cur_cluster->right(last_cluster->right());
        cur_cluster->ref_id(last_cluster->ref_id());
-     }
-     else{
-       if(-1 == nextCluster_refGuide(*cur_cluster)){
+       reAssignClusters(*last_cluster, *cur_cluster);
+     } else{
+       if (-1 == nextCluster_refGuide(*cur_cluster)){
          break;
        }
      }
-//     if(cur_cluster->overlaps(*last_cluster) ){
-//       mergeClusters(*last_cluster, *cur_cluster);
-//     }
-     if(last_cluster->ref_id() == -1){
+
+
+     if (last_cluster->ref_id() == -1) {
        last_cluster = move(cur_cluster);
        continue;
      }
@@ -1575,6 +1594,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
      }
      if(cluster->ref_id() == -1) continue;
 
+     //cout<<"uniq "<<cluster->_uniq_hits.size()<<" cluster size "<<cluster->size()<<endl;
       //begin load fasta genome
      if(current_ref_id != cluster->ref_id()){
        current_ref_id = cluster->ref_id();
@@ -1605,12 +1625,12 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
        }
        ++curr_thread_num;
        thread worker ([=] {
-            finalizeCluster(cluster, true);
+            finalizeCluster(cluster, false);
             this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile);
        });
        worker.detach();
      }else {
-       finalizeCluster(cluster, true);
+       finalizeCluster(cluster, false);
        this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile);
      }
 #else
@@ -1811,6 +1831,5 @@ void Sample::filter_intron(uint cluster_left,
          <<" right: "<<intron_counter[i].right<<endl;
    }
 }
-
 
 
