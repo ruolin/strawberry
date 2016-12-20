@@ -610,7 +610,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          source_strand = Strand_t::StrandMinus;
          break;
       default:
-         LOG_WARN("At read ", bam1_qname(hit_buf), " parsing spliced alignment without known strand information");
+         //LOG_WARN("At read ", bam1_qname(hit_buf), " parsing spliced alignment without known strand information");
          break;
       }
    }
