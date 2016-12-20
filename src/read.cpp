@@ -634,10 +634,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
             mass = 1.0;
    }
 
-   if(is_spliced_alignment){
-      if(source_strand == Strand_t::StrandUnknown)
-         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
-   }
+//   if(is_spliced_alignment){
+//      if(source_strand == Strand_t::StrandUnknown)
+//         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
+//   }
 
    if(use_only_unique_hits && num_hits > 1)
       return false;
