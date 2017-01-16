@@ -180,11 +180,12 @@ protected:
    static const size_t kHitBufMaxSize = 10 * 1024;
    char _hit_buf[kHitBufMaxSize];
    int _num_seq_header_recs = 0;
+   std::string _hit_file_name;
    AssayProperties _assay_props;
 public:
    ReadTable& _reads_table;
    RefSeqTable& _ref_table;
-   HitFactory(ReadTable &reads_table, RefSeqTable &ref_table);
+   HitFactory(ReadTable &reads_table, RefSeqTable &ref_table, std::string hit_file_name);
    HitFactory(const HitFactory &rhs) = delete; //non-copible class.
    HitFactory& operator=(const HitFactory &rhs) = delete; // non-copible class
    HitFactory(HitFactory &&rhs) = default;
@@ -201,6 +202,9 @@ public:
    virtual bool parse_header_line(const std::string& hline);
    virtual bool inspect_header() = 0;
    virtual void reset() = 0;
+   virtual std::string sample_name() const {
+      return _hit_file_name;
+   }
 };
 
 class BAMHitFactory : public HitFactory

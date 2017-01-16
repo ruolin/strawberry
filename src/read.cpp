@@ -298,8 +298,8 @@ double InsertSize::emp_dist_pdf(uint insert_size) const
 //}
 
 
-HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
-   _reads_table(reads_table),_ref_table(ref_table){}
+HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table, string hit_file_name):
+   _reads_table(reads_table),_ref_table(ref_table), _hit_file_name(hit_file_name){}
 
 platform_t HitFactory::str2platform(const string str)
 {
@@ -357,7 +357,7 @@ bool HitFactory::parse_header_line(const string& hline){
 BAMHitFactory::BAMHitFactory(const string& bam_file_name,
                             ReadTable &read_table,
                             RefSeqTable &ref_table):
-                 HitFactory(read_table, ref_table)
+                 HitFactory(read_table, ref_table, bam_file_name)
 {
    _hit_file = samopen(bam_file_name.c_str(), "rb", 0);
    memset(&_next_hit, 0, sizeof(_next_hit));
@@ -610,7 +610,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          source_strand = Strand_t::StrandMinus;
          break;
       default:
-         LOG_WARN("At read ", bam1_qname(hit_buf), " parsing spliced alignment without known strand information");
+         //LOG_WARN("At read ", bam1_qname(hit_buf), " parsing spliced alignment without known strand information");
          break;
       }
    }
@@ -634,10 +634,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
             mass = 1.0;
    }
 
-   if(is_spliced_alignment){
-      if(source_strand == Strand_t::StrandUnknown)
-         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
-   }
+//   if(is_spliced_alignment){
+//      if(source_strand == Strand_t::StrandUnknown)
+//         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
+//   }
 
    if(use_only_unique_hits && num_hits > 1)
       return false;

@@ -227,6 +227,7 @@ int main(int argc, char** argv){
 //   vector<GenomicFeature> invs = test_invs.reduce();
 //   for(const auto& inv : invs) cout<<inv.left()<<"-"<<inv.right()<<endl;
    fprintf(stdout, "Program finished");
+   return 0;
 }
 
 int driver(int argc, char** argv){
@@ -352,7 +353,7 @@ int driver(int argc, char** argv){
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cerr << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;
-   return 1;
+   return 0;
 }
 
 

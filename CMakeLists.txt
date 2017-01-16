@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.12)
 
-project( Strawberry )
+project( strawberry )
 
 set(CPACK_PACKAGE_VERSION "0.7.2")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
@@ -153,16 +153,4 @@ endif()
 # Recurse into Strawberry source directory
 add_subdirectory ( src )
 include (CPack)
-#link_directories(/usr/local/lib)
-#include_directories(include)
-#add_library(strawlib common.cpp fasta.cpp contig.cpp read.cpp gff.cpp logger.cpp)
-#add_library(estimate.o OBJECT estimate.cpp include/assembly.h)
-#target_include_directories(estimate.o PRIVATE)
-#add_library(alignments.o OBJECT alignments.cpp include/alignments.h)
-#target_include_directories(alignments.o PRIVATE)
-#add_library(assembly.o OBJECT assembly.cpp include/assembly.h include/common.h)
-#target_include_directories(assembly.o PRIVATE)
-
-#add_executable(Strawberry Strawberry.cpp  $<TARGET_OBJECTS:alignments.o> $<TARGET_OBJECTS:assembly.o> $<TARGET_OBJECTS:estimate.o>) 
-#target_link_libraries(Strawberry strawlib bam z pthread )
 

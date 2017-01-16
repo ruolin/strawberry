@@ -1369,6 +1369,7 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
    }
    //cout<<"open hit "<<cluster->_open_mates.size()<<endl;
 
+   std::cerr<<this->sample_name()<<std::endl;
    assert(assembled_transcripts.size());
    // prepare exon segments
    for(const auto &t: assembled_transcripts) {
