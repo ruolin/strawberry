@@ -298,8 +298,8 @@ double InsertSize::emp_dist_pdf(uint insert_size) const
 //}
 
 
-HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table):
-   _reads_table(reads_table),_ref_table(ref_table){}
+HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table, string hit_file_name):
+   _reads_table(reads_table),_ref_table(ref_table), _hit_file_name(hit_file_name){}
 
 platform_t HitFactory::str2platform(const string str)
 {
@@ -357,7 +357,7 @@ bool HitFactory::parse_header_line(const string& hline){
 BAMHitFactory::BAMHitFactory(const string& bam_file_name,
                             ReadTable &read_table,
                             RefSeqTable &ref_table):
-                 HitFactory(read_table, ref_table)
+                 HitFactory(read_table, ref_table, bam_file_name)
 {
    _hit_file = samopen(bam_file_name.c_str(), "rb", 0);
    memset(&_next_hit, 0, sizeof(_next_hit));

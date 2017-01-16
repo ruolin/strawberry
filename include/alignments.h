@@ -192,10 +192,15 @@ public:
     Sample(std::shared_ptr<HitFactory> hit_fac) :
             _refmRNA_offset(0),
             _has_load_all_refs(false),
-            _hit_factory(move(hit_fac)) {}
+            _hit_factory(move(hit_fac)) {
+    }
 
     //int max_inner_dist() const;
     int total_mapped_reads() const;
+
+    std::string sample_name() const {
+        return _hit_factory->sample_name();
+    }
 
     bool load_chrom_fasta(RefID seq_id);
 
