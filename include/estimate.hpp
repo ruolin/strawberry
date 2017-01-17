@@ -15,12 +15,13 @@
 class LocusContext {
 //typedef CGAL::Quadratic_program<double> Program;
 //typedef CGAL::Quadratic_program_solution<ET> Solution;
-   static const double _kMinTPM;
+   static const double _kMinFrac;
    static constexpr double _kMinFPKM = 1e-2;
-
-   std::shared_ptr<InsertSize> _insert_size_dist;
+   const Sample& _sample;
+   //const std::shared_ptr<HitCluster> _cluster;
    int _read_len;
    FILE* _p_log_file;
+   std::vector<Isoform> _transcripts;
    std::vector<ExonBin> exon_bins;
    std::map<int, std::set<int>> iso_2_bins_map;
 
@@ -51,38 +52,51 @@ class LocusContext {
 
    void assign_exon_bin(
            const std::vector<Contig> &hits,
-           const std::vector<Isoform> &transcripts,
            const std::vector<GenomicFeature> & exon_segs);
 
+   void set_theory_bin_weight();
+
 public:
-   LocusContext(std::shared_ptr<InsertSize> insert_size,
-                              int read_len, FILE* tracker,
-                              const std::vector<Contig> &hits,
-                              const std::vector<Isoform> &transcripts,
-                              const std::vector<GenomicFeature> &exon_segs):
-         _insert_size_dist(insert_size), _read_len(read_len), _p_log_file(tracker)
+   LocusContext(const Sample& s,
+                FILE* tracker,
+                const std::shared_ptr<HitCluster> cluster,
+                const std::vector<Contig> &transcripts,
+                const std::vector<GenomicFeature> &exon_segs):
+         _sample(s),  _p_log_file(tracker)
    {
-      assign_exon_bin(hits, transcripts, exon_segs);
+      _read_len = _sample._hit_factory->_reads_table._read_len_abs;
+
+      std::vector<Contig> hits;
+      for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
+        Contig hit(*r);
+        hits.push_back(hit);
+      }
+
+      for(const auto &t: transcripts){
+        Isoform iso(exon_segs, t, t.parent_id(), t.annotated_trans_id(), cluster->id());
+        int idx = PushAndReturnIdx<Isoform>(iso, _transcripts);
+        iso._length = t.exonic_length();
+      }
+      assign_exon_bin(hits, exon_segs);
+      set_theory_bin_weight();
    }
 
-   void test();
+   decltype(auto) transcripts() const {return (_transcripts);}
+
    void overlap_exons(const std::vector<GenomicFeature>& exons,
                      const Contig& read,
                      std::set<std::pair<uint,uint>> &coords);
 
-   void set_theory_bin_weight(const std::map<int, int> &iso_2_len_map,
-                          const std::vector<Isoform>& isoforms);
 
    void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);
 
    void calculate_raw_iso_counts();
 
-   bool estimate_abundances(const double mass,
-                            std::map<int, int>& iso_2_len_map,
-                            std::vector<Isoform>& isoforms,
-                            bool with_bias_correction,
+   bool estimate_abundances(bool with_bias_correction,
                             const std::shared_ptr<FaSeqGetter> & fa_getter);
 
+   decltype(auto) get_frag_info(const Contig& frag) const {
+   }
 
    std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {
 

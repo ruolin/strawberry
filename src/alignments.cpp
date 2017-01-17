@@ -1343,18 +1343,18 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
                  const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile) const {
 
-   vector<Isoform> isoforms;
-   map<int, int> iso_2_len_map;
+//   map<int, int> iso_2_len_map;
 
    vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);
-   vector<Contig> hits;
+//   vector<Contig> hits;
+//
+//   for (auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r) {
+//     Contig hit(*r);
+//     hits.push_back(hit);
+//   }
 
-   for (auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r) {
-     Contig hit(*r);
-     hits.push_back(hit);
-   }
+   std::cerr<<this->sample_name()<<":"<<this->total_mapped_reads()<<std::endl;
 
-   std::cerr<<this->sample_name()<<std::endl;
    assert(assembled_transcripts.size());
    // prepare exon segments
    for(const auto &t: assembled_transcripts) {
@@ -1369,19 +1369,19 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
    vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
    exons = reduced_exons;
 
-   for(const auto &t: assembled_transcripts){
-     Isoform iso(exons, t, t.parent_id(), t.annotated_trans_id(), cluster->_id);
-     int idx = PushAndReturnIdx<Isoform>(iso, isoforms);
-     iso_2_len_map[idx] = t.exonic_length();
-   }
-   LocusContext est(_insert_size_dist, _hit_factory->_reads_table._read_len_abs,
-                    plogfile, hits, isoforms, exons);
+//   for(const auto &t: assembled_transcripts){
+//     Isoform iso(exons, t, t.parent_id(), t.annotated_trans_id(), cluster->_id);
+//     int idx = PushAndReturnIdx<Isoform>(iso, isoforms);
+//     iso_2_len_map[idx] = t.exonic_length();
+//   }
+
+
+   LocusContext est(*this, plogfile, cluster, assembled_transcripts, exons);
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
-   est.set_theory_bin_weight(iso_2_len_map, isoforms);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-   bool success = est.estimate_abundances(this->total_mapped_reads(), \
-                                iso_2_len_map, isoforms, BIAS_CORRECTION, _fasta_getter);
+   bool success = est.estimate_abundances(BIAS_CORRECTION, _fasta_getter);
+
    if(success){
 #if ENABLE_THREADS
      if(use_threads)
@@ -1389,9 +1389,9 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #endif
      /* Print locus coordinates*/
      cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
-     for(auto & iso: isoforms){
+     for(const auto & iso: est.transcripts()){
        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
-                    iso._TPM_s, iso._gene_str, iso._isoform_str);
+                    iso._frac_s, iso._gene_str, iso._isoform_str);
      }
      fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
    }

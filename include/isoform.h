@@ -39,14 +39,15 @@ class Isoform{
    int _isoform_id;
    int _gene_id;
 public:
+   int _length;
    Contig _contig;
    std::vector<GenomicFeature> _exon_segs;
    std::string _isoform_str;
    std::string _gene_str;
    double _bais_factor;
-   double _TPM = 0.0;
+   double _frac = 0.0;
    double _FPKM = 0.0;
-   std::string _TPM_s = "nan";
+   std::string _frac_s = "nan";
    std::string _FPKM_s = "nan";
    //Isoform() = default;
    Isoform(const std::vector<GenomicFeature>& exons, Contig contig,

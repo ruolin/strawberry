@@ -299,7 +299,7 @@ double InsertSize::emp_dist_pdf(uint insert_size) const
 
 
 HitFactory::HitFactory(ReadTable &reads_table, RefSeqTable &ref_table, string hit_file_name):
-   _reads_table(reads_table),_ref_table(ref_table), _hit_file_name(hit_file_name){}
+   _reads_table(reads_table),_ref_table(ref_table), _hit_file_name(fileName(hit_file_name)){}
 
 platform_t HitFactory::str2platform(const string str)
 {

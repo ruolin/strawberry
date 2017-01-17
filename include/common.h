@@ -104,6 +104,12 @@ bool endsWith(const char* s, const char* suffix);
 double gc_content(const std::string& str);
 void split(const std::string& s, const std::string& delims, std::vector<std::string>& result);
 
+inline std::string fileName(const std::string& s) {
+   std::vector<std::string> fields;
+   split(s, "/", fields);
+   return fields.back();
+}
+
 const char* stripFileName(char *path);
 
 void reverseString(char str[], int length);

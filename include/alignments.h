@@ -50,6 +50,8 @@ private:
     void reweight_read(bool weight_bais);
     //map<std::pair<int,int>,int> _current_intron_counter;
 public:
+    decltype(auto) uniq_hits() const { return (_uniq_hits);}
+    decltype(auto) id() const { return (_id);}
     double _weighted_mass = 0.0;
     //static const int _kMaxGeneLen = 1000000;
     //static const int _kMaxFragPerCluster = 100000;

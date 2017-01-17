@@ -34,7 +34,7 @@
 
 // program and solution types
 using namespace std;
-const double LocusContext::_kMinTPM = kMinIsoformFrac * 1e6;
+const double LocusContext::_kMinFrac = kMinIsoformFrac;
 //const double LocusContext::_kMinTPM = 0;
 
 uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_2_extend,  SingleOrit_t orit, Contig & inferred_mp){
@@ -155,7 +155,6 @@ void LocusContext::overlap_exons(const vector<GenomicFeature>& exons,
 
 void LocusContext::assign_exon_bin(
       const vector<Contig> &hits,
-      const vector<Isoform> &transcripts,
       const vector<GenomicFeature> & exon_segs)
 {
 /*
@@ -169,14 +168,14 @@ void LocusContext::assign_exon_bin(
          //random_device rd;
          //mt19937 gen(rd());
          mt19937 gen(3); // we use a fixed seed to make sure the output are the same every time.
-         double mean = _insert_size_dist->_mean;
-         double sd = _insert_size_dist->_sd;
+         double mean = _sample._insert_size_dist->_mean;
+         double sd = _sample._insert_size_dist->_sd;
          normal_distribution<> nd(mean, sd);
 
          while( (sr_fg_len = nd(gen)) <= 0){}
       }
 
-      for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
+      for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso){
          if(Contig::is_compatible(*mp, iso->_contig)){
             set<pair<uint,uint>> coords;
             int frag_len = 0;
@@ -221,15 +220,14 @@ void LocusContext::assign_exon_bin(
 }
 
 
-void LocusContext::set_theory_bin_weight(const map<int,int> &iso_2_len_map,
-                                     const vector<Isoform>& isoforms) {
+void LocusContext::set_theory_bin_weight() {
 
    for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
-      assert(isoforms[it->first].id() == it->first);
+      assert(_transcripts[it->first].id() == it->first);
       for(auto const &bin_idx: it->second){
          double weight = 0.0;
          vector<pair<uint,uint>> exon_segs;
-         vector<uint> implicit_exon_idx = exon_bins.at(bin_idx).bin_under_iso(isoforms[it->first], exon_segs);
+         vector<uint> implicit_exon_idx = exon_bins.at(bin_idx).bin_under_iso(_transcripts[it->first], exon_segs);
          vector<uint> seg_lens(exon_segs.size());
          for(uint i=0; i< seg_lens.size(); ++i){
             seg_lens[i] = exon_segs[i].second - exon_segs[i].first + 1;
@@ -237,8 +235,8 @@ void LocusContext::set_theory_bin_weight(const map<int,int> &iso_2_len_map,
 
          int lmax = accumulate(seg_lens.begin(), seg_lens.end(),0);
          int lmin;
-         if(_insert_size_dist->_use_emp)
-            lmin = _insert_size_dist->_start_offset;
+         if(_sample._insert_size_dist->_use_emp)
+            lmin = _sample._insert_size_dist->_start_offset;
          else
             lmin = 2*_read_len;
          if(seg_lens.size() > 2)
@@ -246,7 +244,7 @@ void LocusContext::set_theory_bin_weight(const map<int,int> &iso_2_len_map,
 
          for(int fl = lmin ; fl <= lmax; ++fl){
             double le_eff = exon_bins.at(bin_idx).effective_len(seg_lens,implicit_exon_idx, fl, _read_len);
-            double tmp = _insert_size_dist->emp_dist_pdf(fl)* le_eff / (iso_2_len_map.at(it->first)-fl+1);
+            double tmp = _sample._insert_size_dist->emp_dist_pdf(fl)* le_eff / (_transcripts[it->first]._length - fl + 1);
             weight += tmp;
          }
          exon_bins.at(bin_idx)._bin_weight_map[it->first] = weight;
@@ -272,7 +270,7 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
          double weight = 0.0;
          for(auto const &len_mass_pair: exon_bins.at(bin_idx)._iso_2_frag_lens.at(it->first)){
             int num_start_pos = iso_2_len_map.at(it->first)-len_mass_pair.first+1;
-            weight += len_mass_pair.second * _insert_size_dist->emp_dist_pdf(len_mass_pair.first) / num_start_pos;
+            weight += len_mass_pair.second * _sample._insert_size_dist->emp_dist_pdf(len_mass_pair.first) / num_start_pos;
          }
          exon_bins.at(bin_idx)._bin_weight_map[it->first] = weight;
          iso_weight += weight;
@@ -293,14 +291,11 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
    }
 }
 
-bool LocusContext::estimate_abundances(const double mass,
-                                       map<int, int>& iso_2_len_map,
-                                       vector<Isoform>& isoforms,
-                                       bool with_bias_correction,
+bool LocusContext::estimate_abundances(bool with_bias_correction,
                                        const shared_ptr<FaSeqGetter> &fa_getter)
 {
    size_t nrow = exon_bins.size();
-   size_t niso = isoforms.size();
+   size_t niso = _transcripts.size();
 
    vector<int> n (nrow);
    vector<vector<double>> alpha (nrow, vector<double>(niso));
@@ -349,41 +344,40 @@ bool LocusContext::estimate_abundances(const double mass,
       double sum_fpkm = 0.0;
       //cout<<"num of iso: "<<niso<<endl;
       for(uint i=0; i< niso; ++i){
-         uint id = isoforms[i].id();
          double kb = 0.0;
          if(effective_len_norm){
-            kb = iso_2_len_map[id] - _insert_size_dist->_mean;
+            kb = _transcripts[i]._length - _sample._insert_size_dist->_mean;
             if (kb < 0){
-               isoforms[i]._FPKM_s = "nan";
+               _transcripts[i]._FPKM_s = "nan";
                continue;
             }
             kb =1e3/kb;
          }
          else{
-            kb = 1e3/iso_2_len_map[id];
+            kb = 1e3/_transcripts[i]._length;
          }
-         double rpm = 1e6/mass;
+         double rpm = 1e6/_sample.total_mapped_reads();
          double fpkm = em._theta[i]*rpm*kb;
 //#ifdef DEBUG
 //         cout<<"theta: "<<i<<" exp: "<<em._theta[i]<<endl;
 //#endif
-         isoforms[i]._FPKM = fpkm;
+         _transcripts[i]._FPKM = fpkm;
          sum_fpkm += fpkm;
-         isoforms[i]._FPKM_s = to_string(fpkm);
+         _transcripts[i]._FPKM_s = to_string(fpkm);
       }
       for(uint i=0; i< niso; ++i){
-         if(isoforms[i]._FPKM_s == "nan"){
-            isoforms[i]._TPM_s = "nan";
+         if(_transcripts[i]._FPKM_s == "nan"){
+            _transcripts[i]._frac_s = "nan";
             continue;
          }
-         double tpm = isoforms[i]._FPKM/sum_fpkm * 1e6;
-         isoforms[i]._TPM = tpm;
-         isoforms[i]._TPM_s = to_string(tpm);
+         double tpm = _transcripts[i]._FPKM/sum_fpkm ;
+         _transcripts[i]._frac = tpm;
+         _transcripts[i]._frac_s = to_string(tpm);
       }
       if(filter_by_expression){
-         for(auto it = isoforms.begin() ; it != isoforms.end();){
-            if(it->_TPM < _kMinTPM || it->_FPKM < _kMinFPKM)
-               it = isoforms.erase(it);
+         for(auto it = _transcripts.begin() ; it != _transcripts.end();){
+            if(it->_frac < _kMinFrac || it->_FPKM < _kMinFPKM)
+               it = _transcripts.erase(it);
             else
                ++it;
          }
@@ -391,8 +385,8 @@ bool LocusContext::estimate_abundances(const double mass,
    }
 //   else{
 //      for(uint i=0; i< niso; ++i){
-//         isoforms[i]._TPM = "FAILED";
-//         isoforms[i]._FPKM = "FAILED";
+//         _transcripts[i]._TPM = "FAILED";
+//         _transcripts[i]._FPKM = "FAILED";
 //      }
 //   }
    return success;
