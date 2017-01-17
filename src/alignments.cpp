@@ -30,7 +30,6 @@
 #include "assembly.h"
 #include "estimate.hpp"
 #include "bias.hpp"
-#include "interval.hpp"
 
 using namespace std;
 
@@ -1343,31 +1342,26 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
                  const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile) const {
 
+   std::cerr<<this->sample_name()<<":"<<this->total_mapped_reads()<<std::endl;
 //   map<int, int> iso_2_len_map;
 
-   vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);
-//   vector<Contig> hits;
+//   vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);
 //
-//   for (auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r) {
-//     Contig hit(*r);
-//     hits.push_back(hit);
+//   std::cerr<<this->sample_name()<<":"<<this->total_mapped_reads()<<std::endl;
+//
+//   assert(assembled_transcripts.size());
+//   // prepare exon segments
+//   for(const auto &t: assembled_transcripts) {
+//     for (const auto &f: t._genomic_feats) {
+//       if (f._match_op._code == Match_t::S_MATCH) exons.push_back(f);
+//     }
 //   }
-
-   std::cerr<<this->sample_name()<<":"<<this->total_mapped_reads()<<std::endl;
-
-   assert(assembled_transcripts.size());
-   // prepare exon segments
-   for(const auto &t: assembled_transcripts) {
-     for (const auto &f: t._genomic_feats) {
-       if (f._match_op._code == Match_t::S_MATCH) exons.push_back(f);
-     }
-   }
-   sort(exons.begin(), exons.end());
-   auto last = unique(exons.begin(), exons.end());
-   exons.erase(last, exons.end());
-   IRanges<GenomicFeature, false> exons_iranges(exons);
-   vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
-   exons = reduced_exons;
+//   sort(exons.begin(), exons.end());
+//   auto last = unique(exons.begin(), exons.end());
+//   exons.erase(last, exons.end());
+//   IRanges<GenomicFeature, false> exons_iranges(exons);
+//   vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
+//   exons = reduced_exons;
 
 //   for(const auto &t: assembled_transcripts){
 //     Isoform iso(exons, t, t.parent_id(), t.annotated_trans_id(), cluster->_id);
@@ -1375,8 +1369,7 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 //     iso_2_len_map[idx] = t.exonic_length();
 //   }
 
-
-   LocusContext est(*this, plogfile, cluster, assembled_transcripts, exons);
+   LocusContext est(*this, plogfile, cluster, assembled_transcripts);
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
@@ -1384,10 +1377,14 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    if(success){
 #if ENABLE_THREADS
-     if(use_threads)
-       out_file_lock.lock();
+     if(use_threads) out_file_lock.lock();
 #endif
      /* Print locus coordinates*/
+      for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
+         Contig hit(*r);
+         vector<string> info = est.get_frag_info(hit);
+         //cerr<<info<<endl;
+      }
      cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
      for(const auto & iso: est.transcripts()){
        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,

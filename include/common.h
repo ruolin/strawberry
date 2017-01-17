@@ -239,6 +239,23 @@ enum class Strand_t: char{
    StrandBoth
 };
 
+template<typename str>
+std::ostream& operator<<(std::ostream& os, const std::vector<str>& vec) {
+   os<<"[";
+   bool flag = true;
+   for (const auto& item: vec) {
+      if (flag) {
+         os << item;
+         flag = false;
+      }
+      else {
+         os<<","<<item;
+      }
+   }
+   os<<"]"<<std::endl;
+   return os;
+}
+
 //std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
 
 class GenomicInterval {

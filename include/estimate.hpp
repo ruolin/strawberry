@@ -10,6 +10,7 @@
 #include "contig.h"
 #include "read.hpp"
 #include "bias.hpp"
+#include "interval.hpp"
 
 
 class LocusContext {
@@ -24,6 +25,7 @@ class LocusContext {
    std::vector<Isoform> _transcripts;
    std::vector<ExonBin> exon_bins;
    std::map<int, std::set<int>> iso_2_bins_map;
+   std::vector<GenomicFeature> _exon_segs;
 
    void set_maps(
            const int& iso_id,
@@ -60,10 +62,10 @@ public:
    LocusContext(const Sample& s,
                 FILE* tracker,
                 const std::shared_ptr<HitCluster> cluster,
-                const std::vector<Contig> &transcripts,
-                const std::vector<GenomicFeature> &exon_segs):
+                const std::vector<Contig> &transcripts):
          _sample(s),  _p_log_file(tracker)
    {
+      assert(transcripts.size());
       _read_len = _sample._hit_factory->_reads_table._read_len_abs;
 
       std::vector<Contig> hits;
@@ -72,21 +74,35 @@ public:
         hits.push_back(hit);
       }
 
-      for(const auto &t: transcripts){
-        Isoform iso(exon_segs, t, t.parent_id(), t.annotated_trans_id(), cluster->id());
-        int idx = PushAndReturnIdx<Isoform>(iso, _transcripts);
-        iso._length = t.exonic_length();
+      std::vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);
+
+      // prepare exon segments
+      for(const auto &t: transcripts) {
+         for (const auto &f: t._genomic_feats) {
+            if (f._match_op._code == Match_t::S_MATCH) exons.push_back(f);
+         }
       }
-      assign_exon_bin(hits, exon_segs);
+      sort(exons.begin(), exons.end());
+      auto last = unique(exons.begin(), exons.end());
+      exons.erase(last, exons.end());
+      IRanges<GenomicFeature, false> exons_iranges(exons);
+      std::vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
+      _exon_segs = reduced_exons;
+
+      for(const auto &t: transcripts){
+        Isoform iso(_exon_segs, t, t.parent_id(), t.annotated_trans_id(), cluster->id());
+        iso._length = t.exonic_length();
+        int idx = PushAndReturnIdx<Isoform>(iso, _transcripts);
+      }
+
+      assign_exon_bin(hits, _exon_segs);
       set_theory_bin_weight();
+
    }
 
    decltype(auto) transcripts() const {return (_transcripts);}
 
-   void overlap_exons(const std::vector<GenomicFeature>& exons,
-                     const Contig& read,
-                     std::set<std::pair<uint,uint>> &coords);
-
+   std::set<std::pair<uint,uint>> overlap_exons(const std::vector<GenomicFeature>& exons, const Contig& read) const;
 
    void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);
 
@@ -95,7 +111,24 @@ public:
    bool estimate_abundances(bool with_bias_correction,
                             const std::shared_ptr<FaSeqGetter> & fa_getter);
 
-   decltype(auto) get_frag_info(const Contig& frag) const {
+   std::vector<std::string> get_frag_info(const Contig& frag) const {
+      std::vector<std::string> info;
+      for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso) {
+         if (Contig::is_compatible(frag, iso->_contig)) {
+            auto coords = overlap_exons(_exon_segs, frag);
+            auto search = std::find(exon_bins.begin(), exon_bins.end(), ExonBin(coords));
+            assert (search != exon_bins.end());
+            info.push_back(std::to_string(search->_bin_weight_map.at(iso->id())));
+         }
+         else {
+            info.push_back("0.0");
+         }
+      }
+      for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso) {
+         info.push_back(iso->_frac_s);
+      }
+
+      return info;
    }
 
    std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {

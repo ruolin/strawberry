@@ -133,10 +133,9 @@ uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_
 }
 
 
-void LocusContext::overlap_exons(const vector<GenomicFeature>& exons,
-                     const Contig& read,
-                     set<pair<uint,uint>> &coords)
+set<pair<uint,uint>> LocusContext::overlap_exons(const vector<GenomicFeature>& exons, const Contig& read) const
 {
+   set<pair<uint,uint>> coords;
    for(auto const& gfeat : exons){
       if (gfeat._match_op._code != Match_t::S_MATCH) continue;
 
@@ -149,6 +148,7 @@ void LocusContext::overlap_exons(const vector<GenomicFeature>& exons,
          }
       }
    }
+   return coords;
 }
 
 
@@ -162,7 +162,6 @@ void LocusContext::assign_exon_bin(
  */
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
 
-      map<set<uint>, pair<set<int>, int>> frag_mult_exonbin;
       double sr_fg_len = 0.0;
       if(mp->is_single_read() && infer_the_other_end){
          //random_device rd;
@@ -187,7 +186,7 @@ void LocusContext::assign_exon_bin(
                   if(mp->single_read_orit() == SingleOrit_t::Forward){
                      uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Forward, new_read);
                      if(other_end == 0) continue;
-                     overlap_exons(exon_segs, new_read, coords);
+                     coords = overlap_exons(exon_segs, new_read);
                   }
 
                   else if (mp->single_read_orit() == SingleOrit_t::Reverse) {
@@ -195,21 +194,21 @@ void LocusContext::assign_exon_bin(
                      uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Reverse, new_read);
                      if(other_end == 0) continue;
                      assert(coords.empty());
-                     overlap_exons(exon_segs, new_read, coords);
+                     coords = overlap_exons(exon_segs, new_read);
                   }
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, new_read.left(), new_read.right());
                   set_maps(iso->id(), frag_len, new_read.mass(), new_read, coords);
                } // end if infer the other
 
                else{
-                  overlap_exons(exon_segs, *mp, coords);
+                  coords = overlap_exons(exon_segs, *mp);
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                   set_maps(iso->id(), frag_len, mp->mass(), *mp, coords);
                }
             } // and and single end
 
             else{
-               overlap_exons(exon_segs,*mp, coords);
+               coords = overlap_exons(exon_segs,*mp);
                frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                set_maps(iso->id(), frag_len, mp->mass(), *mp, coords);
             }
