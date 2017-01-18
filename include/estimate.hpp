@@ -102,6 +102,22 @@ public:
 
    decltype(auto) transcripts() const {return (_transcripts);}
 
+   std::string gene_name() const {
+      std::string gname;
+      assert(!_transcripts.empty());
+      for (const auto& iso : _transcripts) {
+         if (gname.empty()) gname = iso._gene_str;
+         else {
+            assert (gname == iso._gene_str);
+         }
+      }
+      return gname;
+   }
+
+   std::string sample_name() const {
+      return _sample.sample_name();
+   }
+
    std::set<std::pair<uint,uint>> overlap_exons(const std::vector<GenomicFeature>& exons, const Contig& read) const;
 
    void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);

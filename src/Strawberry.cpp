@@ -71,13 +71,14 @@ static struct option long_options[] = {
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
       {"infer-missing-end",               no_argument,            0,       'm'},
+      {"fragment-context",                no_argument,      0,       'f'},
       {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:cvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:f:cvGcm";
 #else
-const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:cvGcm";
+const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:f:cvGcm";
 #endif
 
 void print_help()
@@ -109,6 +110,7 @@ void print_help()
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
+   fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression.                                                  [default:     false]\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
@@ -135,6 +137,8 @@ int parse_options(int argc, char** argv)
                         num_threads = parseInt(optarg, 1, "-p/--num-threads must be at least 1", print_help);
                         use_threads = true;
                         break;
+               case 'f':
+                        print_frag_context = true;
                case 'v':
                         verbose = true;
                         break;
@@ -253,9 +257,12 @@ int driver(int argc, char** argv){
          exit(1);
       }
    }
+   output_dir += "/";
    string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
-   assembled_file += string("/assembled_transcripts.gtf");
+   assembled_file += string("assembled_transcripts.gtf");
    string tracker = output_dir + tracking_log;
+   string fragfile = output_dir + string("frag_context.csv");
+
    if(verbose){
       fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
       fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
@@ -264,6 +271,11 @@ int driver(int argc, char** argv){
    fprintf(pFile, "#%s\n", cmdline.c_str());
    fprintf(pFile, "#########################################\n");
    FILE *plogfile = fopen(tracker.c_str(), "w");
+
+   FILE *pfragfile;
+   if (print_frag_context) pfragfile = fopen(fragfile.c_str(), "w");
+   else pfragfile = NULL;
+
    char* bam_file = argv[optind++];
    ReadTable read_table;
    RefSeqTable ref_seq_table(true);
@@ -343,11 +355,14 @@ int driver(int argc, char** argv){
       read_sample._insert_size_dist = move(insert_size);
    }
 
-   read_sample.procSample(pFile, plogfile );
+   read_sample.procSample(pFile, plogfile, pfragfile);
+
    fclose(pFile);
    fclose(plogfile);
+   fclose(pfragfile);
    pFile = NULL;
    plogfile = NULL;
+   pfragfile = NULL;
    delete greader;
    greader = NULL;
    auto end = chrono::steady_clock::now();

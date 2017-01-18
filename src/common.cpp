@@ -49,6 +49,7 @@ bool kCombineShrotTransfrag = false;
 std::string output_dir = "./strawberry_out";
 std::string ref_gtf_filename = "";
 std::string ref_fasta_file = "";
+bool print_frag_context = false;
 bool enforce_ref_models = false;
 bool utilize_ref_models = false;
 bool no_assembly = false;

@@ -63,6 +63,7 @@ extern std::string output_dir;
 extern std::string ref_gtf_filename;
 extern std::string ref_fasta_file;
 extern std::string tracking_log;
+extern bool print_frag_context;
 extern bool effective_len_norm;
 extern float kIntronEdgeWeight;
 extern bool use_only_unique_hits;
@@ -249,14 +250,29 @@ std::ostream& operator<<(std::ostream& os, const std::vector<str>& vec) {
          flag = false;
       }
       else {
-         os<<","<<item;
+         os<<", "<<item;
       }
    }
    os<<"]"<<std::endl;
    return os;
 }
 
-//std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
+inline void pretty_print(FILE* file, const std::vector<std::string>& vec) {
+   std::string out_str;
+   bool flag = true;
+   for (const auto& item: vec) {
+      if (flag) {
+         out_str += item;
+         flag = false;
+      }
+      else {
+         out_str += ",";
+         out_str += item;
+      }
+   }
+   out_str += "\n";
+   fprintf(file, out_str.c_str());
+}
 
 class GenomicInterval {
 private:

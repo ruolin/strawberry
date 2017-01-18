@@ -112,8 +112,10 @@ void HitCluster::addRefContig(Contig *contig)
    else{
      _ref_id = contig->ref_id();
    }
-   if (gene_id().empty()) gene_id() = contig->parent_id();
-   else assert(gene_id() == contig->parent_id());
+   //if (gene_id().empty()) gene_id() = contig->parent_id();
+   //else
+   std::cerr<<gene_id()<<" and "<<contig->parent_id()<<std::endl;
+   assert(gene_id() == contig->parent_id());
    _leftmost = min(_leftmost, contig->left());
    _rightmost = max(_rightmost, contig->right());
    _ref_mRNAs.push_back(contig);
@@ -1340,7 +1342,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 }
 
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
-                 const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile) const {
+                 const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile, FILE *fragfile) const {
 
    std::cerr<<this->sample_name()<<":"<<this->total_mapped_reads()<<std::endl;
 //   map<int, int> iso_2_len_map;
@@ -1381,16 +1383,22 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #endif
      /* Print locus coordinates*/
       for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
+         vector<string> info;
+         info.push_back(est.sample_name());
+         info.push_back(est.gene_name());
          Contig hit(*r);
-         vector<string> info = est.get_frag_info(hit);
-         //cerr<<info<<endl;
+         vector<string> ret = est.get_frag_info(hit);
+         copy(ret.begin(), ret.end(), std::back_inserter(info));
+         if (fragfile != NULL) pretty_print(fragfile, info);
       }
+
      cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
      for(const auto & iso: est.transcripts()){
        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
                     iso._frac_s, iso._gene_str, iso._isoform_str);
      }
      fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
+      exit(0);
    }
 #if ENABLE_THREADS
    if(use_threads) {
@@ -1547,7 +1555,7 @@ int Sample::total_mapped_reads() const
    return _total_mapped_reads;
 }
 
-void Sample::procSample(FILE *pfile, FILE *plogfile)
+void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
 {
 /*
  * The major function which calls nextCluster() and finalizes cluster and
@@ -1600,12 +1608,12 @@ void Sample::procSample(FILE *pfile, FILE *plogfile)
        ++curr_thread_num;
        thread worker ([=] {
             finalizeCluster(cluster, true);
-            this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile);
+            this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile, fragfile);
        });
        worker.detach();
      }else {
        finalizeCluster(cluster, true);
-       this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile);
+       this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile, fragfile);
      }
 #else
      finalizeCluster(last_cluster, true);

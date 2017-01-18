@@ -81,7 +81,7 @@ public:
     }
 
     decltype(auto) gene_id() {
-        return _gene_id;
+        return (_gene_id);
     }
 
     Strand_t ref_strand() const;
@@ -114,6 +114,7 @@ public:
         std::vector<Contig> result;
         for (auto it : _ref_mRNAs) {
             result.push_back(*it);
+            std::cerr<<it->parent_id()<<" haha" <<std::endl;
         }
         return result;
     }
@@ -239,11 +240,11 @@ public:
     //void compute_doc_4_cluster(const HitCluster & hit_cluster, std::vector<float> &exon_doc,
     //map<std::pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
     void quantifyCluster(const RefSeqTable &ref_t, const std::shared_ptr<HitCluster> cluster,
-                         const std::vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile) const;
+                         const std::vector<Contig> &assembled_transcripts, FILE* pfile, FILE* plogfile, FILE* fragfile) const;
 
     void filter_intron(uint cluster_left, std::vector<float> &exon_doc, IntronMap &intron_counter);
 
-    void procSample(FILE *f, FILE *log);
+    void procSample(FILE *f, FILE *log, FILE* fragfile);
 
     void inspectSample(FILE *log);
 

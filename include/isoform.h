@@ -55,6 +55,7 @@ public:
            _contig(contig), _gene_str(gene_name), _isoform_str(iso_name),
            _gene_id(gene_id)
    {
+      //std::cerr<<_gene_str<<std::endl;
       for(uint i = 0; i< exons.size(); ++i){
          if(Contig::is_compatible(_contig, exons[i])){
             _exon_segs.push_back(exons[i]);
