@@ -41,7 +41,7 @@
 #define OPT_MIN_DEPTH_4_TRANSCRIPT     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
-#define OPT_NO_ASSEMBLY 264
+//#define OPT_NO_ASSEMBLY 260
 using namespace std;
 
 
@@ -58,7 +58,7 @@ static struct option long_options[] = {
 #endif
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
-      {"no-assembly",                     no_argument,            0,       OPT_NO_ASSEMBLY},
+      {"no-assembly",                     no_argument,            0,       'r'},
       {"min-transcript-size",             required_argument,      0,       't'},
       {"max-overlap-distance",            required_argument,      0,       'd'},
       {"small-anchor-size",               required_argument,      0,       's'},
@@ -76,7 +76,7 @@ static struct option long_options[] = {
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:f:cvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:fcrvGcm";
 #else
 const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:f:cvGcm";
 #endif
@@ -90,7 +90,7 @@ void print_help()
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current only support GFF3 format.                             [default:     NULL]\n");
-   fprintf(stderr, "   --no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
+   fprintf(stderr, "   -r/--no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)    [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
@@ -155,7 +155,7 @@ int parse_options(int argc, char** argv)
                         ref_gtf_filename = optarg;
                         utilize_ref_models = true;
                         break;
-               case OPT_NO_ASSEMBLY:
+               case 'r':
                         no_assembly = true;
                         enforce_ref_models = true;
                         break;

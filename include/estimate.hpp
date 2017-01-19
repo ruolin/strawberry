@@ -114,6 +114,15 @@ public:
       return gname;
    }
 
+   std::vector<std::string> transcript_names() const {
+      std::vector<std::string> tnames;
+      assert(!_transcripts.empty());
+      for (const auto& t: _transcripts) {
+         tnames.push_back(t._isoform_str);
+      }
+      return tnames;
+   }
+
    std::string sample_name() const {
       return _sample.sample_name();
    }

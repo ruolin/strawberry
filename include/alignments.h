@@ -41,7 +41,7 @@ private:
     std::unordered_map<ReadID, std::list<PairedHit>> _open_mates;
     std::vector<PairedHit> _hits;
     std::vector<PairedHit> _uniq_hits;
-    std::vector<Contig *> _ref_mRNAs; // the actually objects are owned by Sample
+    std::vector<Contig> _ref_mRNAs; // the actually objects are owned by Sample
     std::vector<GenomicFeature> _introns;
     std::vector<float> _dep_of_cov;
 
@@ -111,15 +111,10 @@ public:
     }
 
     std::vector<Contig> ref_mRNAs() const {
-        std::vector<Contig> result;
-        for (auto it : _ref_mRNAs) {
-            result.push_back(*it);
-            std::cerr<<it->parent_id()<<" haha" <<std::endl;
-        }
-        return result;
+        return _ref_mRNAs;
     }
 
-    void addRefContig(Contig *contig);
+    void addRefContig(const Contig& contig);
 
     int numOpenMates() const {
         return _open_mates.size();

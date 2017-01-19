@@ -104,20 +104,22 @@ void HitCluster::ref_id(RefID id)
    _ref_id = id;
 }
 
-void HitCluster::addRefContig(Contig *contig)
+void HitCluster::addRefContig(const Contig& contig)
 {
    if(_ref_id != -1){
-     assert(_ref_id == contig->ref_id());
+     assert(_ref_id == contig.ref_id());
    }
    else{
-     _ref_id = contig->ref_id();
+     _ref_id = contig.ref_id();
    }
-   //if (gene_id().empty()) gene_id() = contig->parent_id();
+   //if (gene_id().empty()) gene_id() = contig.parent_id();
    //else
-   std::cerr<<gene_id()<<" and "<<contig->parent_id()<<std::endl;
-   assert(gene_id() == contig->parent_id());
-   _leftmost = min(_leftmost, contig->left());
-   _rightmost = max(_rightmost, contig->right());
+   if (gene_id() != contig.parent_id()) {
+      //std::cerr<<gene_id()<<" and "<<contig.parent_id()<<" overlaps!\n";
+      return;
+   }
+   _leftmost = min(_leftmost, contig.left());
+   _rightmost = max(_rightmost, contig.right());
    _ref_mRNAs.push_back(contig);
 }
 
@@ -149,9 +151,9 @@ int HitCluster::len() const{
 
 Strand_t HitCluster::ref_strand() const{
    assert(!_ref_mRNAs.empty());
-   Strand_t strand = _ref_mRNAs[0]->strand();
+   Strand_t strand = _ref_mRNAs[0].strand();
    for(auto &i: _ref_mRNAs){
-     assert(i->strand() == strand);
+     assert(i.strand() == strand);
    }
    return strand;
 }
@@ -550,8 +552,8 @@ void HitCluster::setBoundaries(){
      _leftmost = INT_MAX;
      _rightmost = 0;
      for(auto r : _ref_mRNAs){
-       _leftmost = min(_leftmost, r->left());
-       _rightmost = max(_rightmost, r->right());
+       _leftmost = min(_leftmost, r.left());
+       _rightmost = max(_rightmost, r.right());
      }
    }
 }
@@ -812,7 +814,8 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
    //cout<<"_ref_mRNAs size: "<<_ref_mRNAs[0].parent_id()<<endl;
 
    cluster_out.gene_id() = _ref_mRNAs[_refmRNA_offset].parent_id();
-   cluster_out.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+   //std::cerr<<"a: "<<cluster_out.gene_id()<<std::endl;
+   cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
    if(_refmRNA_offset >= _ref_mRNAs.size()){
      _has_load_all_refs = true;
      return 1;
@@ -821,9 +824,9 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
    // add the rest if overlapped with first
    size_t i = 0;
    while(i < cluster_out._ref_mRNAs.size()){
-     Contig* ref = cluster_out._ref_mRNAs[i];
-     if (Contig::overlaps_directional(*ref, _ref_mRNAs[_refmRNA_offset])) {
-       cluster_out.addRefContig(&_ref_mRNAs[_refmRNA_offset++]);
+     const Contig& ref = cluster_out._ref_mRNAs[i];
+     if (Contig::overlaps_directional(ref, _ref_mRNAs[_refmRNA_offset])) {
+       cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
        if(_refmRNA_offset >= _ref_mRNAs.size()){
          _has_load_all_refs = true;
          return cluster_out._ref_mRNAs.size();
@@ -852,7 +855,7 @@ void Sample::reset_refmRNAs()
    _refmRNA_offset = 0;
    _has_load_all_refs = false;
    if (!no_assembly) {
-     _ref_mRNAs.clear();
+      _ref_mRNAs.clear();
      move(_assembly.begin(), _assembly.end(), back_inserter(_ref_mRNAs));
      _assembly.clear();
      sort(_ref_mRNAs.begin(), _ref_mRNAs.end());
@@ -1217,7 +1220,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 
    if (cluster->hasRefmRNAs() && utilize_ref_models) {
       for (auto i: cluster->_ref_mRNAs)
-         hits.push_back(*i);
+         hits.push_back(i);
       hits.back()._is_ref = true;
       //  avg_dep = compute_doc(cluster->left(), cluster->right(), hits, exon_doc, intron_counter, kMaxSmallAnchor);
    }
@@ -1344,7 +1347,6 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
                  const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile, FILE *fragfile) const {
 
-   std::cerr<<this->sample_name()<<":"<<this->total_mapped_reads()<<std::endl;
 //   map<int, int> iso_2_len_map;
 
 //   vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);
@@ -1384,8 +1386,12 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
      /* Print locus coordinates*/
       for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
          vector<string> info;
+         info.push_back(std::to_string(this->total_mapped_reads()));
          info.push_back(est.sample_name());
          info.push_back(est.gene_name());
+         for(const auto& tn : est.transcript_names()) {
+            info.push_back(tn);
+         }
          Contig hit(*r);
          vector<string> ret = est.get_frag_info(hit);
          copy(ret.begin(), ret.end(), std::back_inserter(info));
@@ -1398,7 +1404,6 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
                     iso._frac_s, iso._gene_str, iso._isoform_str);
      }
      fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
-      exit(0);
    }
 #if ENABLE_THREADS
    if(use_threads) {
