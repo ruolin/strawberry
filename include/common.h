@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <memory>
 #include <cmath>
+#include <iomanip>
 #include "logger.hpp"
 typedef void* pointer;
 typedef uint64_t ReadID;
@@ -272,6 +273,14 @@ inline void pretty_print(FILE* file, const std::vector<std::string>& vec) {
    }
    out_str += "\n";
    fprintf(file, out_str.c_str());
+}
+
+template <typename T>
+std::string to_string_with_precision(const T a_value, const int n = 6)
+{
+   std::ostringstream out;
+   out << std::setprecision(n) << a_value;
+   return out.str();
 }
 
 class GenomicInterval {

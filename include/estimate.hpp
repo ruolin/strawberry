@@ -123,6 +123,10 @@ public:
       return tnames;
    }
 
+   size_t num_transcripts() const {
+      return _transcripts.size();
+   }
+
    std::string sample_name() const {
       return _sample.sample_name();
    }
@@ -136,24 +140,25 @@ public:
    bool estimate_abundances(bool with_bias_correction,
                             const std::shared_ptr<FaSeqGetter> & fa_getter);
 
-   std::vector<std::string> get_frag_info(const Contig& frag) const {
-      std::vector<std::string> info;
+   std::pair<std::set<std::pair<uint,uint>>, std::vector<double>> get_frag_info(const Contig& frag) const {
+      // return a pair of exon bin coordinates and probabilities
+      std::pair<std::set<std::pair<uint,uint>>, std::vector<double>> ret;
+      std::set<std::pair<uint,uint>> coords;
+      std::vector<double> info;
       for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso) {
          if (Contig::is_compatible(frag, iso->_contig)) {
-            auto coords = overlap_exons(_exon_segs, frag);
+            auto c = overlap_exons(_exon_segs, frag);
+            if (coords.empty()) coords = c;
+            else assert (coords == c);
             auto search = std::find(exon_bins.begin(), exon_bins.end(), ExonBin(coords));
             assert (search != exon_bins.end());
-            info.push_back(std::to_string(search->_bin_weight_map.at(iso->id())));
+            info.push_back(search->_bin_weight_map.at(iso->id()));
          }
          else {
-            info.push_back("0.0");
+            info.push_back(0.0);
          }
       }
-      for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso) {
-         info.push_back(iso->_frac_s);
-      }
-
-      return info;
+      return std::make_pair(coords, info);
    }
 
    std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {
