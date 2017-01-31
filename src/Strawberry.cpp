@@ -272,9 +272,8 @@ int driver(int argc, char** argv){
    fprintf(pFile, "#########################################\n");
    FILE *plogfile = fopen(tracker.c_str(), "w");
 
-   FILE *pfragfile;
+   FILE* pfragfile = NULL;
    if (print_frag_context) pfragfile = fopen(fragfile.c_str(), "w");
-   else pfragfile = NULL;
 
    char* bam_file = argv[optind++];
    ReadTable read_table;
@@ -359,7 +358,7 @@ int driver(int argc, char** argv){
 
    fclose(pFile);
    fclose(plogfile);
-   fclose(pfragfile);
+   if (pfragfile != NULL) fclose(pfragfile);
    pFile = NULL;
    plogfile = NULL;
    pfragfile = NULL;
