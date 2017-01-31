@@ -1124,7 +1124,7 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
    if (transcripts.size() == 1) {
      for (auto const &assembled_transcript: transcripts) {
        for (size_t h = 0; h < hits.size(); ++h) {
-         if (hits[h].is_single_read()) continue;
+         //if (hits[h].is_single_read()) continue;
          if (!Contig::is_compatible(hits[h], assembled_transcript)) continue;
          double frag_len = Contig::exonic_overlaps_len(assembled_transcript,
                                     hits[h].left(),

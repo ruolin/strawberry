@@ -152,12 +152,14 @@ public:
             else assert (coords == c);
             auto search = std::find(exon_bins.begin(), exon_bins.end(), ExonBin(coords));
             assert (search != exon_bins.end());
+            //std::cerr<<search->_bin_weight_map.at(iso->id())<<"\t";
             info.push_back(search->_bin_weight_map.at(iso->id()));
          }
          else {
             info.push_back(0.0);
          }
       }
+      //std::cerr<<std::endl;
       return std::make_pair(coords, info);
    }
 

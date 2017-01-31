@@ -237,10 +237,11 @@ void LocusContext::set_theory_bin_weight() {
          if(_sample._insert_size_dist->_use_emp)
             lmin = _sample._insert_size_dist->_start_offset;
          else
-            lmin = 2*_read_len;
+            //lmin = 2*_read_len;
+            lmin = _read_len;
          if(seg_lens.size() > 2)
             lmin = max(lmin, accumulate(seg_lens.begin() +1, seg_lens.end()-1, 0));
-
+         //std::cerr<<"min "<<lmin<<" max "<<lmax<<std::endl;
          for(int fl = lmin ; fl <= lmax; ++fl){
             double le_eff = exon_bins.at(bin_idx).effective_len(seg_lens,implicit_exon_idx, fl, _read_len);
             double tmp = _sample._insert_size_dist->emp_dist_pdf(fl)* le_eff / (_transcripts[it->first]._length - fl + 1);
