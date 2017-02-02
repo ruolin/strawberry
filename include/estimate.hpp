@@ -127,6 +127,10 @@ public:
       return _transcripts.size();
    }
 
+   size_t num_exon_bins() const {
+      return exon_bins.size();
+   }
+
    std::string sample_name() const {
       return _sample.sample_name();
    }

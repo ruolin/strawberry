@@ -158,6 +158,7 @@ public:
 
 };
 
+class LocusContext;
 class Sample {
     bool _is_inspecting;
     std::atomic<int> _num_cluster;
@@ -251,6 +252,7 @@ public:
     void fragLenDist(const RefSeqTable &ref_t, const std::vector<Contig> &isoforms,
                      const std::shared_ptr<HitCluster> cluster, FILE *plogfile);
     void preProcess(FILE *log);
+    void printContext(const LocusContext& est, const std::shared_ptr<HitCluster> cluster, FILE *fragfile) const;
 };
 
 

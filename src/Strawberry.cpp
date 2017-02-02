@@ -72,13 +72,14 @@ static struct option long_options[] = {
       {"bias-correction",                 required_argument,      0,       'b'},
       {"infer-missing-end",               no_argument,            0,       'm'},
       {"fragment-context",                no_argument,      0,       'f'},
+      {"filter-low-expression",           no_argument,      0,       'e'},
       {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:fcrvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:fecrvGcm";
 #else
-const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:f:cvGcm";
+const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:fecvGcm";
 #endif
 
 void print_help()
@@ -115,6 +116,7 @@ void print_help()
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
+   fprintf(stderr, "   -e/--filter-low-expression            Disable printing the lowly expressed transcripts.                                                    [default:     false]\n" );
 }
 
 int parse_options(int argc, char** argv)
@@ -158,6 +160,9 @@ int parse_options(int argc, char** argv)
                case 'r':
                         no_assembly = true;
                         enforce_ref_models = true;
+                        break;
+               case 'e':
+                        filter_by_expression = true;
                         break;
                case 't':
                         kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);

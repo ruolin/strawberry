@@ -59,7 +59,7 @@ bool effective_len_norm = false;
 bool use_only_unique_hits = true;
 //bool use_only_paired_hits = false;
 bool use_threads = false;
-bool filter_by_expression = true;
+bool filter_by_expression = false;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

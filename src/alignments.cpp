@@ -1383,58 +1383,15 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #if ENABLE_THREADS
      if(use_threads) out_file_lock.lock();
 #endif
-     /* Print locus coordinates*/
-      map<set<pair<uint,uint>>, uint> eb_count_map;
-      map<set<pair<uint,uint>>, vector<double>> eb_prob_map;
-      for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
-         auto eb = est.get_frag_info(Contig(*r));
-         if (!eb.first.empty()) {
-            ++eb_count_map[eb.first];
-            eb_prob_map[eb.first] = eb.second;
-         }
-      }
-
-      uint sum = 0;
-      for (const auto& eb: eb_count_map) {
-         sum += eb.second;
-      }
-
-      for (auto it = eb_prob_map.cbegin(); it != eb_prob_map.cend(); ++it) {
-         vector<string> info;
-         info.push_back(est.sample_name());
-         info.push_back(to_string(total_mapped_reads()));
-
-         info.push_back(est.gene_name());
-         info.push_back(to_string(sum));
-
-         for (const auto& tn : est.transcript_names()) {
-            info.push_back(tn);
-         }
-
-         for (const double prob:it->second) info.push_back(to_string_with_precision(prob, 12));
-
-         for (auto iso = est.transcripts().cbegin(); iso != est.transcripts().cend(); ++iso) {
-            info.push_back(iso->_frac_s);
-         }
-
-         string coords;
-         for (auto const& c: it->first) {
-            coords += "[";
-            coords += to_string(c.first);
-            coords += "-";
-            coords += to_string(c.second);
-            coords += "]";
-         }
-         info.push_back(coords);
-         info.push_back(to_string(eb_count_map[it->first]));
-         if (fragfile != NULL) pretty_print(fragfile, info);
-      }
-
      cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
      for(const auto & iso: est.transcripts()){
        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
                     iso._frac_s, iso._gene_str, iso._isoform_str);
      }
+
+      if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
+         printContext(est, cluster, fragfile);
+      }
      fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
    }
 #if ENABLE_THREADS
@@ -1443,6 +1400,56 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
      decr_pool_count();
    }
 #endif
+}
+
+
+void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> cluster, FILE *fragfile) const {
+   /* Print locus coordinates*/
+   map<set<pair<uint,uint>>, uint> eb_count_map;
+   map<set<pair<uint,uint>>, vector<double>> eb_prob_map;
+   for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
+      auto eb = est.get_frag_info(Contig(*r));
+      if (!eb.first.empty()) {
+         ++eb_count_map[eb.first];
+         eb_prob_map[eb.first] = eb.second;
+      }
+   }
+
+   uint sum = 0;
+   for (const auto& eb: eb_count_map) {
+      sum += eb.second;
+   }
+
+   for (auto it = eb_prob_map.cbegin(); it != eb_prob_map.cend(); ++it) {
+      vector<string> info;
+      info.push_back(est.sample_name());
+      info.push_back(to_string(total_mapped_reads()));
+
+      info.push_back(est.gene_name());
+      info.push_back(to_string(sum));
+
+      for (const auto& tn : est.transcript_names()) {
+         info.push_back(tn);
+      }
+
+      for (const double prob:it->second) info.push_back(to_string_with_precision(prob, 12));
+
+      for (auto iso = est.transcripts().cbegin(); iso != est.transcripts().cend(); ++iso) {
+         info.push_back(iso->_frac_s);
+      }
+
+      string coords;
+      for (auto const& c: it->first) {
+         coords += "[";
+         coords += to_string(c.first);
+         coords += "-";
+         coords += to_string(c.second);
+         coords += "]";
+      }
+      info.push_back(coords);
+      info.push_back(to_string(eb_count_map[it->first]));
+      if (fragfile != NULL) pretty_print(fragfile, info);
+   }
 }
 
 void Sample::addAssembly(std::vector<Contig>& assembs, int cluster_id) {
