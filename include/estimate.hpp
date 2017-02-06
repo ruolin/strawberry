@@ -202,9 +202,9 @@ class EmSolver{
    const double TOLERANCE = std::numeric_limits<double>::denorm_min();
    std::vector<double> _theta_after_zero;
    std::vector<int> _u; // observed data vector
-   std::vector<std::vector<double>> _F; // sampling rate matrix, \alpha
+   std::vector<std::vector<double>> _F; // initial conditional probability matrix
    std::vector<std::vector<double>> _B; // bias matrix, \beta
-   std::vector<std::vector<double>> _U; // hidden unobserved data matrix.
+   //std::vector<std::vector<double>> _U; // hidden unobserved data matrix.
    static constexpr int _max_iter_num = 1000;
    static constexpr int _max_bias_it_num = 10;
    static constexpr int _max_theta_it_num = 5000;

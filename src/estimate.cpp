@@ -1,5 +1,4 @@
-/*
->HEADER
+/* >HEADER
     Copyright (c) 2015 Ruolin Liu rliu0606@gmail.com
     This file is part of Strawberry.
     Strawberry is free software: you can redistribute it and/or modify
@@ -497,13 +496,15 @@ bool EmSolver::run(){
    size_t nrow = _u.size();
    size_t ncol = _theta.size();
 
+   //initialization
    Eigen::VectorXi obs_d(nrow);
    for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
 
+   // Conditional probability update matrix
    Eigen::MatrixXd F(nrow, ncol);
-     F.setZero(nrow, ncol);
-   for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+   F.setZero(nrow, ncol);
+   for(size_t i =0; i < nrow; ++i){
       for(size_t j= 0; j < ncol; ++j){
          F(i,j) = _F[i][j];
       }
@@ -517,7 +518,7 @@ bool EmSolver::run(){
    Eigen::VectorXd next_theta(ncol);
    next_theta.setZero(ncol);
 
-   if(!_B.empty() && !_B[0].empty()){
+   if(!_B.empty() && !_B[0].empty()){ // if with bias
       Eigen::MatrixXd B(_B.size(), _B[0].size());
       Eigen::VectorXd bias(_B[0].size());
 
@@ -606,14 +607,19 @@ bool EmSolver::run(){
                //out<<" fi "<<endl;
       }
       return true;
-   }// end if
+   }// end if with bias
 
 
-   for(int it_num = 0; it_num < _max_iter_num; ++it_num){
+   Eigen::MatrixXd U(nrow, ncol);
+   U.setZero(nrow, ncol);
+
+   Eigen::MatrixXd newF(nrow, ncol);
+   newF.setZero(nrow, ncol);
+
+   for(int it_num = 0; it_num < _max_iter_num; ++it_num){ // if no bias est
       /*E-step*/
 
-      Eigen::MatrixXd U(nrow, ncol);
-      U.setZero(nrow, ncol);
+      // posterior latent class probability
 
       for(size_t i =0; i < nrow; ++i){ // updating the unobserved data matrix
          double denom = F.row(i).dot(theta);
@@ -626,20 +632,27 @@ bool EmSolver::run(){
 
       /*M-step*/
       for(int j = 0; j< U.cols(); ++j){
-         //double den = F.col(j).sum();
-         //if(den < TOLERANCE) return false;
          next_theta[j] = U.col(j).sum();
-         //normalized_count += next_theta[j];
       }
 
+      for(size_t j= 0; j < ncol; ++j){
+         double denom = F.col(j).sum();
+         for(size_t i =0; i < nrow; ++i){ // updating the unobserved data matrix
+            if(denom < TOLERANCE) return false;
+            newF(i,j) = F(i,j)/denom;
+         }
+      }
+
+      F = newF;
       int num_changed = 0;
       for(size_t j=0; j<ncol; ++j){
          if((fabs(next_theta[j]-theta[j])/next_theta[j]) > _theta_change_limit)
             num_changed++;
          theta[j] = next_theta[j];
-         next_theta[j] = 0.0;
+         //next_theta[j] = 0.0;
       }
 
+      /* Converge condition */
       if(num_changed == 0) {
          for(size_t j = 0; j< ncol; ++j){
          _theta[j] = theta[j];
