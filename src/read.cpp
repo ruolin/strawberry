@@ -276,10 +276,21 @@ bool InsertSize::empty() const
 double InsertSize::emp_dist_pdf(uint insert_size) const
 {
    if(_use_emp){
-      if(insert_size < _start_offset || insert_size > _end_offset)
-         return 0.0;
-      return _emp_dist[insert_size - _start_offset] / _total_reads;
+      double ret = 0.0;
+      if (insert_size < _start_offset || insert_size > _end_offset) {
+      } else {
+         ret = _emp_dist[insert_size - _start_offset] / _total_reads;
+      }
+
+      if (ret == 0.0) {
+         double p = normal_pdf( (double) insert_size, _mean, _sd);
+         if(p > 0) return p;
+         else return 0.0;
+      } else {
+         return ret;
+      }
    }
+
    else{
       double p = normal_pdf( (double) insert_size, _mean, _sd);
       if(p > 0) return p;

@@ -163,6 +163,9 @@ public:
             info.push_back(0.0);
          }
       }
+      //if (!coords.empty() && std::accumulate(info.begin(), info.end(), 0.0) == 0.0) {
+      //   std::cerr<<ExonBin(coords)<<std::endl;
+      //}
       //std::cerr<<std::endl;
       return std::make_pair(coords, info);
    }

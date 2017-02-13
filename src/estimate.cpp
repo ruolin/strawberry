@@ -246,16 +246,9 @@ void LocusContext::set_theory_bin_weight() {
             double tmp = _sample._insert_size_dist->emp_dist_pdf(fl)* le_eff / (_transcripts[it->first]._length - fl + 1);
             weight += tmp;
          }
+         //std::cerr<<"weight "<<weight<<std::endl;
          exon_bins.at(bin_idx)._bin_weight_map[it->first] = weight;
 
-//#ifdef DEBUG
-//   cout<<"iso "<<it->first<<endl;
-//   cout<<"coords";
-//   for(auto const& c : bin_idx)
-//      cout<<" "<<c.first<<"-"<<c.second;
-//   cout<<endl;
-//         cout<<"weight "<<weight<< " lmax "<<lmax<<endl;
-//#endif
       }
    }
 }

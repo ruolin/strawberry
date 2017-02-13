@@ -159,6 +159,7 @@ public:
    friend bool operator==(const ExonBin& lhs, const ExonBin& rhs);
    friend bool operator!=(const ExonBin& lhs, const ExonBin& rhs);
    friend bool operator<(const ExonBin& lhs, const ExonBin& rhs);
+   friend std::ostream& operator<<(std::ostream& os, const ExonBin& rhs);
 };
 
 
@@ -174,6 +175,14 @@ inline bool operator< (const ExonBin& lhs, const ExonBin& rhs) {
    return lhs._coords < rhs._coords;
 }
 
+inline std::ostream& operator<<(std::ostream& os, const ExonBin& rhs){
+   os<<"Exon bin: ";
+   for (auto const& c : rhs._coords) {
+      os << "[" + std::to_string(c.first) + "-" + std::to_string(c.second) + "] ";
+   }
+   os<<std::endl;
+   return os;
+}
 //RefID ExonBin::ref_id() const
 //{
 //   return _ref_id;
