@@ -1,0 +1,3 @@
+[submodule "external/IRLS"]
+	path = external/IRLS
+	url = git@github.com:ruolin/IRLS.git
