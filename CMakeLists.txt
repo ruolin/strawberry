@@ -103,38 +103,16 @@ if (NOT ZLIB_FOUND)
 	message (FATAL_ERROR "zlib must be installed before configuration & building can proceed")
 endif()
 
-
 # include for local directory
 
 # include for local package
 
 
+# Creating entries for target: Strawberry
 # ############################
 
 include(ExternalProject)
-find_program (GSL_CONFIG gsl-config
-   ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl-2.3/
-   /usr/bin/
-)
 
-if (GSL_CONFIG)
-   set (GSL_FOUND 1)
-endif()
-
-if (NOT GSL_FOUND)
-ExternalProject_Add(gsl
-  DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
-  URL ftp://ftp.gnu.org/gnu/gsl/gsl-2.3.tar.gz
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl-2.3
-  BUILD_IN_SOURCE 1
-  CONFIGURE_COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl-2.3/configure --prefix=${CMAKE_CURRENT_SOURCE_DIR}/external/gsl-2.3
-  #PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/external/gsl-2.3
-  BUILD_COMMAND make CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
-)
-  # message (FATAL_ERROR "GSL must be installed before configuration & building can proceed")
-endif()
-
-add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/IRLS)
 
 #set(BAM_INCLUDE /usr/local/include/bam)
 
