@@ -202,7 +202,7 @@ public:
 
 
 class EmSolver{
-   const double TOLERANCE = std::numeric_limits<double>::denorm_min();
+   const double TOLERANCE = std::numeric_limits<double>::lowest();
    std::vector<double> _theta_after_zero;
    std::vector<int> _u; // observed data vector
    std::vector<std::vector<double>> _F; // initial conditional probability matrix

@@ -1218,7 +1218,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       hits.push_back(hit);
    }
 
-   if (cluster->hasRefmRNAs() && utilize_ref_models) {
+   if (cluster->hasRefmRNAs() && utilize_ref_models ) {
       for (auto i: cluster->_ref_mRNAs)
          hits.push_back(i);
       hits.back()._is_ref = true;

@@ -245,6 +245,11 @@ InsertSize::InsertSize(double mean, double sd):
 InsertSize::InsertSize(const vector<int> frag_lens):_use_emp(true)
 {
    _total_reads = frag_lens.size();
+   if (_total_reads < 1) {
+      cerr<<"Not enough reads\n";
+      cerr<<"Exit program...\n";
+      exit(0);
+   }
    mean_and_sd_insert_size(frag_lens, _mean, _sd);
    auto result = minmax_element(frag_lens.begin(), frag_lens.end());
    if (verbose){
