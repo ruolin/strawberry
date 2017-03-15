@@ -133,7 +133,7 @@ private:
 class InsertSize{
 public:
 
-   double _total_reads;
+   int _total_reads;
    std::vector<double> _emp_dist;
    double _mean;
    double _sd;
