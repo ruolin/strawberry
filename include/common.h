@@ -64,6 +64,7 @@ extern std::string output_dir;
 extern std::string ref_gtf_filename;
 extern std::string ref_fasta_file;
 extern std::string tracking_log;
+extern std::string frag_context_out;
 extern bool print_frag_context;
 extern bool effective_len_norm;
 extern float kIntronEdgeWeight;

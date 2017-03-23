@@ -354,7 +354,7 @@ bool LocusContext::estimate_abundances(bool with_bias_correction,
       }
       if(filter_by_expression){
          for(auto it = _transcripts.begin() ; it != _transcripts.end();){
-            if(it->_frac < _kMinFrac || it->_FPKM < _kMinFPKM)
+            if(it->_frac < _kMinFrac)
                it = _transcripts.erase(it);
             else
                ++it;
@@ -483,7 +483,6 @@ bool EmSolver::run(){
       F = newF;
       Eigen::VectorXd dist = next_theta - theta;
       if( dist.norm()  < _theta_change_limit) break;
-      cerr<<dist<<endl;
       theta = next_theta;
    }
 

@@ -157,13 +157,13 @@ private:
 //_id start from 0 which is used as the index in std::vector<GffSeqData>;
    std::string _seq;
    bool _keep_seq;
-   std::unordered_map<std::string, int> _name2id;
-   std::vector<std::string> _id2name;
    std::vector<std::string> _id_2_real_name;
-
+   std::vector<std::string> _id2name;
 public:
+   std::unordered_map<std::string, int> _name2id;
    RefSeqTable(bool keep_seq) : _keep_seq(keep_seq){}
    int get_id(std::string& name);
+   int set_id(std::string& name);
    int size() const{
       return _name2id.size();
    }

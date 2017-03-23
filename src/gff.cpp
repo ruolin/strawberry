@@ -83,6 +83,7 @@ static char feat_type[128];
 GffLine::GffLine(const char* l)
 {
 //   printf("enter in gffline constructor\n");
+   //printf("%s\n", l);
    _llen=strlen(l);
    _line = new char[_llen+1];
    _line[_llen] = 0;
@@ -175,17 +176,25 @@ GffLine::GffLine(const char* l)
    else if (strcmp(feat_type, "cds")==0) {
       _feat_type = CDS;
    }
-   else if (strstr(feat_type,"rna")!=NULL || strstr(feat_type,"transcript")!=NULL) {
+   else if (strstr(feat_type,"rna")!=NULL ||
+            strstr(feat_type,"transcript")!=NULL ||
+            strstr(feat_type, "RNA") != NULL) {
       _feat_type = mRNA;
    }
    else if (strstr(feat_type, "gene")!=NULL) {
       _feat_type = GENE;
+   }
+   else {
+      _feat_type = OTHERS;
+      _skip = true;
    }
    extractAttr("id=", _ID);
    extractAttr("parent=", _parent);
    _is_gff3=(!_ID.empty() || !_parent.empty());
    if (_is_gff3) { // is gff3
       if (!_ID.empty()) { // has ID field
+         if (_ID.find("transcript") != std::string::npos) _feat_type = mRNA;
+         else if (_ID.find("gene") != std::string::npos) _feat_type = GENE;
          //has ID attr so it's likely to be a parent feature
          //look for explicit gene name
          extractAttr("name=", _name);
@@ -456,7 +465,7 @@ bool GffReader::nextGffLine(){
       int ns=0; // first nonspace position
       while (l[ns]!=0 && isspace(l[ns])) ns++;
       if(l[ns]=='#' ||len<10) continue;
-      _gfline.reset (new GffLine(l));
+      _gfline.reset(new GffLine(l));
       if(_gfline->_skip){
          continue;
       }

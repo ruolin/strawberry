@@ -664,7 +664,7 @@ string Sample::get_iso_seq(const shared_ptr<FaSeqGetter> &fa_getter, const Conti
 
 bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
 {
-   cout<<"Has loaded transcripts from "<<gseqs.size()<<" Chromosomes/Scaffolds"<<endl;
+   cerr<<"Has loaded transcripts from "<<gseqs.size()<<" Chromosomes/Scaffolds"<<endl;
    /*
    * Parse transcripts in GffTree to a vector of Contig objects.
    */
@@ -674,14 +674,18 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
    //ref_id in ref_table start from 0.
    if(rt.size() == 0){
      for(uint i=0; i<gseqs.size(); ++i){
-       rt.get_id(gseqs[i]->_g_seq_name);
+       rt.set_id(gseqs[i]->_g_seq_name);
      }
    } else{
      for(uint i = 0; i<gseqs.size(); ++i){
        int idx = gseqs[i]->get_gseq_id();
        int ref_table_id = rt.get_id(gseqs[i]->_g_seq_name);
-       if( idx != ref_table_id ){
-         LOG_WARN("Warning: Sam file and Gff file are not sorted in the same order!");
+       if (ref_table_id == -1) {
+           cerr<<"Error: the gff file contains seq name "<<gseqs[i]->_g_seq_name<<" which is not found in the bam file"<<endl;
+       }
+       else if(idx != ref_table_id ){
+         cerr<<"Warning: Sam file and Gff file are not sorted in the same order!\n";
+         cerr<<"set gff chrom id to "<<ref_table_id<<endl;
          gseqs[i]->set_gseq_id(ref_table_id);
        }
      }
@@ -912,6 +916,7 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
    }
    if (!_hit_factory->recordsRemain()) return -1;
    int num_added_refmRNA = addRef2Cluster(clusterOut);
+   //cout<<num_added_refmRNA<<" added mRNA"<<endl;
    if (num_added_refmRNA == 0) {
      return -1;
    }

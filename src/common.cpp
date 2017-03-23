@@ -24,7 +24,7 @@ int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron lengt
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
 int kMaxOlapDist = 30; // merge cluster if within this distance.
 double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
-double kMinIsoformFrac = 0.05;
+double kMinIsoformFrac = 0.;
 double kBinomialOverHangAlpha = 0.0;
 float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
 int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
@@ -55,6 +55,7 @@ bool utilize_ref_models = false;
 bool no_assembly = false;
 
 std::string tracking_log = "/tracking.log";
+std::string frag_context_out = "frag_context.csv";
 bool effective_len_norm = false;
 bool use_only_unique_hits = true;
 //bool use_only_paired_hits = false;

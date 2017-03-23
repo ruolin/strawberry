@@ -71,13 +71,13 @@ static struct option long_options[] = {
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
       {"infer-missing-end",               no_argument,            0,       'm'},
-      {"fragment-context",                no_argument,      0,       'f'},
-      {"filter-low-expression",           no_argument,      0,       'e'},
+      {"fragment-context",                required_argument,      0,       'f'},
+      {"filter-low-expression",           required_argument,      0,       'e'},
       {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:fecrvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvGcm";
 #else
 const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:fecvGcm";
 #endif
@@ -111,12 +111,12 @@ void print_help()
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
-   fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression.                                                  [default:     false]\n");
+   fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression to this file.                                     [default:     frag_context.csv]\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
-   fprintf(stderr, "   -e/--filter-low-expression            Disable printing the lowly expressed transcripts.                                                    [default:     false]\n" );
+   fprintf(stderr, "   -e/--filter-low-expression            Skip isoforms whose relative expression (within locus) are less than this number.                    [default:     0.]\n" );
 }
 
 int parse_options(int argc, char** argv)
@@ -141,6 +141,7 @@ int parse_options(int argc, char** argv)
                         break;
                case 'f':
                         print_frag_context = true;
+                        frag_context_out = optarg;
                case 'v':
                         verbose = true;
                         break;
@@ -162,6 +163,7 @@ int parse_options(int argc, char** argv)
                         enforce_ref_models = true;
                         break;
                case 'e':
+                        kMinIsoformFrac = parseFloat(optarg, 0, 1.0, "-e/--filter-low-expression must be between 0-1.0", print_help);
                         filter_by_expression = true;
                         break;
                case 't':
@@ -266,7 +268,7 @@ int driver(int argc, char** argv){
    string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
    assembled_file += string("assembled_transcripts.gtf");
    string tracker = output_dir + tracking_log;
-   string fragfile = output_dir + string("frag_context.csv");
+   string fragfile = output_dir + frag_context_out;
 
    if(verbose){
       fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
@@ -309,7 +311,7 @@ int driver(int argc, char** argv){
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
       fclose(gff);
-      greader->reverseExonOrderInMinusStrand();
+      //greader->reverseExonOrderInMinusStrand();
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
 

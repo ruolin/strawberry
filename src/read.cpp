@@ -346,7 +346,7 @@ bool HitFactory::parse_header_line(const string& hline){
          split(i, ":", fields);
          if(fields[0] == "SN"){
             //str2lower(fields[1]);
-            RefID _ID = _ref_table.get_id(fields[1]);
+            RefID _ID = _ref_table.set_id(fields[1]);
             if(_ID != _num_seq_header_recs-1){
                cerr<<"Sort order of reads in BAM not consistent."<<endl;
                exit(0);
@@ -426,6 +426,10 @@ bool BAMHitFactory::inspect_header()
 
       free(h_text);
    }
+
+//   for (auto & id : _ref_table._name2id) {
+//      cout<<"id, name"<<id.first<<","<<id.second<<endl;
+//   }
    return true;
 }
 
@@ -928,7 +932,10 @@ bool PairedHit::operator<(const PairedHit& rhs) const
 //   }
 //}
 
-RefID RefSeqTable::get_id(string& name) {
+int RefSeqTable::set_id(string& name) {
+   /*
+    * return id
+    */
    if (name == "*") return -1;
    string raw_name = name;
    str2lower(name);
@@ -944,6 +951,16 @@ RefID RefSeqTable::get_id(string& name) {
       return id;
    }
    return 0;
+}
+
+int RefSeqTable::get_id(string& name) {
+   string raw_name = name;
+   str2lower(name);
+   unordered_map<string,int>::const_iterator it = _name2id.find(name);
+   if(it != _name2id.end()) {
+      return it->second;
+   }
+   return -1;
 }
 
 const string RefSeqTable::ref_real_name(int id) const{
