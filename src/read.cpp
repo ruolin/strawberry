@@ -956,6 +956,9 @@ int RefSeqTable::set_id(string& name) {
 int RefSeqTable::get_id(string& name) {
    string raw_name = name;
    str2lower(name);
+   if (name.size() < 4) { // no chr
+     name = "chr" + name;
+   }
    unordered_map<string,int>::const_iterator it = _name2id.find(name);
    if(it != _name2id.end()) {
       return it->second;

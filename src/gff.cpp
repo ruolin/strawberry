@@ -217,10 +217,10 @@ GffLine::GffLine(const char* l)
       }
    } // end is gff3
    else{
-      cerr<<endl;
-      cerr<<"Error: Strawberry currently only accepts Gff3 format..."<<endl;
-      cerr<<"Please Convert your annotation file to Gff3 format."<<endl;
-      exit(0);
+      extractAttr("gene_id", _gene_id);
+      extractAttr("gene_name", _gene_name);
+      extractAttr("transcript_id", _transcript_id);
+      _ID = _transcript_id; // crazy hack
    }
 }
 
@@ -312,21 +312,16 @@ int GffInfoVec::addInfo(const string name){
    return -1;
 }
 
-GffObj::GffObj(LinePtr gl, GffReader & greader):
+GffObj::GffObj(LinePtr gl /*,GffReader & greader*/):
    _score(gl->_score),
    _phase(gl->_phase),
-   _source(gl->_source),
-   _greader(greader)
+   _source(gl->_source)
+   //_greader(greader)
 {
    uint _seq_id = _infotable->_seq_names->addInfo(gl->_chrom);
    _iv = GenomicInterval(_seq_id, gl->_start, gl->_end, gl->_strand);
 }
 
-GffLoci::GffLoci(LinePtr gl, GffReader & greader):
-      GffObj(gl, greader),
-      _gene_id (gl->_ID),
-      _gene_name (gl->_name)
-{}
 
 GffmRNA* GffLoci::getRNA(const string rna) {
    // in mast cases, we only need to look at the last mrna in the vector.
@@ -375,17 +370,11 @@ void GffLoci::add_exon(exonPtr exon, GffmRNA* exon_parent_mrna){
    }
 }
 
-GffmRNA::GffmRNA(LinePtr gl, GffLoci* gene, GffReader & greader):
-      GffObj(gl, greader),
-      _parent(gene),
-      _transcript_id(gl->_ID),
-      _transcript_name(gl->_name)
-{}
 
-GffExon::GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene, GffReader & greader):
-      GffObj(gl, greader),
+GffExon::GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene /*, GffReader & greader*/):
+      GffObj(gl /*, greader*/),
       _parent_gene(gene),
-      _exon_id(gl->_ID),
+      //_exon_id(gl->_ID),
       _exon_name(gl->_name)
 
 {
@@ -393,14 +382,17 @@ GffExon::GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene, GffReader & gre
 }
 
 GffLoci* GffTree::findGene(const string gene_id){
+   if (_genes.empty()) return nullptr;
    if( _genes.back()->_gene_id == gene_id){
       return &(*_genes.back());
    } else{
       for(auto it = _genes.begin(); it!= _genes.end(); it++){
          if( (*it)->_gene_id == gene_id) return &(*(*it));
       }
-      LOG_ERR("Gff file does not contain gene_id: ", gene_id.c_str());
-      return NULL;
+      //unique_ptr<GffLoci> gene (new GffLoci(gene_id));
+      //addGene(move(gene));
+      //LOG_ERR("Gff file does not contain gene_id: ", gene_id.c_str());
+      return nullptr;
    }
 }
 
@@ -409,47 +401,50 @@ GffmRNA* GffTree::findmRNA(const string mrna_id, const Strand_t strand){
    {
       case Strand_t::StrandPlus:
       {
+         if(_forward_rnas.empty()) return nullptr;
          if(_forward_rnas.back()->_transcript_id == mrna_id){
             return &(*_forward_rnas.back());
          } else {
             for(auto it = _forward_rnas.begin(); it!= _forward_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
-            assert(false);
+            //LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
+            //assert(false);
          }
          break;
       }
       case Strand_t::StrandMinus:
       {
+         if(_reverse_rnas.empty()) return nullptr;
          if(_reverse_rnas.back()->_transcript_id == mrna_id){
             return &(*_reverse_rnas.back());
          } else {
             for(auto it = _reverse_rnas.begin(); it!= _reverse_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
-            assert(false);
+            //LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
+            //assert(false);
          }
          break;
       }
       case Strand_t::StrandUnknown:
       {
+         if(_unstranded_rnas.empty()) return nullptr;
          if(_unstranded_rnas.back()->_transcript_id == mrna_id){
             return &(*_unstranded_rnas.back());
          } else {
             for(auto it = _unstranded_rnas.begin(); it!= _unstranded_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
-            assert(false);
+            //LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
+            //assert(false);
          }
          break;
       }
-      default:
-         assert(false);
+      //default:
+         //assert(false);
    }
-   return NULL;
+   return nullptr;
 }
 
 GffReader::GffReader(const char* fname, FILE* stream):
@@ -493,7 +488,7 @@ void GffReader::readAll(){
       {
       case GENE:
        {
-          unique_ptr<GffLoci> gene (new GffLoci(_gfline, *this));
+          unique_ptr<GffLoci> gene (new GffLoci(_gfline));
           //SError("first seq id: %d \n", gene->get_seq_id());
          gseq->addGene(move(gene));
          break;
@@ -503,7 +498,7 @@ void GffReader::readAll(){
 
          GffLoci* gene = gseq->findGene(_gfline->parent());
 
-         unique_ptr<GffmRNA> mrna( new GffmRNA(_gfline, gene, *this));
+         unique_ptr<GffmRNA> mrna( new GffmRNA(_gfline, gene));
          GffmRNA *cur_mrna = NULL;
          if(mrna->strand() == Strand_t::StrandPlus){
             gseq->addPlusRNA(move(mrna));
@@ -525,9 +520,37 @@ void GffReader::readAll(){
        }
       case EXON:
        {
-          GffmRNA* mrna = gseq->findmRNA(_gfline->parent(), _gfline->_strand);
-          GffLoci *const gene  = mrna->getParentGene();
-          exonPtr exon (new GffExon(_gfline, mrna, gene , *this));
+          string parent = _gfline->parent();
+          if (parent.empty()) { // gtf format
+             parent = _gfline->_transcript_id;
+          }
+          assert(!parent.empty());
+          GffmRNA* mrna = gseq->findmRNA(parent, _gfline->_strand);
+          GffLoci* gene = nullptr;
+          if (mrna == nullptr) {
+             gene = gseq->findGene(_gfline->_gene_id);
+             if (gene == nullptr) {
+               unique_ptr<GffLoci> locus(new GffLoci(_gfline->_gene_id));
+               gseq->addGene(move(locus));
+               gene = gseq->findGene(_gfline->_gene_id);
+               assert(gene != nullptr);
+             }
+             mrnaPtr transcript(new GffmRNA(_gfline, gene));
+             if(transcript->strand() == Strand_t::StrandPlus){
+                gseq->addPlusRNA(move(transcript));
+                mrna = gseq->last_f_rna();
+             } else if(transcript->strand() == Strand_t::StrandMinus){
+                gseq->addMinusRNA(move(transcript));
+                mrna = gseq->last_r_rna();
+             } else if(transcript->strand() == Strand_t::StrandUnknown){
+                gseq->addUnstrandedRNA(move(transcript));
+                mrna = gseq->last_u_rna();
+             }
+
+          } else {
+             gene = mrna->getParentGene();
+          }
+          exonPtr exon (new GffExon(_gfline, mrna, gene));
           assert(exon->_iv.left());
           gene->add_exon(move(exon), mrna);
           //GffExon exon(_gfline, _g_seqs[cur_gseq]->last_gene(), *this);

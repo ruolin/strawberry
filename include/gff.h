@@ -100,10 +100,18 @@ public:
    //bool _is_cds; // for future
    GffFeat_t _feat_type; // the type which has been parsed
    char _phase;
+
+   //for gff3 format
    std::string _ID;
    std::string _name;
    std::string _parent;
    std::vector<std::string> _parents;
+
+   //for gff format
+   std::string _gene_id;
+   std::string _gene_name;
+   std::string _transcript_id;
+
    GffLine(const char* l);
    GffLine(const GffLine &l);
    GffLine(GffLine &&l);
@@ -111,11 +119,12 @@ public:
    GffLine& operator = (GffLine &&rhs) = default;
    const std::string parent() const
    {
-      if(_parents.size() != 1){
-         std::cerr<<"No parent gene or multiple parents for a mRNA object in "<< _dupline<<std::endl;;
+      if(_parents.size() > 1){
+         std::cerr<<"Error: multiple parents for a mRNA object in "<< _dupline<<std::endl;;
          exit(0);
+      } else if (_parents.empty()) {
+         return std::string();
       }
-
       return _parents[0];
    }
    GffLine();
@@ -130,12 +139,12 @@ protected:
    std::vector<GffAttr> _attrs; // Attr id is the vector idx
    char _phase;
    std::string _source;
-   GffReader & _greader;
+   //GffReader & _greader;
 public:
    GenomicInterval _iv;
    static std::unique_ptr<GffInfoTable> _infotable;
    GffObj() = default;
-   GffObj(LinePtr gl, GffReader & greader);
+   GffObj(LinePtr gl /*,GffReader & greader*/);
    virtual ~GffObj(){};
    GffObj(const GffObj &other) = default;
    GffObj(GffObj &&other) = default;
@@ -166,9 +175,9 @@ public:
    bool _within_3UTR;
    bool _within_5UTR;
    std::vector<GffmRNA*> _parent_mrnas;
-   std::string _exon_id;
+   //std::string _exon_id;
    std::string _exon_name;
-   GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene, GffReader & greader);
+   GffExon(LinePtr gl, GffmRNA* mrna, GffLoci* const gene /*, GffReader & greader*/);
    GffLoci* const parent_gene()
    {
       return _parent_gene;
@@ -236,12 +245,21 @@ using cdsPtr = std::unique_ptr<GffCDS>;
 class GffLoci: public GffObj{
 public:
    std::vector<GffmRNA* > _mrnas;
-   std::string _gene_id;
    std::string _gene_name;
+   std::string _gene_id;
    std::vector<exonPtr> _non_dup_exons;
    std::vector<intronPtr> _non_dup_introns;
    std::vector<utrPtr> _non_dup_utrs;
-   GffLoci(LinePtr gl, GffReader & greader);
+
+   explicit GffLoci(LinePtr gl /*, GffReader & greader*/):
+           GffObj(gl /*, greader*/),
+           _gene_id (gl->_ID),
+           _gene_name (gl->_name)
+   {}
+
+   explicit GffLoci(std::string const& name, std::string const& id): _gene_name(name), _gene_id(id) {}
+   explicit GffLoci(std::string const& id): _gene_name(id), _gene_id(id) {}
+
    void add_mRNA(GffmRNA *gffmrna)
    {
       _mrnas.push_back(gffmrna);
@@ -262,7 +280,18 @@ public:
    std::vector<GffExon* > _exons;
    std::vector<GffIntron* > _introns;
    std::vector<GffUTR* > _UTRs;
-   GffmRNA(LinePtr gl, GffLoci* gene, GffReader & greader);
+   GffmRNA(LinePtr gl, GffLoci* gene /*,GffReader & greader*/):
+           GffObj(gl /*, greader*/),
+           _parent(gene),
+           _transcript_id(gl->_ID),
+           _transcript_name(gl->_name)
+   {}
+
+   //GffmRNA(const std::string& id, const std::string& name, GffLoci* parent):
+   //        _transcript_id(id), _transcript_name(name), _parent(parent) {}
+
+   //GffmRNA(const std::string& id, GffLoci* parent): GffmRNA(id, id, parent){};
+
    GffLoci* const getParentGene() const{
       return _parent;
    }
