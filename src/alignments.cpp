@@ -1388,16 +1388,20 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #if ENABLE_THREADS
      if(use_threads) out_file_lock.lock();
 #endif
-     cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
-     for(const auto & iso: est.transcripts()){
-       iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
-                    iso._frac_s, iso._gene_str, iso._isoform_str);
+     if (est.transcripts().size() == 2) {
+        cerr << ref_t.ref_real_name(cluster->ref_id()) << "\t" << cluster->left() << "\t" << cluster->right()
+             << " finishes abundances estimation" << endl;
+        for (const auto &iso: est.transcripts()) {
+           iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
+                                 iso._frac_s, iso._gene_str, iso._isoform_str);
+        }
      }
 
-      if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
-         printContext(est, cluster, fragfile);
+      if (fragfile != NULL) {
+         if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
+            printContext(est, cluster, fragfile);
+         }
       }
-     fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
    }
 #if ENABLE_THREADS
    if(use_threads) {
