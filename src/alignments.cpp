@@ -681,7 +681,7 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
        int idx = gseqs[i]->get_gseq_id();
        int ref_table_id = rt.get_id(gseqs[i]->_g_seq_name);
        if (ref_table_id == -1) {
-           cerr<<"Error: the gff file contains seq name "<<gseqs[i]->_g_seq_name<<" which is not found in the bam file"<<endl;
+           cerr<<"Warning: the gff file contains seq name "<<gseqs[i]->_g_seq_name<<" which is not found in the bam file"<<endl;
        }
        else if(idx != ref_table_id ){
          cerr<<"Warning: Sam file and Gff file are not sorted in the same order!\n";

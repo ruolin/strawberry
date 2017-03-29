@@ -220,7 +220,12 @@ GffLine::GffLine(const char* l)
       extractAttr("gene_id", _gene_id);
       extractAttr("gene_name", _gene_name);
       extractAttr("transcript_id", _transcript_id);
-      _ID = _transcript_id; // crazy hack
+      // crazy hack
+      if (_feat_type == GENE) _ID = _gene_id;
+      else if (_feat_type == mRNA) _ID = _transcript_id;
+      else {
+         _ID = _transcript_id;
+      }
    }
 }
 
@@ -464,10 +469,10 @@ bool GffReader::nextGffLine(){
       if(_gfline->_skip){
          continue;
       }
-      if(_gfline->_ID.empty() && _gfline->_parent.empty()){
-         LOG_WARN("Warning: malformed GFF line",_gfline->_dupline);
-         continue;
-      }
+      //if(_gfline->_ID.empty() && _gfline->_parent.empty()){
+         //LOG_WARN("Warning: malformed GFF line",_gfline->_dupline);
+         //continue;
+      //}
 //      cout<<string(l)<<endl;
       break;
    }
@@ -488,7 +493,7 @@ void GffReader::readAll(){
       {
       case GENE:
        {
-          unique_ptr<GffLoci> gene (new GffLoci(_gfline));
+         unique_ptr<GffLoci> gene (new GffLoci(_gfline));
           //SError("first seq id: %d \n", gene->get_seq_id());
          gseq->addGene(move(gene));
          break;
@@ -497,6 +502,7 @@ void GffReader::readAll(){
        {
 
          GffLoci* gene = gseq->findGene(_gfline->parent());
+         if (gene == nullptr) break;
 
          unique_ptr<GffmRNA> mrna( new GffmRNA(_gfline, gene));
          GffmRNA *cur_mrna = NULL;
@@ -523,6 +529,8 @@ void GffReader::readAll(){
           string parent = _gfline->parent();
           if (parent.empty()) { // gtf format
              parent = _gfline->_transcript_id;
+             //cerr<<parent<<" parent\n";
+             //cerr<<_gfline->_gene_id<<" gene id\n";
           }
           assert(!parent.empty());
           GffmRNA* mrna = gseq->findmRNA(parent, _gfline->_strand);
@@ -550,7 +558,8 @@ void GffReader::readAll(){
           } else {
              gene = mrna->getParentGene();
           }
-          exonPtr exon (new GffExon(_gfline, mrna, gene));
+          //cerr<<mrna->_transcript_id<<" transcript id"<<endl;
+          exonPtr exon(new GffExon(_gfline, mrna, gene));
           assert(exon->_iv.left());
           gene->add_exon(move(exon), mrna);
           //GffExon exon(_gfline, _g_seqs[cur_gseq]->last_gene(), *this);
@@ -570,10 +579,14 @@ void GffReader::readAll(){
 
 }
 
-void GffReader::reverseExonOrderInMinusStrand(){
+void GffReader::sortExonOrderInMinusStrand(){
    for(const auto &i: _g_seqs){
       for(const auto &j : i->_reverse_rnas){
-         reverse(j->_exons.begin(), j->_exons.end());
+         if (j->_exons.size() > 1) {
+            if (j->_exons[0]->_iv > j->_exons[1]->_iv) {
+               reverse(j->_exons.begin(), j->_exons.end());
+            }
+         }
       }
    }
 }

@@ -311,7 +311,7 @@ int driver(int argc, char** argv){
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
       fclose(gff);
-      //greader->reverseExonOrderInMinusStrand();
+      greader->sortExonOrderInMinusStrand();
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
 

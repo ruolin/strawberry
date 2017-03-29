@@ -404,7 +404,7 @@ public:
    void addGseq(std::unique_ptr<GffTree> gseq){
       _g_seqs.push_back(move(gseq));
    }
-   void reverseExonOrderInMinusStrand();
+   void sortExonOrderInMinusStrand();
 };
 
 #endif

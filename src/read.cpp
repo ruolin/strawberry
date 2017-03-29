@@ -24,6 +24,7 @@
 #include <string.h>
 //#include <typeinfo>
 #include<cxxabi.h>
+#include<numeric>
 #include "read.hpp"
 //#include "kmer.h"
 

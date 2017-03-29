@@ -7,6 +7,7 @@
 
 #include <string>
 #include <algorithm>
+#include <numeric>
 #include "contig.h"
 
 
