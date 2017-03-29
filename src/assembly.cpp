@@ -22,6 +22,7 @@
 #include <iterator>
 #include <iostream>
 #include <climits>
+#include <numeric>
 //#include <lemon/smart_graph.h>
 #include <lemon/lgf_reader.h>
 #include <lemon/lgf_writer.h>

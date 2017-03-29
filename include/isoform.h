@@ -7,6 +7,7 @@
 
 #include <string>
 #include <algorithm>
+#include <numeric>
 #include "contig.h"
 
 
@@ -39,14 +40,15 @@ class Isoform{
    int _isoform_id;
    int _gene_id;
 public:
+   int _length;
    Contig _contig;
    std::vector<GenomicFeature> _exon_segs;
    std::string _isoform_str;
    std::string _gene_str;
    double _bais_factor;
-   double _TPM = 0.0;
+   double _frac = 0.0;
    double _FPKM = 0.0;
-   std::string _TPM_s = "nan";
+   std::string _frac_s = "nan";
    std::string _FPKM_s = "nan";
    //Isoform() = default;
    Isoform(const std::vector<GenomicFeature>& exons, Contig contig,
@@ -54,6 +56,7 @@ public:
            _contig(contig), _gene_str(gene_name), _isoform_str(iso_name),
            _gene_id(gene_id)
    {
+      //std::cerr<<_gene_str<<std::endl;
       for(uint i = 0; i< exons.size(); ++i){
          if(Contig::is_compatible(_contig, exons[i])){
             _exon_segs.push_back(exons[i]);
@@ -157,6 +160,7 @@ public:
    friend bool operator==(const ExonBin& lhs, const ExonBin& rhs);
    friend bool operator!=(const ExonBin& lhs, const ExonBin& rhs);
    friend bool operator<(const ExonBin& lhs, const ExonBin& rhs);
+   friend std::ostream& operator<<(std::ostream& os, const ExonBin& rhs);
 };
 
 
@@ -172,6 +176,14 @@ inline bool operator< (const ExonBin& lhs, const ExonBin& rhs) {
    return lhs._coords < rhs._coords;
 }
 
+inline std::ostream& operator<<(std::ostream& os, const ExonBin& rhs){
+   os<<"Exon bin: ";
+   for (auto const& c : rhs._coords) {
+      os << "[" + std::to_string(c.first) + "-" + std::to_string(c.second) + "] ";
+   }
+   os<<std::endl;
+   return os;
+}
 //RefID ExonBin::ref_id() const
 //{
 //   return _ref_id;

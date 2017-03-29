@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <memory>
 #include <cmath>
+#include <iomanip>
 #include "logger.hpp"
 typedef void* pointer;
 typedef uint64_t ReadID;
@@ -63,6 +64,8 @@ extern std::string output_dir;
 extern std::string ref_gtf_filename;
 extern std::string ref_fasta_file;
 extern std::string tracking_log;
+extern std::string frag_context_out;
+extern bool print_frag_context;
 extern bool effective_len_norm;
 extern float kIntronEdgeWeight;
 extern bool use_only_unique_hits;
@@ -103,6 +106,12 @@ bool endsWith(const char* s, const char* suffix);
 
 double gc_content(const std::string& str);
 void split(const std::string& s, const std::string& delims, std::vector<std::string>& result);
+
+inline std::string fileName(const std::string& s) {
+   std::vector<std::string> fields;
+   split(s, "/", fields);
+   return fields.back();
+}
 
 const char* stripFileName(char *path);
 
@@ -233,7 +242,47 @@ enum class Strand_t: char{
    StrandBoth
 };
 
-//std::ostream& operator<<(std::ostream&os, const Strand_t& obj);
+template<typename str>
+std::ostream& operator<<(std::ostream& os, const std::vector<str>& vec) {
+   os<<"[";
+   bool flag = true;
+   for (const auto& item: vec) {
+      if (flag) {
+         os << item;
+         flag = false;
+      }
+      else {
+         os<<", "<<item;
+      }
+   }
+   os<<"]"<<std::endl;
+   return os;
+}
+
+inline void pretty_print(FILE* file, const std::vector<std::string>& vec) {
+   std::string out_str;
+   bool flag = true;
+   for (const auto& item: vec) {
+      if (flag) {
+         out_str += item;
+         flag = false;
+      }
+      else {
+         out_str += ",";
+         out_str += item;
+      }
+   }
+   out_str += "\n";
+   fprintf(file, out_str.c_str());
+}
+
+template <typename T>
+std::string to_string_with_precision(const T a_value, const int n = 6)
+{
+   std::ostringstream out;
+   out << std::setprecision(n) << a_value;
+   return out.str();
+}
 
 class GenomicInterval {
 private:

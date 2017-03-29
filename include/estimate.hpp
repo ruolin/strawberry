@@ -10,19 +10,22 @@
 #include "contig.h"
 #include "read.hpp"
 #include "bias.hpp"
+#include "interval.hpp"
 
 
 class LocusContext {
 //typedef CGAL::Quadratic_program<double> Program;
 //typedef CGAL::Quadratic_program_solution<ET> Solution;
-   static const double _kMinTPM;
+   static const double _kMinFrac;
    static constexpr double _kMinFPKM = 1e-2;
-
-   std::shared_ptr<InsertSize> _insert_size_dist;
+   const Sample& _sample;
+   //const std::shared_ptr<HitCluster> _cluster;
    int _read_len;
    FILE* _p_log_file;
+   std::vector<Isoform> _transcripts;
    std::vector<ExonBin> exon_bins;
    std::map<int, std::set<int>> iso_2_bins_map;
+   std::vector<GenomicFeature> _exon_segs;
 
    void set_maps(
            const int& iso_id,
@@ -51,38 +54,121 @@ class LocusContext {
 
    void assign_exon_bin(
            const std::vector<Contig> &hits,
-           const std::vector<Isoform> &transcripts,
            const std::vector<GenomicFeature> & exon_segs);
 
+   void set_theory_bin_weight();
+
 public:
-   LocusContext(std::shared_ptr<InsertSize> insert_size,
-                              int read_len, FILE* tracker,
-                              const std::vector<Contig> &hits,
-                              const std::vector<Isoform> &transcripts,
-                              const std::vector<GenomicFeature> &exon_segs):
-         _insert_size_dist(insert_size), _read_len(read_len), _p_log_file(tracker)
+   LocusContext(const Sample& s,
+                FILE* tracker,
+                const std::shared_ptr<HitCluster> cluster,
+                const std::vector<Contig> &transcripts):
+         _sample(s),  _p_log_file(tracker)
    {
-      assign_exon_bin(hits, transcripts, exon_segs);
+      assert(transcripts.size());
+      _read_len = _sample._hit_factory->_reads_table._read_len_abs;
+
+      std::vector<Contig> hits;
+      for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
+        Contig hit(*r);
+        hits.push_back(hit);
+      }
+
+      std::vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);
+
+      // prepare exon segments
+      for(const auto &t: transcripts) {
+         for (const auto &f: t._genomic_feats) {
+            if (f._match_op._code == Match_t::S_MATCH) exons.push_back(f);
+         }
+      }
+      sort(exons.begin(), exons.end());
+      auto last = unique(exons.begin(), exons.end());
+      exons.erase(last, exons.end());
+      IRanges<GenomicFeature, false> exons_iranges(exons);
+      std::vector<GenomicFeature> reduced_exons = exons_iranges.disjoint();
+      _exon_segs = reduced_exons;
+
+      for(const auto &t: transcripts){
+        Isoform iso(_exon_segs, t, t.parent_id(), t.annotated_trans_id(), cluster->id());
+        iso._length = t.exonic_length();
+        int idx = PushAndReturnIdx<Isoform>(iso, _transcripts);
+      }
+
+      assign_exon_bin(hits, _exon_segs);
+      set_theory_bin_weight();
+
    }
 
-   void test();
-   void overlap_exons(const std::vector<GenomicFeature>& exons,
-                     const Contig& read,
-                     std::set<std::pair<uint,uint>> &coords);
+   decltype(auto) transcripts() const {return (_transcripts);}
 
-   void set_theory_bin_weight(const std::map<int, int> &iso_2_len_map,
-                          const std::vector<Isoform>& isoforms);
+   std::string gene_name() const {
+      std::string gname;
+      assert(!_transcripts.empty());
+      for (const auto& iso : _transcripts) {
+         if (gname.empty()) gname = iso._gene_str;
+         else {
+            assert (gname == iso._gene_str);
+         }
+      }
+      return gname;
+   }
+
+   std::vector<std::string> transcript_names() const {
+      std::vector<std::string> tnames;
+      assert(!_transcripts.empty());
+      for (const auto& t: _transcripts) {
+         tnames.push_back(t._isoform_str);
+      }
+      return tnames;
+   }
+
+   size_t num_transcripts() const {
+      return _transcripts.size();
+   }
+
+   size_t num_exon_bins() const {
+      return exon_bins.size();
+   }
+
+   std::string sample_name() const {
+      return _sample.sample_name();
+   }
+
+   std::set<std::pair<uint,uint>> overlap_exons(const std::vector<GenomicFeature>& exons, const Contig& read) const;
 
    void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);
 
    void calculate_raw_iso_counts();
 
-   bool estimate_abundances(const double mass,
-                            std::map<int, int>& iso_2_len_map,
-                            std::vector<Isoform>& isoforms,
-                            bool with_bias_correction,
+   bool estimate_abundances(bool with_bias_correction,
                             const std::shared_ptr<FaSeqGetter> & fa_getter);
 
+   std::pair<std::set<std::pair<uint,uint>>, std::vector<double>> get_frag_info(const Contig& frag) const {
+      // return a pair of exon bin coordinates and probabilities
+      std::pair<std::set<std::pair<uint,uint>>, std::vector<double>> ret;
+      std::set<std::pair<uint,uint>> coords;
+      std::vector<double> info;
+      for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso) {
+         if (Contig::is_compatible(frag, iso->_contig)) {
+            auto c = overlap_exons(_exon_segs, frag);
+            if (coords.empty()) coords = c;
+            else assert (coords == c);
+            auto search = std::find(exon_bins.begin(), exon_bins.end(), ExonBin(coords));
+            assert (search != exon_bins.end());
+            //std::cerr<<search->_bin_weight_map.at(iso->id())<<"\t";
+            info.push_back(search->_bin_weight_map.at(iso->id()));
+         }
+         else {
+            info.push_back(0.0);
+         }
+      }
+      //if (!coords.empty() && std::accumulate(info.begin(), info.end(), 0.0) == 0.0) {
+      //   std::cerr<<ExonBin(coords)<<std::endl;
+      //}
+      //std::cerr<<std::endl;
+      return std::make_pair(coords, info);
+   }
 
    std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {
 
@@ -116,12 +202,12 @@ public:
 
 
 class EmSolver{
-   const double TOLERANCE = std::numeric_limits<double>::denorm_min();
+   const double TOLERANCE = std::numeric_limits<double>::lowest();
    std::vector<double> _theta_after_zero;
    std::vector<int> _u; // observed data vector
-   std::vector<std::vector<double>> _F; // sampling rate matrix, \alpha
+   std::vector<std::vector<double>> _F; // initial conditional probability matrix
    std::vector<std::vector<double>> _B; // bias matrix, \beta
-   std::vector<std::vector<double>> _U; // hidden unobserved data matrix.
+   //std::vector<std::vector<double>> _U; // hidden unobserved data matrix.
    static constexpr int _max_iter_num = 1000;
    static constexpr int _max_bias_it_num = 10;
    static constexpr int _max_theta_it_num = 5000;

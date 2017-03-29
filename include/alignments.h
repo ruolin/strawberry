@@ -41,7 +41,7 @@ private:
     std::unordered_map<ReadID, std::list<PairedHit>> _open_mates;
     std::vector<PairedHit> _hits;
     std::vector<PairedHit> _uniq_hits;
-    std::vector<Contig *> _ref_mRNAs; // the actually objects are owned by Sample
+    std::vector<Contig> _ref_mRNAs; // the actually objects are owned by Sample
     std::vector<GenomicFeature> _introns;
     std::vector<float> _dep_of_cov;
 
@@ -50,6 +50,8 @@ private:
     void reweight_read(bool weight_bais);
     //map<std::pair<int,int>,int> _current_intron_counter;
 public:
+    decltype(auto) uniq_hits() const { return (_uniq_hits);}
+    decltype(auto) id() const { return (_id);}
     double _weighted_mass = 0.0;
     //static const int _kMaxGeneLen = 1000000;
     //static const int _kMaxFragPerCluster = 100000;
@@ -79,7 +81,7 @@ public:
     }
 
     decltype(auto) gene_id() {
-        return _gene_id;
+        return (_gene_id);
     }
 
     Strand_t ref_strand() const;
@@ -109,14 +111,10 @@ public:
     }
 
     std::vector<Contig> ref_mRNAs() const {
-        std::vector<Contig> result;
-        for (auto it : _ref_mRNAs) {
-            result.push_back(*it);
-        }
-        return result;
+        return _ref_mRNAs;
     }
 
-    void addRefContig(Contig *contig);
+    void addRefContig(const Contig& contig);
 
     int numOpenMates() const {
         return _open_mates.size();
@@ -160,6 +158,7 @@ public:
 
 };
 
+class LocusContext;
 class Sample {
     bool _is_inspecting;
     std::atomic<int> _num_cluster;
@@ -237,11 +236,11 @@ public:
     //void compute_doc_4_cluster(const HitCluster & hit_cluster, std::vector<float> &exon_doc,
     //map<std::pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
     void quantifyCluster(const RefSeqTable &ref_t, const std::shared_ptr<HitCluster> cluster,
-                         const std::vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile) const;
+                         const std::vector<Contig> &assembled_transcripts, FILE* pfile, FILE* plogfile, FILE* fragfile) const;
 
     void filter_intron(uint cluster_left, std::vector<float> &exon_doc, IntronMap &intron_counter);
 
-    void procSample(FILE *f, FILE *log);
+    void procSample(FILE *f, FILE *log, FILE* fragfile);
 
     void inspectSample(FILE *log);
 
@@ -253,6 +252,7 @@ public:
     void fragLenDist(const RefSeqTable &ref_t, const std::vector<Contig> &isoforms,
                      const std::shared_ptr<HitCluster> cluster, FILE *plogfile);
     void preProcess(FILE *log);
+    void printContext(const LocusContext& est, const std::shared_ptr<HitCluster> cluster, FILE *fragfile) const;
 };
 
 

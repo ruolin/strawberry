@@ -41,7 +41,7 @@
 #define OPT_MIN_DEPTH_4_TRANSCRIPT     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
-#define OPT_NO_ASSEMBLY 264
+//#define OPT_NO_ASSEMBLY 260
 using namespace std;
 
 
@@ -58,7 +58,7 @@ static struct option long_options[] = {
 #endif
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
-      {"no-assembly",                     no_argument,            0,       OPT_NO_ASSEMBLY},
+      {"no-assembly",                     no_argument,            0,       'r'},
       {"min-transcript-size",             required_argument,      0,       't'},
       {"max-overlap-distance",            required_argument,      0,       'd'},
       {"small-anchor-size",               required_argument,      0,       's'},
@@ -71,13 +71,15 @@ static struct option long_options[] = {
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
       {"infer-missing-end",               no_argument,            0,       'm'},
+      {"fragment-context",                required_argument,      0,       'f'},
+      {"filter-low-expression",           required_argument,      0,       'e'},
       {0, 0, 0, 0} // terminator
 };
 
 #if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:cvGcm";
+const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvGcm";
 #else
-const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:cvGcm";
+const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:fecvGcm";
 #endif
 
 void print_help()
@@ -89,7 +91,7 @@ void print_help()
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current only support GFF3 format.                             [default:     NULL]\n");
-   fprintf(stderr, "   --no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
+   fprintf(stderr, "   -r/--no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)    [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
@@ -109,10 +111,12 @@ void print_help()
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
+   fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression to this file.                                     [default:     frag_context.csv]\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
+   fprintf(stderr, "   -e/--filter-low-expression            Skip isoforms whose relative expression (within locus) are less than this number.                    [default:     0.]\n" );
 }
 
 int parse_options(int argc, char** argv)
@@ -135,6 +139,9 @@ int parse_options(int argc, char** argv)
                         num_threads = parseInt(optarg, 1, "-p/--num-threads must be at least 1", print_help);
                         use_threads = true;
                         break;
+               case 'f':
+                        print_frag_context = true;
+                        frag_context_out = optarg;
                case 'v':
                         verbose = true;
                         break;
@@ -151,9 +158,13 @@ int parse_options(int argc, char** argv)
                         ref_gtf_filename = optarg;
                         utilize_ref_models = true;
                         break;
-               case OPT_NO_ASSEMBLY:
+               case 'r':
                         no_assembly = true;
                         enforce_ref_models = true;
+                        break;
+               case 'e':
+                        kMinIsoformFrac = parseFloat(optarg, 0, 1.0, "-e/--filter-low-expression must be between 0-1.0", print_help);
+                        filter_by_expression = true;
                         break;
                case 't':
                         kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);
@@ -253,9 +264,12 @@ int driver(int argc, char** argv){
          exit(1);
       }
    }
+   output_dir += "/";
    string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
-   assembled_file += string("/assembled_transcripts.gtf");
+   assembled_file += string("assembled_transcripts.gtf");
    string tracker = output_dir + tracking_log;
+   string fragfile = output_dir + frag_context_out;
+
    if(verbose){
       fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
       fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
@@ -264,6 +278,10 @@ int driver(int argc, char** argv){
    fprintf(pFile, "#%s\n", cmdline.c_str());
    fprintf(pFile, "#########################################\n");
    FILE *plogfile = fopen(tracker.c_str(), "w");
+
+   FILE* pfragfile = NULL;
+   if (print_frag_context) pfragfile = fopen(fragfile.c_str(), "w");
+
    char* bam_file = argv[optind++];
    ReadTable read_table;
    RefSeqTable ref_seq_table(true);
@@ -293,7 +311,7 @@ int driver(int argc, char** argv){
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
       fclose(gff);
-      greader->reverseExonOrderInMinusStrand();
+      greader->sortExonOrderInMinusStrand();
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
 
@@ -315,9 +333,11 @@ int driver(int argc, char** argv){
    }
    if (no_assembly) read_sample.preProcess(plogfile);
    else read_sample.inspectSample(plogfile);
+
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
    }
+
 
    if(SINGLE_END_EXP){
       kInsertSizeMean = 200;
@@ -343,11 +363,15 @@ int driver(int argc, char** argv){
       read_sample._insert_size_dist = move(insert_size);
    }
 
-   read_sample.procSample(pFile, plogfile );
+
+   read_sample.procSample(pFile, plogfile, pfragfile);
+
    fclose(pFile);
    fclose(plogfile);
+   if (pfragfile != NULL) fclose(pfragfile);
    pFile = NULL;
    plogfile = NULL;
+   pfragfile = NULL;
    delete greader;
    greader = NULL;
    auto end = chrono::steady_clock::now();

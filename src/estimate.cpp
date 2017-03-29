@@ -1,5 +1,4 @@
-/*
->HEADER
+/* >HEADER
     Copyright (c) 2015 Ruolin Liu rliu0606@gmail.com
     This file is part of Strawberry.
     Strawberry is free software: you can redistribute it and/or modify
@@ -34,7 +33,7 @@
 
 // program and solution types
 using namespace std;
-const double LocusContext::_kMinTPM = kMinIsoformFrac * 1e6;
+const double LocusContext::_kMinFrac = kMinIsoformFrac;
 //const double LocusContext::_kMinTPM = 0;
 
 uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_2_extend,  SingleOrit_t orit, Contig & inferred_mp){
@@ -133,10 +132,9 @@ uint generate_pair_end(const Contig& ct, const Contig& orig_read, int dist_need_
 }
 
 
-void LocusContext::overlap_exons(const vector<GenomicFeature>& exons,
-                     const Contig& read,
-                     set<pair<uint,uint>> &coords)
+set<pair<uint,uint>> LocusContext::overlap_exons(const vector<GenomicFeature>& exons, const Contig& read) const
 {
+   set<pair<uint,uint>> coords;
    for(auto const& gfeat : exons){
       if (gfeat._match_op._code != Match_t::S_MATCH) continue;
 
@@ -149,13 +147,13 @@ void LocusContext::overlap_exons(const vector<GenomicFeature>& exons,
          }
       }
    }
+   return coords;
 }
 
 
 
 void LocusContext::assign_exon_bin(
       const vector<Contig> &hits,
-      const vector<Isoform> &transcripts,
       const vector<GenomicFeature> & exon_segs)
 {
 /*
@@ -163,20 +161,19 @@ void LocusContext::assign_exon_bin(
  */
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
 
-      map<set<uint>, pair<set<int>, int>> frag_mult_exonbin;
       double sr_fg_len = 0.0;
       if(mp->is_single_read() && infer_the_other_end){
          //random_device rd;
          //mt19937 gen(rd());
          mt19937 gen(3); // we use a fixed seed to make sure the output are the same every time.
-         double mean = _insert_size_dist->_mean;
-         double sd = _insert_size_dist->_sd;
+         double mean = _sample._insert_size_dist->_mean;
+         double sd = _sample._insert_size_dist->_sd;
          normal_distribution<> nd(mean, sd);
 
          while( (sr_fg_len = nd(gen)) <= 0){}
       }
 
-      for(auto iso = transcripts.cbegin(); iso != transcripts.cend(); ++iso){
+      for(auto iso = _transcripts.cbegin(); iso != _transcripts.cend(); ++iso){
          if(Contig::is_compatible(*mp, iso->_contig)){
             set<pair<uint,uint>> coords;
             int frag_len = 0;
@@ -188,7 +185,7 @@ void LocusContext::assign_exon_bin(
                   if(mp->single_read_orit() == SingleOrit_t::Forward){
                      uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Forward, new_read);
                      if(other_end == 0) continue;
-                     overlap_exons(exon_segs, new_read, coords);
+                     coords = overlap_exons(exon_segs, new_read);
                   }
 
                   else if (mp->single_read_orit() == SingleOrit_t::Reverse) {
@@ -196,21 +193,21 @@ void LocusContext::assign_exon_bin(
                      uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Reverse, new_read);
                      if(other_end == 0) continue;
                      assert(coords.empty());
-                     overlap_exons(exon_segs, new_read, coords);
+                     coords = overlap_exons(exon_segs, new_read);
                   }
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, new_read.left(), new_read.right());
                   set_maps(iso->id(), frag_len, new_read.mass(), new_read, coords);
                } // end if infer the other
 
                else{
-                  overlap_exons(exon_segs, *mp, coords);
+                  coords = overlap_exons(exon_segs, *mp);
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                   set_maps(iso->id(), frag_len, mp->mass(), *mp, coords);
                }
             } // and and single end
 
             else{
-               overlap_exons(exon_segs,*mp, coords);
+               coords = overlap_exons(exon_segs,*mp);
                frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                set_maps(iso->id(), frag_len, mp->mass(), *mp, coords);
             }
@@ -221,15 +218,14 @@ void LocusContext::assign_exon_bin(
 }
 
 
-void LocusContext::set_theory_bin_weight(const map<int,int> &iso_2_len_map,
-                                     const vector<Isoform>& isoforms) {
+void LocusContext::set_theory_bin_weight() {
 
    for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
-      assert(isoforms[it->first].id() == it->first);
+      assert(_transcripts[it->first].id() == it->first);
       for(auto const &bin_idx: it->second){
          double weight = 0.0;
          vector<pair<uint,uint>> exon_segs;
-         vector<uint> implicit_exon_idx = exon_bins.at(bin_idx).bin_under_iso(isoforms[it->first], exon_segs);
+         vector<uint> implicit_exon_idx = exon_bins.at(bin_idx).bin_under_iso(_transcripts[it->first], exon_segs);
          vector<uint> seg_lens(exon_segs.size());
          for(uint i=0; i< seg_lens.size(); ++i){
             seg_lens[i] = exon_segs[i].second - exon_segs[i].first + 1;
@@ -237,28 +233,22 @@ void LocusContext::set_theory_bin_weight(const map<int,int> &iso_2_len_map,
 
          int lmax = accumulate(seg_lens.begin(), seg_lens.end(),0);
          int lmin;
-         if(_insert_size_dist->_use_emp)
-            lmin = _insert_size_dist->_start_offset;
+         if(_sample._insert_size_dist->_use_emp)
+            lmin = _sample._insert_size_dist->_start_offset;
          else
-            lmin = 2*_read_len;
+            //lmin = 2*_read_len;
+            lmin = _read_len;
          if(seg_lens.size() > 2)
             lmin = max(lmin, accumulate(seg_lens.begin() +1, seg_lens.end()-1, 0));
-
+         //std::cerr<<"min "<<lmin<<" max "<<lmax<<std::endl;
          for(int fl = lmin ; fl <= lmax; ++fl){
             double le_eff = exon_bins.at(bin_idx).effective_len(seg_lens,implicit_exon_idx, fl, _read_len);
-            double tmp = _insert_size_dist->emp_dist_pdf(fl)* le_eff / (iso_2_len_map.at(it->first)-fl+1);
+            double tmp = _sample._insert_size_dist->emp_dist_pdf(fl)* le_eff / (_transcripts[it->first]._length - fl + 1);
             weight += tmp;
          }
+         //std::cerr<<"weight "<<weight<<std::endl;
          exon_bins.at(bin_idx)._bin_weight_map[it->first] = weight;
 
-//#ifdef DEBUG
-//   cout<<"iso "<<it->first<<endl;
-//   cout<<"coords";
-//   for(auto const& c : bin_idx)
-//      cout<<" "<<c.first<<"-"<<c.second;
-//   cout<<endl;
-//         cout<<"weight "<<weight<< " lmax "<<lmax<<endl;
-//#endif
       }
    }
 }
@@ -272,7 +262,7 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
          double weight = 0.0;
          for(auto const &len_mass_pair: exon_bins.at(bin_idx)._iso_2_frag_lens.at(it->first)){
             int num_start_pos = iso_2_len_map.at(it->first)-len_mass_pair.first+1;
-            weight += len_mass_pair.second * _insert_size_dist->emp_dist_pdf(len_mass_pair.first) / num_start_pos;
+            weight += len_mass_pair.second * _sample._insert_size_dist->emp_dist_pdf(len_mass_pair.first) / num_start_pos;
          }
          exon_bins.at(bin_idx)._bin_weight_map[it->first] = weight;
          iso_weight += weight;
@@ -293,17 +283,14 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
    }
 }
 
-bool LocusContext::estimate_abundances(const double mass,
-                                       map<int, int>& iso_2_len_map,
-                                       vector<Isoform>& isoforms,
-                                       bool with_bias_correction,
+bool LocusContext::estimate_abundances(bool with_bias_correction,
                                        const shared_ptr<FaSeqGetter> &fa_getter)
 {
    size_t nrow = exon_bins.size();
-   size_t niso = isoforms.size();
+   size_t niso = _transcripts.size();
 
    vector<int> n (nrow);
-   vector<vector<double>> alpha (nrow, vector<double>(niso));
+   vector<vector<double>> alpha(nrow, vector<double>(niso));
    unsigned i = 0;
    for(auto const& bin: exon_bins){
       n[i] = bin.read_count();
@@ -325,23 +312,9 @@ bool LocusContext::estimate_abundances(const double mass,
 #endif
    bool success;
    EmSolver em;
-   if(with_bias_correction){
-      vector<vector<double>> bias;
-      bias = calculate_bin_bias(fa_getter);
-//      Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> X;
-//      X.setRandom(nrow, 3);
-//      X = X+Eigen::MatrixXd::Ones(nrow,3);
-//      vector<vector<double>> bias(nrow, vector<double>(3,0.0));
-//      for(int i=0; i< nrow; ++i)
-//         for(int j =0; j< 3; ++j) bias[i][j] = X(i,j);
+   success = em.init(niso, n, alpha);
+   if(success) em.run();
 
-      success = em.init(niso, n, alpha, bias);
-      if(success) em.run();
-   }
-   else{
-      success = em.init(niso, n, alpha);
-      if(success) em.run();
-   }
    if(success){
       for(uint i=0; i<niso; ++i){
          fprintf(_p_log_file, "isoform %d has %f raw read count.\n", i+1, em._theta[i]);
@@ -349,41 +322,40 @@ bool LocusContext::estimate_abundances(const double mass,
       double sum_fpkm = 0.0;
       //cout<<"num of iso: "<<niso<<endl;
       for(uint i=0; i< niso; ++i){
-         uint id = isoforms[i].id();
          double kb = 0.0;
          if(effective_len_norm){
-            kb = iso_2_len_map[id] - _insert_size_dist->_mean;
+            kb = _transcripts[i]._length - _sample._insert_size_dist->_mean;
             if (kb < 0){
-               isoforms[i]._FPKM_s = "nan";
+               _transcripts[i]._FPKM_s = "nan";
                continue;
             }
             kb =1e3/kb;
          }
          else{
-            kb = 1e3/iso_2_len_map[id];
+            kb = 1e3/_transcripts[i]._length;
          }
-         double rpm = 1e6/mass;
+         double rpm = 1e6/_sample.total_mapped_reads();
          double fpkm = em._theta[i]*rpm*kb;
 //#ifdef DEBUG
 //         cout<<"theta: "<<i<<" exp: "<<em._theta[i]<<endl;
 //#endif
-         isoforms[i]._FPKM = fpkm;
+         _transcripts[i]._FPKM = fpkm;
          sum_fpkm += fpkm;
-         isoforms[i]._FPKM_s = to_string(fpkm);
+         _transcripts[i]._FPKM_s = to_string(fpkm);
       }
       for(uint i=0; i< niso; ++i){
-         if(isoforms[i]._FPKM_s == "nan"){
-            isoforms[i]._TPM_s = "nan";
+         if(_transcripts[i]._FPKM_s == "nan"){
+            _transcripts[i]._frac_s = "nan";
             continue;
          }
-         double tpm = isoforms[i]._FPKM/sum_fpkm * 1e6;
-         isoforms[i]._TPM = tpm;
-         isoforms[i]._TPM_s = to_string(tpm);
+         double tpm = _transcripts[i]._FPKM/sum_fpkm ;
+         _transcripts[i]._frac = tpm;
+         _transcripts[i]._frac_s = to_string(tpm);
       }
       if(filter_by_expression){
-         for(auto it = isoforms.begin() ; it != isoforms.end();){
-            if(it->_TPM < _kMinTPM || it->_FPKM < _kMinFPKM)
-               it = isoforms.erase(it);
+         for(auto it = _transcripts.begin() ; it != _transcripts.end();){
+            if(it->_frac < _kMinFrac)
+               it = _transcripts.erase(it);
             else
                ++it;
          }
@@ -391,8 +363,8 @@ bool LocusContext::estimate_abundances(const double mass,
    }
 //   else{
 //      for(uint i=0; i< niso; ++i){
-//         isoforms[i]._TPM = "FAILED";
-//         isoforms[i]._FPKM = "FAILED";
+//         _transcripts[i]._TPM = "FAILED";
+//         _transcripts[i]._FPKM = "FAILED";
 //      }
 //   }
    return success;
@@ -422,59 +394,10 @@ bool EmSolver::init(const int num_iso,
       _F.push_back(model[i]);
    }
    if(_u.empty()) return false;
-//#ifdef DEBUG
-//   nrow = _u.size();
-//   Eigen::VectorXi obs_d(nrow);
-//   Eigen::MatrixXd F(nrow, ncol);
-//    for(size_t i =0; i < nrow; ++i){
-//         for(size_t j= 0; j < ncol; ++j){
-//            F(i,j) = _F[i][j];
-//         }
-//    }
-//    for(size_t i = 0; i < nrow; ++i)
-//      obs_d(i) = _u[i];
-//    cerr<<"------n_i----------"<<endl;
-//    cerr<<obs_d<<endl;
-//    cerr<<"------Bias---------"<<endl;
-//    cerr<<F<<endl;
-//    cerr<<"-------------------"<<endl;
-//#endif
-    return true;
-}
-
-bool EmSolver::init( const int num_iso,
-         const vector<int> &count,
-         const vector<vector<double>> &model,
-         const vector<vector<double>> &bias)
-{
-   int nrow = count.size();
-   int ncol = num_iso;
-   double total_count = accumulate(count.begin(), count.end(), 0.0);
-   _theta = vector<double>(num_iso, total_count/num_iso);
-   vector<size_t> erase_pos;
-   for(int i= 0; i< nrow; ++i){
-      bool remove = true;
-      for(int j=0; j < ncol; ++j){
-         if(model[i][j] > 1e-5) remove = false;
-      }
-      if(remove)
-         erase_pos.push_back(i);
-   }
-
-   for(int i=0; i<nrow; ++i){
-      if(binary_search(erase_pos.begin(), erase_pos.end(), i)) continue;
-      _u.push_back(count[i]);
-      _F.push_back(model[i]);
-      _B.push_back(bias[i]);
-   }
-   if(_u.empty()) return false;
-
 #ifdef DEBUG
    nrow = _u.size();
-   Eigen::MatrixXd B(_B.size(), _B[0].size());
    Eigen::VectorXi obs_d(nrow);
    Eigen::MatrixXd F(nrow, ncol);
-
     for(size_t i =0; i < nrow; ++i){
          for(size_t j= 0; j < ncol; ++j){
             F(i,j) = _F[i][j];
@@ -482,34 +405,28 @@ bool EmSolver::init( const int num_iso,
     }
     for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
-    for(size_t i =0; i< _B.size(); ++i){
-       for(size_t j = 0; j< _B[0].size(); ++j)
-          B(i,j) = _B[i][j];
-    }
     cerr<<"------n_i----------"<<endl;
     cerr<<obs_d<<endl;
-    cerr<<"------Sampleing Rates---------"<<endl;
+    cerr<<"-------------------"<<endl;
     cerr<<F<<endl;
-    cerr<<"------Bias-------------"<<endl;
-    cerr<<B<<endl;
-    cerr<<"------------------------"<<endl;
 #endif
     return true;
 }
-
 
 bool EmSolver::run(){
    if (_u.empty()) return false;
    size_t nrow = _u.size();
    size_t ncol = _theta.size();
 
+   //initialization
    Eigen::VectorXi obs_d(nrow);
    for(size_t i = 0; i < nrow; ++i)
       obs_d(i) = _u[i];
 
+   // Conditional probability update matrix
    Eigen::MatrixXd F(nrow, ncol);
-     F.setZero(nrow, ncol);
-   for(size_t i =0; i < nrow; ++i){ // updating the F matrix since theta changes
+   F.setZero(nrow, ncol);
+   for(size_t i =0; i < nrow; ++i){
       for(size_t j= 0; j < ncol; ++j){
          F(i,j) = _F[i][j];
       }
@@ -523,138 +440,55 @@ bool EmSolver::run(){
    Eigen::VectorXd next_theta(ncol);
    next_theta.setZero(ncol);
 
-   if(!_B.empty() && !_B[0].empty()){
-      Eigen::MatrixXd B(_B.size(), _B[0].size());
-      Eigen::VectorXd bias(_B[0].size());
+   Eigen::MatrixXd U(nrow, ncol);
+   U.setZero(nrow, ncol);
 
+   Eigen::MatrixXd newF(nrow, ncol);
+   newF.setZero(nrow, ncol);
 
-      for(size_t i =0; i< _B.size(); ++i){
-         for(size_t j = 0; j< _B[0].size(); ++j)
-            B(i,j) = _B[i][j];
-      }
-      bias = (B.transpose() * B).inverse() * B.transpose() * Eigen::MatrixXd::Ones(_B.size(),1);
-      Eigen::VectorXd next_bias(B.cols());
-      next_bias.setZero(B.cols());
-
-      for(int outer_it_num = 0; outer_it_num != _max_out_it_num; ++outer_it_num){
-
-         for(int bias_it_num = 0; bias_it_num != _max_bias_it_num; ++bias_it_num){
-            Eigen::MatrixXd U(B.rows(), B.cols());
-            for(uint i = 0; i != B.rows(); ++i){
-               double denom = bias.dot(B.row(i));
-               if(denom < TOLERANCE) return false;
-               for(uint j = 0; j != B.cols(); ++j)
-                  U(i,j) = obs_d[i] * B(i,j)*bias[j]/denom;
-            }
-            for(uint j = 0; j != B.cols(); ++j){
-               double numer = U.col(j).sum();
-               double denom = 0.0;
-               for(uint i = 0; i != B.rows(); ++i){
-                  denom += B(i,j)* theta.dot(F.row(i));
-               }
-               if(denom < TOLERANCE) return false;
-               next_bias[j] = numer/denom;
-            }
-            int num_changes = 0;
-            for(uint j = 0; j < B.cols(); ++j){
-               if( fabs( next_bias[j]-bias[j] )/next_bias[j] > _bias_change_limit ){
-                  ++num_changes;
-               }
-               bias[j] = next_bias[j];
-               next_bias[j] = 0.0;
-            }
-            if(num_changes == 0) {
-               break;
-            }
-         }
-
-         for(int theta_it_num = 0; theta_it_num < _max_theta_it_num; ++ theta_it_num){
-            Eigen::MatrixXd U(nrow, ncol);
-            for(uint i=0; i<nrow; ++i){
-               double denom = theta.dot(F.row(i));
-               if(denom < TOLERANCE) return false;
-               for(uint j=0; j< ncol; ++j)
-                  U(i,j) = obs_d[i] * F(i,j) * theta[j] / denom;
-            }
-            for(uint j=0; j<ncol; ++j){
-               double numer = U.col(j).sum();
-               double denom = 0;
-               for (uint i =0; i< nrow; ++i){
-                  denom = denom + F(i,j)*bias.dot(B.row(i));
-               }
-               if(denom < TOLERANCE) return false;
-               next_theta[j] = numer / denom;
-            }
-            int num_changes = 0;
-            for(uint j= 0; j< ncol; ++j){
-               if( fabs(next_theta[j] - theta[j] )/next_theta[j] > _theta_change_limit )
-                  ++num_changes;
-               theta[j] = next_theta[j];
-               next_theta[j] = 0.0;
-            }
-            if(num_changes == 0) {
-//               cout<<U<<endl;
-//               cout<<" hidden data "<<endl;
-               break;
-            }
-         }
-
-
-          for(size_t j = 0; j< ncol; ++j){
-             _theta[j] = theta[j];
-             //cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
-          }
-
-
-//               cout<<"theta: "<<endl;
-               //cout<<theta<<endl;
-//               cout<<"bias: "<<bias<<endl;
-               //out<<" fi "<<endl;
-      }
-      return true;
-   }// end if
-
-
-   for(int it_num = 0; it_num < _max_iter_num; ++it_num){
+   for(int it_num = 0; it_num < _max_iter_num; ++it_num){ // if no bias est
       /*E-step*/
 
-      Eigen::MatrixXd U(nrow, ncol);
-      U.setZero(nrow, ncol);
+      // posterior latent class probability
 
       for(size_t i =0; i < nrow; ++i){ // updating the unobserved data matrix
          double denom = F.row(i).dot(theta);
-         if(denom < TOLERANCE) return false;
+         if(denom == 0) {
+            return false;
+         }
          for(size_t j= 0; j < ncol; ++j){
             double num = obs_d(i) * F(i,j)*theta[j];
             U(i,j) = num/denom;
          }
       }
 
+
       /*M-step*/
       for(int j = 0; j< U.cols(); ++j){
-         //double den = F.col(j).sum();
-         //if(den < TOLERANCE) return false;
          next_theta[j] = U.col(j).sum();
-         //normalized_count += next_theta[j];
       }
 
-      int num_changed = 0;
-      for(size_t j=0; j<ncol; ++j){
-         if((fabs(next_theta[j]-theta[j])/next_theta[j]) > _theta_change_limit)
-            num_changed++;
-         theta[j] = next_theta[j];
-         next_theta[j] = 0.0;
-      }
-
-      if(num_changed == 0) {
-         for(size_t j = 0; j< ncol; ++j){
-         _theta[j] = theta[j];
-         //cerr<<"isoform "<<j+1<<"'s raw read count: "<<_theta[j]<<endl;
+      for(size_t j= 0; j < ncol; ++j){
+         double denom = F.col(j).sum();
+         for(size_t i =0; i < nrow; ++i){
+            if(denom == 0) {
+               newF(i,j) == 0;
+               //return false;
+            } else {
+               newF(i, j) = F(i, j) / denom;
+            }
          }
-         break;
       }
+
+      F = newF;
+      Eigen::VectorXd dist = next_theta - theta;
+      if( dist.norm()  < _theta_change_limit) break;
+      theta = next_theta;
    }
 
+   for(size_t j = 0; j< ncol; ++j){
+      _theta[j] = theta[j];
+   }
    return true;
 }
 
