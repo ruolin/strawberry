@@ -25,7 +25,7 @@ alignments.cpp
 assembly.cpp
 Strawberry.cpp
 #kmer.cpp
-bias.cpp ../include/isoform.h ../include/utils.h)
+bias.cpp ../include/isoform.h ../include/utils.h ../include/kmer.h)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 

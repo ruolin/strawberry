@@ -252,7 +252,8 @@ public:
     void fragLenDist(const RefSeqTable &ref_t, const std::vector<Contig> &isoforms,
                      const std::shared_ptr<HitCluster> cluster, FILE *plogfile);
     void preProcess(FILE *log);
-    void printContext(const LocusContext& est, const std::shared_ptr<HitCluster> cluster, FILE *fragfile) const;
+    void printContext(const LocusContext& est, const std::shared_ptr<HitCluster> cluster,
+                      const std::shared_ptr<FaSeqGetter> & fa_getter, FILE *fragfile) const;
 };
 
 

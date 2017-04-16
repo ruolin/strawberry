@@ -32,6 +32,7 @@
 #include "StrawberryConfig.hpp"
 #include "interval.hpp"
 #include "isoform.h"
+#include "kmer.h"
 
 //#include "kmer.h"
 //#include "qp.h"
@@ -91,7 +92,7 @@ void print_help()
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current only support GFF3 format.                             [default:     NULL]\n");
-   fprintf(stderr, "   -r/--no-assembly                         Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)    [default:     false]\n");
+   fprintf(stderr, "   -r/--no-assembly                      Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
@@ -114,7 +115,7 @@ void print_help()
    fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression to this file.                                     [default:     frag_context.csv]\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
-   fprintf(stderr, "   -b/--bias-correction                  Use bias correction.                                                                                 [default:     false]\n");
+   fprintf(stderr, "   -b/--bias-correction                  Specify reference genome for bias correction.                                                        [default:     NULL]\n");
    fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
    fprintf(stderr, "   -e/--filter-low-expression            Skip isoforms whose relative expression (within locus) are less than this number.                    [default:     0.]\n" );
 }
@@ -225,6 +226,9 @@ int driver(int, char**);
 
 int main(int argc, char** argv){
    driver(argc, argv);
+   //string test_string = "ATCAAGGCGGC";
+   //auto result = Kmer<string>::HighGCStrech(test_string.begin(), test_string.end(), 8, 0.8);
+   //cerr<<result<<endl;
 //   GenomicFeature gf1 (Match_t::S_MATCH, 1u, 12);
 //   GenomicFeature gf2 (Match_t::S_MATCH, 8u, 14);
 //   GenomicFeature gf3 (Match_t::S_MATCH, 25, 4);

@@ -283,8 +283,7 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
    }
 }
 
-bool LocusContext::estimate_abundances(bool with_bias_correction,
-                                       const shared_ptr<FaSeqGetter> &fa_getter)
+bool LocusContext::estimate_abundances(bool with_bias_correction)
 {
    size_t nrow = exon_bins.size();
    size_t niso = _transcripts.size();

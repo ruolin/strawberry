@@ -1382,11 +1382,13 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-   bool success = est.estimate_abundances(BIAS_CORRECTION, _fasta_getter);
+   bool success = est.estimate_abundances(BIAS_CORRECTION);
 
    if(success){
 #if ENABLE_THREADS
-     if(use_threads) out_file_lock.lock();
+     if(use_threads) {
+        out_file_lock.lock();
+     }
 #endif
      if (est.transcripts().size() == 2) {
         cerr << ref_t.ref_real_name(cluster->ref_id()) << "\t" << cluster->left() << "\t" << cluster->right()
@@ -1399,7 +1401,7 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
       if (fragfile != NULL) {
          if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
-            printContext(est, cluster, fragfile);
+            printContext(est, cluster, _fasta_getter, fragfile);
          }
       }
    }
@@ -1412,7 +1414,8 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 }
 
 
-void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> cluster, FILE *fragfile) const {
+void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> cluster,
+                          const std::shared_ptr<FaSeqGetter> & fa_getter, FILE *fragfile) const {
    /* Print locus coordinates*/
    map<set<pair<uint,uint>>, uint> eb_count_map;
    map<set<pair<uint,uint>>, vector<double>> eb_prob_map;
@@ -1428,6 +1431,7 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
    for (const auto& eb: eb_count_map) {
       sum += eb.second;
    }
+
 
    for (auto it = eb_prob_map.cbegin(); it != eb_prob_map.cend(); ++it) {
       vector<string> info;
@@ -1457,6 +1461,22 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
       }
       info.push_back(coords);
       info.push_back(to_string(eb_count_map[it->first]));
+
+      if (BIAS_CORRECTION) {
+         auto seq = ExonBin::bin_dnaseq(it->first, fa_getter);
+         auto gcratio = Kmer<string>::GCRatio(seq.begin(), seq.end());
+         auto entropy = Kmer<string>::Entropy(seq, 6); // hexmer entropy
+         auto highgc2080 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 20, 0.8);
+         auto highgc2090 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 20, 0.9);
+         auto highgc4080 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 40, 0.8);
+         auto highgc4090 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 40, 0.9);
+         info.push_back(to_string(gcratio));
+         info.push_back(to_string(entropy));
+         info.push_back(to_string(highgc2080));
+         info.push_back(to_string(highgc2090));
+         info.push_back(to_string(highgc4080));
+         info.push_back(to_string(highgc4090));
+      }
       if (fragfile != NULL) pretty_print(fragfile, info);
    }
 }
@@ -1494,8 +1514,6 @@ void Sample::inspectSample(FILE *plogfile)
    _num_cluster = 1;
 
    RefID current_ref_id = last_cluster->ref_id();
-   if(BIAS_CORRECTION)
-     load_chrom_fasta(current_ref_id);
    _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
 
    while(true){
@@ -1521,20 +1539,6 @@ void Sample::inspectSample(FILE *plogfile)
 //Begin loading ref seqs
      if(current_ref_id != last_cluster->ref_id()){
        current_ref_id = last_cluster->ref_id();
-       if(BIAS_CORRECTION){
-#if ENABLE_THREADS
-         if(use_threads){
-            while(true){
-              if(curr_thread_num==0){
-                break;
-              }
-              this_thread::sleep_for(chrono::milliseconds(3));
-            }
-            load_chrom_fasta(current_ref_id);
-         }
-#endif
-         load_chrom_fasta(current_ref_id);
-       }
      }
      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
        _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
