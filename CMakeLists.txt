@@ -38,8 +38,6 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 
     set (GCC TRUE)
 
-    # Put complete static linking on hold for the time-being
-    # If we're not on OSX, make an attempt to compile everything statically
     set (PTHREAD_LIB "pthread")
 
     # If we're on Linux (i.e. not OSX) and we're using
@@ -65,8 +63,6 @@ set (CMAKE_VERBOSE_MAKEFILE true)
 
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
-CHECK_CXX_COMPILER_FLAG("-std=c++11" COMPILER_SUPPORTS_CXX11)
-CHECK_CXX_COMPILER_FLAG("-std=c++0x" COMPILER_SUPPORTS_CXX0X)
 
 if(COMPILER_SUPPORTS_CXX14)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
@@ -75,7 +71,7 @@ if(COMPILER_SUPPORTS_CXX14)
 #elseif(COMPILER_SUPPORTS_CXX0X)
 #   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 else()
-   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support. Please use a different C++ compiler.")
+   message(FATAL_ERROR "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support. Please use a C++ compiler that supports C++14.")
 endif()
 
 
@@ -119,6 +115,7 @@ ExternalProject_Add(eigen
   CONFIGURE_COMMAND ""
   BUILD_COMMAND ""
   INSTALL_COMMAND ""
+  LOG_DOWNLOAD ON
 )
 
 
