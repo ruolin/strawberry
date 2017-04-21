@@ -8,9 +8,9 @@ set_property(TARGET bam PROPERTY IMPORTED_LOCATION ${BAM_LIBRARY})
 
 include_directories(
 
-  #${PROJECT_SOURCE_DIR}/include/eigen
   #${PROJECT_SOURCE_DIR}/include/sam
   ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/external/eigen3
 )
 
 set( STRAWBERRY_MAIN_SRCS
@@ -25,7 +25,7 @@ alignments.cpp
 assembly.cpp
 Strawberry.cpp
 #kmer.cpp
-bias.cpp ../include/isoform.h ../include/utils.h)
+bias.cpp ../include/isoform.h ../include/utils.h ../include/kmer.h)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 

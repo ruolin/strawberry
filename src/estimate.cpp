@@ -1,23 +1,3 @@
-/* >HEADER
-    Copyright (c) 2015 Ruolin Liu rliu0606@gmail.com
-    This file is part of Strawberry.
-    Strawberry is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
-
-    Strawberry is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Strawberry.  If not, see <http://www.gnu.org/licenses/>.
-<HEADER
-*/
-
-
-
 
 #include <iostream>
 #include <cassert>
@@ -283,8 +263,7 @@ void LocusContext::set_empirical_bin_weight(const map<int,int> &iso_2_len_map, c
    }
 }
 
-bool LocusContext::estimate_abundances(bool with_bias_correction,
-                                       const shared_ptr<FaSeqGetter> &fa_getter)
+bool LocusContext::estimate_abundances(bool with_bias_correction)
 {
    size_t nrow = exon_bins.size();
    size_t niso = _transcripts.size();

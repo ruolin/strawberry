@@ -2,7 +2,7 @@
  * alignment.h
  *
  *  Created on: Nov 5, 2014
- *      Author: ruolin
+ *      Author: Ruolin Liu
  */
 
 #ifndef STRAWB_ALIGNMENTS_H_
@@ -160,7 +160,6 @@ public:
 
 class LocusContext;
 class Sample {
-    bool _is_inspecting;
     std::atomic<int> _num_cluster;
     //uint _prev_pos = 0;
     RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
@@ -242,7 +241,7 @@ public:
 
     void procSample(FILE *f, FILE *log, FILE* fragfile);
 
-    void inspectSample(FILE *log);
+    void assembleSample(FILE *log);
 
     std::vector<Contig> assembleCluster(const RefSeqTable &ref_t, std::shared_ptr<HitCluster> cluster, FILE *plogfile);
 
@@ -252,7 +251,8 @@ public:
     void fragLenDist(const RefSeqTable &ref_t, const std::vector<Contig> &isoforms,
                      const std::shared_ptr<HitCluster> cluster, FILE *plogfile);
     void preProcess(FILE *log);
-    void printContext(const LocusContext& est, const std::shared_ptr<HitCluster> cluster, FILE *fragfile) const;
+    void printContext(const LocusContext& est, const std::shared_ptr<HitCluster> cluster,
+                      const std::shared_ptr<FaSeqGetter> & fa_getter, FILE *fragfile) const;
 };
 
 

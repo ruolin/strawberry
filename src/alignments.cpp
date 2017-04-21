@@ -1,22 +1,3 @@
-/*
->HEADER
-   Copyright (c) 2015 Ruolin Liu rliu0606@gmail.com
-   This file is part of Strawberry.
-   Strawberry is free software: you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation, either version 3 of the License, or
-   (at your option) any later version.
-
-   Strawberry is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with Strawberry.  If not, see <http://www.gnu.org/licenses/>.
-<HEADER
-*/
-
 #include <algorithm>
 #include <iterator>
 #include <random>
@@ -625,17 +606,6 @@ bool HitCluster::see_both_strands(){
    return false;
 }
 
-//int Sample::max_inner_dist() const
-//{
-//   if(_is_inspecting)
-//     return kMaxInnerDist;
-//   else{
-//     if(_insert_size_dist->empty())
-//       return kMaxInnerDist;
-//     else
-//       return _insert_size_dist->_end_offset -_hit_factory->_reads_table._read_len_abs*2;
-//   }
-//}
 bool Sample::load_chrom_fasta(RefID seq_id)
 {
    /*
@@ -778,17 +748,13 @@ double Sample::next_valid_alignment(ReadHit& readin){
      raw_mass += readin.mass(); // suck in read mass for future if mask_gtf is used.
 
      if(_prev_hit_ref_id != -1){
-       if(_prev_hit_ref_id > readin.ref_id() ||
-            ( _prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
-         )
+       if(_prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
        {
          const string cur_chr_name = _hit_factory->_ref_table.ref_real_name(readin.ref_id());
          const string last_chr_name = _hit_factory->_ref_table.ref_real_name(_prev_hit_ref_id);
-         if(_is_inspecting){
-            LOG_ERR("BAM file not sort correctly!");
-            LOG_ERR("The current position is: ", cur_chr_name, ":", readin.left());
-            LOG_ERR("and previous position is: ", last_chr_name, ":", _prev_hit_pos);
-         }
+         cerr<<"BAM file not sort correctly!\n";
+         cerr<<"The current position is: "<<cur_chr_name<<":"<<readin.left();
+         cerr<<"and previous position is: "<<last_chr_name<<":"<<_prev_hit_pos;
        }
      }
 
@@ -809,6 +775,7 @@ double Sample::rewindHit(const ReadHit& rh)
 
 int Sample::addRef2Cluster(HitCluster &cluster_out){
    if(_refmRNA_offset >=  _ref_mRNAs.size()) {
+      //std::cerr<<" all transcripts processed!\n";
      _has_load_all_refs = true;
      return 0;
    }
@@ -914,7 +881,9 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
      std::cerr<<"if you use --no-assembly option, you must provide gff file through -g option!"<<std::endl;
      assert(false);
    }
-   if (!_hit_factory->recordsRemain()) return -1;
+   if (!_hit_factory->recordsRemain()) {
+      return -1;
+   }
    int num_added_refmRNA = addRef2Cluster(clusterOut);
    //cout<<num_added_refmRNA<<" added mRNA"<<endl;
    if (num_added_refmRNA == 0) {
@@ -940,7 +909,6 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
 }
 
 void Sample::preProcess(FILE *log) {
-   _is_inspecting = true;
    curr_thread_num = 0;
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
 
@@ -1187,33 +1155,32 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       return assembled_transcripts;
    }
 
-   // if single-end library not need to calculate fragment length distribution
-   if (SINGLE_END_EXP && _is_inspecting) {
+   //if (SINGLE_END_EXP && _is_inspecting) {
 //#if ENABLE_THREADS
 //      if (use_threads)
 //         decr_pool_count();
 //#endif
-      return assembled_transcripts;
-   }
+      //return assembled_transcripts;
+   //}
 
    //enough read for calculating empirical distribution of reads.
-   if (_is_inspecting &&
-      _hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD) {
+   //if (_is_inspecting &&
+      //_hit_factory->_reads_table._frag_dist.size() > kMaxReadNum4FD) {
 //#if ENABLE_THREADS
 //      if (use_threads)
 //         decr_pool_count();
 //#endif
-      return assembled_transcripts;
-   }
+      //return assembled_transcripts;
+   //}
 
 
-   if (cluster->len() > kMaxGeneLength) {
+   //if (cluster->len() > kMaxGeneLength) {
 //#if ENABLE_THREADS
 //      if (use_threads)
 //         decr_pool_count();
 //#endif
-      return assembled_transcripts;
-   }
+      //return assembled_transcripts;
+   //}
 
    cluster->_strand = cluster->guessStrand();
 
@@ -1382,22 +1349,27 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-   bool success = est.estimate_abundances(BIAS_CORRECTION, _fasta_getter);
+   bool success = est.estimate_abundances(BIAS_CORRECTION);
 
    if(success){
 #if ENABLE_THREADS
-     if(use_threads) out_file_lock.lock();
+     if(use_threads) {
+        out_file_lock.lock();
+     }
 #endif
-     cerr<<ref_t.ref_real_name(cluster->ref_id())<<"\t"<<cluster->left()<<"\t"<<cluster->right()<<" finishes abundances estimation"<<endl;
-     for(const auto & iso: est.transcripts()){
-       iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
-                    iso._frac_s, iso._gene_str, iso._isoform_str);
+     cerr << ref_t.ref_real_name(cluster->ref_id()) << "\t" << cluster->left() << "\t" << cluster->right()
+          << " finishes abundances estimation" << endl;
+
+     for (const auto &iso: est.transcripts()) {
+        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
+                                 iso._frac_s, iso._gene_str, iso._isoform_str);
      }
 
-      if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
-         printContext(est, cluster, fragfile);
+      if (fragfile != NULL) {
+         //if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
+            printContext(est, cluster, _fasta_getter, fragfile);
+         //}
       }
-     fprintf(plogfile, "Finish abundances estimation at locus: %s:%d-%d\n", ref_t.ref_real_name(cluster->ref_id()).c_str(), cluster->left(), cluster->right());
    }
 #if ENABLE_THREADS
    if(use_threads) {
@@ -1408,7 +1380,8 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 }
 
 
-void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> cluster, FILE *fragfile) const {
+void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> cluster,
+                          const std::shared_ptr<FaSeqGetter> & fa_getter, FILE *fragfile) const {
    /* Print locus coordinates*/
    map<set<pair<uint,uint>>, uint> eb_count_map;
    map<set<pair<uint,uint>>, vector<double>> eb_prob_map;
@@ -1425,6 +1398,7 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
       sum += eb.second;
    }
 
+
    for (auto it = eb_prob_map.cbegin(); it != eb_prob_map.cend(); ++it) {
       vector<string> info;
       info.push_back(est.sample_name());
@@ -1433,15 +1407,29 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
       info.push_back(est.gene_name());
       info.push_back(to_string(sum));
 
+      string iso_names;
       for (const auto& tn : est.transcript_names()) {
-         info.push_back(tn);
+         iso_names += tn;
+         iso_names += ",";
       }
+      iso_names.pop_back();
+      info.push_back(iso_names);
 
-      for (const double prob:it->second) info.push_back(to_string_with_precision(prob, 12));
+      string cond_prop;
+      for (const double prob:it->second) {
+         cond_prop += to_string_with_precision(prob, 12);
+         cond_prop += ",";
+      }
+      cond_prop.pop_back();
+      info.push_back(cond_prop);
 
+      string class_prop;
       for (auto iso = est.transcripts().cbegin(); iso != est.transcripts().cend(); ++iso) {
-         info.push_back(iso->_frac_s);
+         class_prop += iso->_frac_s;
+         class_prop += ",";
       }
+      class_prop.pop_back();
+      info.push_back(class_prop);
 
       string coords;
       for (auto const& c: it->first) {
@@ -1453,7 +1441,23 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
       }
       info.push_back(coords);
       info.push_back(to_string(eb_count_map[it->first]));
-      if (fragfile != NULL) pretty_print(fragfile, info);
+
+      if (BIAS_CORRECTION) {
+         auto seq = ExonBin::bin_dnaseq(it->first, fa_getter);
+         auto gcratio = Kmer<string>::GCRatio(seq.begin(), seq.end());
+         auto entropy = Kmer<string>::Entropy(seq, 6); // hexmer entropy
+         auto highgc2080 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 20, 0.8);
+         auto highgc2090 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 20, 0.9);
+         auto highgc4080 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 40, 0.8);
+         auto highgc4090 = Kmer<string>::HighGCStrech(seq.begin(), seq.end(), 40, 0.9);
+         info.push_back(to_string(gcratio));
+         info.push_back(to_string(entropy));
+         info.push_back(to_string(highgc2080));
+         info.push_back(to_string(highgc2090));
+         info.push_back(to_string(highgc4080));
+         info.push_back(to_string(highgc4090));
+      }
+      if (fragfile != NULL) pretty_print(fragfile, info, "\t");
    }
 }
 
@@ -1476,12 +1480,11 @@ void Sample::addAssembly(std::vector<Contig>& assembs, int cluster_id) {
 #endif
 }
 
-void Sample::inspectSample(FILE *plogfile)
+void Sample::assembleSample(FILE *plogfile)
 /*
  *  First run-through to calculate fragment distribution FD
  * */
 {
-   _is_inspecting = true;
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    shared_ptr<HitCluster> last_cluster (new HitCluster());
    if( -1 == nextCluster_refGuide(*last_cluster) ) {
@@ -1490,8 +1493,6 @@ void Sample::inspectSample(FILE *plogfile)
    _num_cluster = 1;
 
    RefID current_ref_id = last_cluster->ref_id();
-   if(BIAS_CORRECTION)
-     load_chrom_fasta(current_ref_id);
    _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
 
    while(true){
@@ -1517,20 +1518,6 @@ void Sample::inspectSample(FILE *plogfile)
 //Begin loading ref seqs
      if(current_ref_id != last_cluster->ref_id()){
        current_ref_id = last_cluster->ref_id();
-       if(BIAS_CORRECTION){
-#if ENABLE_THREADS
-         if(use_threads){
-            while(true){
-              if(curr_thread_num==0){
-                break;
-              }
-              this_thread::sleep_for(chrono::milliseconds(3));
-            }
-            load_chrom_fasta(current_ref_id);
-         }
-#endif
-         load_chrom_fasta(current_ref_id);
-       }
      }
      if(_current_chrom != ref_t.ref_real_name(last_cluster->ref_id())){
        _current_chrom = ref_t.ref_real_name(last_cluster->ref_id());
@@ -1596,7 +1583,6 @@ void Sample::inspectSample(FILE *plogfile)
    if(use_threads)
      curr_thread_num = 0;
 #endif
-   //_is_inspecting = false;
 }
 
 int Sample::total_mapped_reads() const
@@ -1612,7 +1598,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
  * if no reference mRNA than nextCluster_refGuide will call nextCluster_denovo()
  */
    //cout<<"reach in procSample"<<endl;
-   _is_inspecting = false;
    _hit_factory->reset();
    reset_refmRNAs();
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
@@ -1757,19 +1742,15 @@ void Sample::filter_intron(uint cluster_left,
           float depth_j = j->second.total_junc_reads;
          if( depth_i / depth_j < kMinIsoformFrac){
             bad_intron_pos.push_back(i->first);
-            if(_is_inspecting){
-              LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
-              depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
-              j->first.second, " has ", depth_j, " read supporting. ");
-            }
+            LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
+                depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
+                j->first.second, " has ", depth_j, " read supporting. ");
          }
          if( depth_j / depth_i < kMinIsoformFrac){
             bad_intron_pos.push_back(j->first);
-            if(_is_inspecting){
-              LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
-              depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
-              j->first.second, " has ", depth_j, " read supporting. ");
-            }
+            LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
+            depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
+            j->first.second, " has ", depth_j, " read supporting. ");
          }
        }
      }
@@ -1793,10 +1774,8 @@ void Sample::filter_intron(uint cluster_left,
 //     cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
      if(total_read < kMinJuncSupport && !enforce_ref_models){
-       if(_is_inspecting){
-         LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
-            " has only ", total_read, " total read.");
-       }
+       LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
+          " has only ", total_read, " total read.");
        i = intron_counter.erase(i);
        continue;
      }
@@ -1818,10 +1797,8 @@ void Sample::filter_intron(uint cluster_left,
      double x = (small_read-0.5 - normal_mean)/normal_sd;
      prob_not_lt_observed = 1.0 - standard_normal_cdf(x);
      if(prob_not_lt_observed < kBinomialOverHangAlpha) {
-       if(_is_inspecting){
-         LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
-            " has ", small_read, " small overhang read vs ", total_read, " total read.");
-       }
+       LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
+          " has ", small_read, " small overhang read vs ", total_read, " total read.");
        i = intron_counter.erase(i);
        continue;
      }
@@ -1849,10 +1826,8 @@ void Sample::filter_intron(uint cluster_left,
      avg_intron_exonic_doc /= (end-start);
      if(avg_intron_exonic_doc != 0){
        if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
-         if(_is_inspecting){
-            LOG("Filtering intron at by exonic coverage: ", _current_chrom, ":",i->first.first,"-",i->first.second,
-            " averaged intron doc: ", avg_intron_doc, " vs averaged exonic doc on intron: ", avg_intron_exonic_doc, ".");
-         }
+         LOG("Filtering intron at by exonic coverage: ", _current_chrom, ":",i->first.first,"-",i->first.second,
+         " averaged intron doc: ", avg_intron_doc, " vs averaged exonic doc on intron: ", avg_intron_exonic_doc, ".");
          i = intron_counter.erase(i);
          continue;
        }

@@ -314,7 +314,9 @@ void FaInterface::initiate(const char* fpath){
       cerr<<"Error: not a valid file or directory "<<fpath<<endl;;
       break;
    }
+   cerr<<"Load "<<_seqname_2_fafile.size()<<" reference fasta"<<endl;
    _has_load = true;
+
 }
 
 void FaInterface::load2FaSeqGetter(FaSeqGetter &getter, const string seqname){

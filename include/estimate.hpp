@@ -1,8 +1,7 @@
-/*
- * qp.h
- *
+
+ /*
  *  Created on: Oct 15, 2015
- *      Author: ruolin
+ *      Author: Ruolin Liu
  */
 
 #ifndef QP_H_
@@ -131,6 +130,10 @@ public:
       return exon_bins.size();
    }
 
+   decltype(auto) get_exon_bins() const {
+      return (exon_bins);
+   }
+
    std::string sample_name() const {
       return _sample.sample_name();
    }
@@ -141,8 +144,7 @@ public:
 
    void calculate_raw_iso_counts();
 
-   bool estimate_abundances(bool with_bias_correction,
-                            const std::shared_ptr<FaSeqGetter> & fa_getter);
+   bool estimate_abundances(bool with_bias_correction);
 
    std::pair<std::set<std::pair<uint,uint>>, std::vector<double>> get_frag_info(const Contig& frag) const {
       // return a pair of exon bin coordinates and probabilities
@@ -170,30 +172,30 @@ public:
       return std::make_pair(coords, info);
    }
 
-   std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {
-
-      std::vector<std::vector<double>> bias;
-      for (auto it = exon_bins.cbegin(); it != exon_bins.cend(); ++it) {
+//   std::vector<std::vector<double>> calculate_bin_bias(const std::shared_ptr<FaSeqGetter> &fa_getter) const {
+//
+//      std::vector<std::vector<double>> bias;
+//      for (auto it = exon_bins.cbegin(); it != exon_bins.cend(); ++it) {
 //#ifdef DEBUG
 //      for(auto e: it->first){
 //         cout<<"exon bin "<<e.first<<"="<<e.second<<endl;
 //      }
 //#endif
-         std::vector<double> b;
-         b.reserve(3);
-         double gc = it->bin_gc_content(fa_getter);
-         b.push_back(gc);
-         b.push_back(gc * gc);
-         b.push_back(gc * gc * gc);
-         b.push_back(it->bin_len());
-         b.push_back(it->avg_frag_len());
+//         std::vector<double> b;
+//         b.reserve(3);
+//         double gc = it->bin_gc_content(fa_getter);
+//         b.push_back(gc);
+//         b.push_back(gc * gc);
+//         b.push_back(gc * gc * gc);
+//         b.push_back(it->bin_len());
+//         b.push_back(it->avg_frag_len());
 //      for(auto c:it->first){
 //         cout<<"exon bin: " <<c.first<<"-"<<c.second<<endl;
 //      }
-         bias.push_back(b);
-      }
-      return bias;
-   }
+//         bias.push_back(b);
+//      }
+//      return bias;
+//   }
 
 };
 

@@ -1,5 +1,5 @@
 //
-// Created by ruolin on 12/10/16.
+// Created by Ruolin Liu on 12/10/16.
 //
 
 #ifndef STRAWBERRY_ISOFORM_H
@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <numeric>
 #include "contig.h"
+#include "kmer.h"
 
 
 template<typename Item>
@@ -152,8 +153,29 @@ public:
    bool add_frag(const Contig& fg);
    int num_exons() const;
    int left_exon_len() const;
-   double bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const;
-   double bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter) const;
+
+   //double bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const;
+   //double bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter) const;
+   std::string bin_dnaseq(const std::shared_ptr<FaSeqGetter> &fa_getter) const
+   {
+      std::string result;
+      for(auto it= _coords.cbegin(); it != _coords.cend(); ++it){
+         auto seq = fa_getter->fetchSeq(it->first, it->second - it->first+1);
+         result += seq;
+      }
+      return result;
+   }
+
+   static std::string bin_dnaseq(const std::set<std::pair<uint,uint>> coords,
+                                   const std::shared_ptr<FaSeqGetter> &fa_getter)
+   {
+      std::string result;
+      for(auto it= coords.cbegin(); it != coords.cend(); ++it){
+         auto seq = fa_getter->fetchSeq(it->first, it->second - it->first+1);
+         result += seq;
+      }
+      return result;
+   }
    double avg_frag_len() const;
    RefID ref_id() const;
 
@@ -277,50 +299,40 @@ inline int ExonBin::bin_len() const
    return bin_len;
 }
 
-inline double ExonBin::bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const
-{
-   int start = 0;
-   int len = 0;
-   if(num_exons() == 1){
-      start = _coords.cbegin()->first;
-      len = bin_len();
-      return gc_content( fa_getter->fetchSeq(start, len));
+//inline double ExonBin::bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter, const int readlen) const
+//{
+//   int start = 0;
+//   int len = 0;
+//   if(num_exons() == 1){
+//      start = _coords.cbegin()->first;
+//      len = bin_len();
+//      return gc_content( fa_getter->fetchSeq(start, len));
+//
+//   }
+//   else if(num_exons() == 2){
+//      double total_gc = 0.0;
+//      for(auto it = _coords.cbegin(); it != _coords.cend(); ++it){
+//         start = std::max(it->first, it->second - readlen + 1);
+//         len = it->second  - start +1;
+//         total_gc += gc_content( fa_getter->fetchSeq(start, len));
+//      }
+//      return total_gc/2;
+//   }
+//   else{
+//      std::vector<double> gc_ratios;
+//      for(auto it = _coords.cbegin(); it != _coords.cend(); ++it){
+//         if( *it == *_coords.cbegin() || *it == *_coords.crbegin()) continue;
+//         start = it->first;
+//         len += it->second - it->first +1;
+//         gc_ratios.push_back( gc_content( fa_getter->fetchSeq(start, len))  );
+//      }
+//      auto it = std::max_element(gc_ratios.begin(), gc_ratios.end());
+//      return *it;
+//   }
+//
+//}
 
-   }
-   else if(num_exons() == 2){
-      double total_gc = 0.0;
-      for(auto it = _coords.cbegin(); it != _coords.cend(); ++it){
-         start = std::max(it->first, it->second - readlen + 1);
-         len = it->second  - start +1;
-         total_gc += gc_content( fa_getter->fetchSeq(start, len));
-      }
-      return total_gc/2;
-   }
-   else{
-      std::vector<double> gc_ratios;
-      for(auto it = _coords.cbegin(); it != _coords.cend(); ++it){
-         if( *it == *_coords.cbegin() || *it == *_coords.crbegin()) continue;
-         start = it->first;
-         len += it->second - it->first +1;
-         gc_ratios.push_back( gc_content( fa_getter->fetchSeq(start, len))  );
-      }
-      auto it = std::max_element(gc_ratios.begin(), gc_ratios.end());
-      return *it;
-   }
 
-}
-
-
-inline double ExonBin::bin_gc_content(const std::shared_ptr<FaSeqGetter> &fa_getter) const
-{
-   std::vector<double> gc_ratios;
-   for(auto it= _coords.cbegin(); it != _coords.cend(); ++it){
-      double gc = gc_content(fa_getter->fetchSeq(it->first, it->second - it->first+1) );
-      gc_ratios.push_back(gc);
-   }
-   double total_gc = std::accumulate(gc_ratios.begin(), gc_ratios.end(), 0.0);
-   return total_gc/gc_ratios.size();
-}
 
 inline double ExonBin::avg_frag_len() const
 {
