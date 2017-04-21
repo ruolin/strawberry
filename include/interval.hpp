@@ -1,5 +1,5 @@
 //
-// Created by ruolin on 11/25/16.
+// Created by Ruolin Liu on 11/25/16.
 //
 
 #ifndef STRAWBERRY_INTERVAL_RANGES_H

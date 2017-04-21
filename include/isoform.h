@@ -1,5 +1,5 @@
 //
-// Created by ruolin on 12/10/16.
+// Created by Ruolin Liu on 12/10/16.
 //
 
 #ifndef STRAWBERRY_ISOFORM_H

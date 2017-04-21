@@ -1,5 +1,5 @@
 //
-// Created by ruolin on 4/15/17.
+// Created by Ruolin Liu on 4/15/17.
 //
 
 #ifndef STRAWBERRY_KMER_H

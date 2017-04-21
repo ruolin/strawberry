@@ -2,7 +2,7 @@
  * contig.h
  *
  *  Created on: Jan 19, 2015
- *      Author: ruolin
+ *      Author: Ruolin Liu
  */
 
 #ifndef CONTIG_H_

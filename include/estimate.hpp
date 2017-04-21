@@ -1,7 +1,7 @@
 
  /*
  *  Created on: Oct 15, 2015
- *      Author: ruolin
+ *      Author: Ruolin Liu
  */
 
 #ifndef QP_H_

@@ -2,7 +2,7 @@
  * common.h
  *
  *  Created on: Jan 25, 2015
- *      Author: ruolin
+ *      Author: Ruolin Liu
  */
 
 #ifndef COMMON_H_

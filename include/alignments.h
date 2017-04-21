@@ -2,7 +2,7 @@
  * alignment.h
  *
  *  Created on: Nov 5, 2014
- *      Author: ruolin
+ *      Author: Ruolin Liu
  */
 
 #ifndef STRAWB_ALIGNMENTS_H_
