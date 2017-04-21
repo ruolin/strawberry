@@ -39,9 +39,10 @@ Precompiled binary is available on the [release page] (https://github.com/ruolin
 Installation
 ============
 1. `sh cmake.sh`
-2. `cd Build`
+2. `cd build`
 3. `make`
 
+WARNING: using parallel build (-j option) might cause errors. 
 The executable file will be found in the `Strawberry/bin` directory. 
 You can add this directory to your PATH variable to complete the installation. 
 
