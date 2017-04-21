@@ -8,9 +8,9 @@ set_property(TARGET bam PROPERTY IMPORTED_LOCATION ${BAM_LIBRARY})
 
 include_directories(
 
-  #${PROJECT_SOURCE_DIR}/include/eigen
   #${PROJECT_SOURCE_DIR}/include/sam
   ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/external/eigen3
 )
 
 set( STRAWBERRY_MAIN_SRCS

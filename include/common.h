@@ -259,7 +259,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<str>& vec) {
    return os;
 }
 
-inline void pretty_print(FILE* file, const std::vector<std::string>& vec) {
+inline void pretty_print(FILE* file, const std::vector<std::string>& vec, const std::string sep) {
    std::string out_str;
    bool flag = true;
    for (const auto& item: vec) {
@@ -268,7 +268,7 @@ inline void pretty_print(FILE* file, const std::vector<std::string>& vec) {
          flag = false;
       }
       else {
-         out_str += ",";
+         out_str += sep;
          out_str += item;
       }
    }

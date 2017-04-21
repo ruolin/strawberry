@@ -160,7 +160,6 @@ public:
 
 class LocusContext;
 class Sample {
-    bool _is_inspecting;
     std::atomic<int> _num_cluster;
     //uint _prev_pos = 0;
     RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
@@ -242,7 +241,7 @@ public:
 
     void procSample(FILE *f, FILE *log, FILE* fragfile);
 
-    void inspectSample(FILE *log);
+    void assembleSample(FILE *log);
 
     std::vector<Contig> assembleCluster(const RefSeqTable &ref_t, std::shared_ptr<HitCluster> cluster, FILE *plogfile);
 

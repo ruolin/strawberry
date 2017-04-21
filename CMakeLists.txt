@@ -112,6 +112,14 @@ endif()
 # ############################
 
 include(ExternalProject)
+ExternalProject_Add(eigen
+  DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
+  URL http://bitbucket.org/eigen/eigen/get/3.3.3.tar.bz2 
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen3
+  CONFIGURE_COMMAND ""
+  BUILD_COMMAND ""
+  INSTALL_COMMAND ""
+)
 
 
 #set(BAM_INCLUDE /usr/local/include/bam)

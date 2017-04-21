@@ -336,7 +336,7 @@ int driver(int argc, char** argv){
       cerr<<"Inspecting sample......"<<endl;
    }
    if (no_assembly) read_sample.preProcess(plogfile);
-   else read_sample.inspectSample(plogfile);
+   else read_sample.assembleSample(plogfile);
 
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
