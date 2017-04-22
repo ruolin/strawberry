@@ -1603,6 +1603,16 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    int current_ref_id = INT_MAX;
 
+   if (fragfile != NULL) {
+      //if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
+      std::vector<string> header = {"sample", "sample_frag_count", "gene_id", "gene_frag_count",
+      "transcripts", "conditonal_probabilites", "class_probabilites", "path_symbol", "path_count",
+      "path_gc_content", "path_hexmer_entropy", "gc_strecth_0.8_20", "gc_strecth_0.9_20", "gc_strecth_0.8_40",
+      "gc_strecth_0.9_40"};
+      if (fragfile != NULL) pretty_print(fragfile, header, "\t");
+      //}
+   }
+
    while(true){
      //++_num_cluster;
      shared_ptr<HitCluster> cluster (new HitCluster());
