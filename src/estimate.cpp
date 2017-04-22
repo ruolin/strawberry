@@ -142,7 +142,7 @@ void LocusContext::assign_exon_bin(
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
 
       double sr_fg_len = 0.0;
-      if(mp->is_single_read() && infer_the_other_end){
+      if(mp->is_single_read() && infer_the_other_end){ // currently infer_the_other_end is always disabled
          //random_device rd;
          //mt19937 gen(rd());
          mt19937 gen(3); // we use a fixed seed to make sure the output are the same every time.
@@ -160,7 +160,7 @@ void LocusContext::assign_exon_bin(
             //Bias::iso_bias(*mp, *iso);
             /*For singleton, we random generate the other end */
             if(mp->is_single_read()){
-               if(infer_the_other_end){
+               if(infer_the_other_end){ // currently infer_the_other_end is always disabled
                   Contig new_read;
                   if(mp->single_read_orit() == SingleOrit_t::Forward){
                      uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Forward, new_read);

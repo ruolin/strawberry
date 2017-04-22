@@ -70,17 +70,16 @@ void print_help()
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
 #if ENABLE_THREADS
-   fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current only support GFF3 format.                             [default:     NULL]\n");
+   fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current support gff3 and gtf format.                          [default:     NULL]\n");
    fprintf(stderr, "   -r/--no-assembly                      Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
 #endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
    fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     200000]\n");
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
-   fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
+   //fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
    fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
    fprintf(stderr, "\n Assembly Options:\n");
-//   fprintf(stderr, "   -G/--enforce-ref-model                Omit assembled transcripts that are not in the reference.                    [default:     false]\n");
    fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                                             [default:     200]\n");
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
    fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
@@ -91,11 +90,11 @@ void print_help()
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
 
    fprintf(stderr, "\n Quantification Options:\n");
-   fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression to this file.                                     [default:     frag_context.csv]\n");
+   fprintf(stderr, "   -f/--fragment-context                 Print fragment context for differential expression to this file.                                     [default:     Disabled]\n");
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Specify reference genome for bias correction.                                                        [default:     NULL]\n");
-   fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
+   //fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
    fprintf(stderr, "   -e/--filter-low-expression            Skip isoforms whose relative expression (within locus) are less than this number.                    [default:     0.]\n" );
 }
 

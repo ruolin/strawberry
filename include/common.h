@@ -1,5 +1,5 @@
-/*
- * common.h
+
+ /* common.h
  *
  *  Created on: Jan 25, 2015
  *      Author: Ruolin Liu
