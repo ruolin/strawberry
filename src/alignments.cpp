@@ -755,6 +755,7 @@ double Sample::next_valid_alignment(ReadHit& readin){
          cerr<<"BAM file not sort correctly!\n";
          cerr<<"The current position is: "<<cur_chr_name<<":"<<readin.left();
          cerr<<"and previous position is: "<<last_chr_name<<":"<<_prev_hit_pos;
+         cerr<<endl;
        }
      }
 
@@ -792,21 +793,36 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
      return 1;
    }
 
-   // add the rest if overlapped with first
-   size_t i = 0;
-   while(i < cluster_out._ref_mRNAs.size()){
-     const Contig& ref = cluster_out._ref_mRNAs[i];
-     if (Contig::overlaps_directional(ref, _ref_mRNAs[_refmRNA_offset])) {
-       cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
-       if(_refmRNA_offset >= _ref_mRNAs.size()){
-         _has_load_all_refs = true;
-         return cluster_out._ref_mRNAs.size();
-       }
-       i=0;
-     }
-     else{
-       ++i;
-     }
+   if (!cluster_out.gene_id().empty()) {
+      while (_refmRNA_offset < _ref_mRNAs.size() && _ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
+         cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
+      }
+      size_t mark_next_gene = _refmRNA_offset;
+      //continue search a few forward
+      int over = 0;
+      while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 10) {
+         if (_ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
+            cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset]);
+         }
+      }
+      _refmRNA_offset = mark_next_gene;
+   }
+   else {
+      // add the rest if overlapped with first
+      size_t i = 0;
+      while (i < cluster_out._ref_mRNAs.size()) {
+         const Contig &ref = cluster_out._ref_mRNAs[i];
+         if (Contig::overlaps_directional(ref, _ref_mRNAs[_refmRNA_offset])) {
+            cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
+            if (_refmRNA_offset >= _ref_mRNAs.size()) {
+               _has_load_all_refs = true;
+               return cluster_out._ref_mRNAs.size();
+            }
+            i = 0;
+         } else {
+            ++i;
+         }
+      }
    }
    return cluster_out._ref_mRNAs.size();
 }
@@ -877,6 +893,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 }
 
 int Sample::nextClusterRefDemand(HitCluster &clusterOut){
+   // if assembly step was run. hasLoadRefmRNAs() will return true.
    if (!hasLoadRefmRNAs()) {
      std::cerr<<"if you use --no-assembly option, you must provide gff file through -g option!"<<std::endl;
      assert(false);
@@ -905,6 +922,11 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
        clusterOut.addRawMass(mass);
      }
    }  //end while loop
+
+   //roger
+//   if (clusterOut.size() > 0) {
+//      std::cout<<num_added_refmRNA<<" transcript added\n";
+//   }
    return clusterOut.size();
 }
 
@@ -1349,9 +1371,10 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-   bool success = est.estimate_abundances(BIAS_CORRECTION);
+   bool success = est.estimate_abundances();
 
    if(success){
+      //cout<<"assembled transcripts size: "<<assembled_transcripts.size()<<endl;
 #if ENABLE_THREADS
      if(use_threads) {
         out_file_lock.lock();

@@ -219,7 +219,7 @@ int main(int argc, char** argv){
 //   IRanges<GenomicFeature, false> test_invs(gfs);
 //   vector<GenomicFeature> invs = test_invs.reduce();
 //   for(const auto& inv : invs) cout<<inv.left()<<"-"<<inv.right()<<endl;
-   fprintf(stdout, "Program finished");
+   fprintf(stdout, "Program finished\n");
    return 0;
 }
 
@@ -293,6 +293,18 @@ int driver(int argc, char** argv){
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll();
       fclose(gff);
+      // count 2-isoform genes
+//      int num_iso2gene = 0;
+//      for (auto const& each : greader->_g_seqs) {
+//         for(auto const& gene: each->_genes) {
+//            cout<<gene->_mrnas.size()<<endl;
+//            if (gene->_mrnas.size() == 2) {
+//               num_iso2gene++;
+//            }
+//         }
+//      }
+//      std::cerr<<"number of two-isoform genes: "<<num_iso2gene<<std::endl;
+//      exit(0);
       greader->sortExonOrderInMinusStrand();
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
    }
