@@ -242,6 +242,24 @@ enum class Strand_t: char{
    StrandBoth
 };
 
+ inline std::ostream& operator<<(std::ostream& os , const Strand_t& s) {
+    switch(s) {
+       case Strand_t::StrandUnknown:
+          os <<"?";
+          break;
+       case Strand_t::StrandPlus:
+          os <<"+";
+          break;
+       case Strand_t::StrandMinus:
+          os <<"-";
+          break;
+       case Strand_t::StrandBoth:
+          os <<"*";
+          break;
+    }
+    return os;
+ }
+
 template<typename str>
 std::ostream& operator<<(std::ostream& os, const std::vector<str>& vec) {
    os<<"[";

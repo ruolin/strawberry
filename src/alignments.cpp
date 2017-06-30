@@ -747,31 +747,38 @@ double Sample::next_valid_alignment(ReadHit& readin){
      if(readin.ref_id() == -1) continue; // unmapped read
      raw_mass += readin.mass(); // suck in read mass for future if mask_gtf is used.
 
-     if(_prev_hit_ref_id != -1){
-       if(_prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
-       {
-         const string cur_chr_name = _hit_factory->_ref_table.ref_real_name(readin.ref_id());
-         const string last_chr_name = _hit_factory->_ref_table.ref_real_name(_prev_hit_ref_id);
-         cerr<<"BAM file not sort correctly!\n";
-         cerr<<"The current position is: "<<cur_chr_name<<":"<<readin.left();
-         cerr<<"and previous position is: "<<last_chr_name<<":"<<_prev_hit_pos;
-         cerr<<endl;
-       }
-     }
-
-     _prev_hit_ref_id = readin.ref_id();
-     _prev_hit_pos = readin.left();
+//     if(_prev_hit_ref_id != -1){
+//       if(_prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
+//       {
+//         const string cur_chr_name = _hit_factory->_ref_table.ref_real_name(readin.ref_id());
+//         const string last_chr_name = _hit_factory->_ref_table.ref_real_name(_prev_hit_ref_id);
+//         cerr<<"BAM file not sort correctly!\n";
+//         cerr<<"The current position is: "<<cur_chr_name<<":"<<readin.left();
+//         cerr<<" and previous position is: "<<last_chr_name<<":"<<_prev_hit_pos;
+//         cerr<<endl;
+//       }
+//     }
+//
+//     _prev_hit_ref_id = readin.ref_id();
+//     _prev_hit_pos = readin.left();
      break;
    }
    _hit_factory->_reads_table._read_len_abs = max(_hit_factory->_reads_table._read_len_abs, readin.read_len());
    return raw_mass;
 }
 
-double Sample::rewindHit(const ReadHit& rh)
+void Sample::rewindHit()
 {
-   double mass = rh.mass();
+   //double mass = rh.mass();
    _hit_factory->undo_hit();
-   return mass;
+   //return mass;
+}
+
+void Sample::rewindHits(uint64_t pos)
+{
+   //double mass = rh.mass();
+   _hit_factory->return2Pos(pos);
+   //return mass;
 }
 
 int Sample::addRef2Cluster(HitCluster &cluster_out){
@@ -867,7 +874,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 
      if(new_hit->ref_id() > next_ref_start_ref ||
       (new_hit->ref_id() == next_ref_start_ref && new_hit->right() >= next_ref_start_pos)){
-       rewindHit(*new_hit);
+       rewindHit();
        return clusterOut.size();
      }
 
@@ -882,7 +889,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
        }
        if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
          // read has gone to far.
-         rewindHit(*new_hit);
+         rewindHit();
          break;
        }
        clusterOut.addOpenHit(new_hit, true, true);
@@ -894,6 +901,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 
 int Sample::nextClusterRefDemand(HitCluster &clusterOut){
    // if assembly step was run. hasLoadRefmRNAs() will return true.
+
    if (!hasLoadRefmRNAs()) {
      std::cerr<<"if you use --no-assembly option, you must provide gff file through -g option!"<<std::endl;
      assert(false);
@@ -906,6 +914,8 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
    if (num_added_refmRNA == 0) {
      return -1;
    }
+   int64_t first_pos = _hit_factory->getCurrPos();
+//   int counter = 0;
    while (true) {
      if(!_hit_factory->recordsRemain()){
        break;
@@ -915,9 +925,19 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
      if (hit_lt_cluster(*new_hit, clusterOut, 0)) {  //hit hasn't read this region
 
      } else if (hit_gt_cluster(*new_hit, clusterOut, 0)) {
-       rewindHit(*new_hit);
+       rewindHit();
        break;
-     } else {
+     } else if (new_hit->strand() != Strand_t ::StrandUnknown && new_hit->strand() != clusterOut.ref_strand()) {
+//        if (counter > 1) {
+//           rewindHits(first_pos);
+//           break;
+//        }
+//        ++counter;
+        //std::cerr<<"hit strand "<<new_hit->strand()<<endl;
+        //std::cerr<<"ref strand "<<clusterOut.ref_strand()<<endl;
+        //for (int i = 0; i < counter; ++i) rewindHit();
+     }
+     else {
        clusterOut.addOpenHit(new_hit, false, false);
        clusterOut.addRawMass(mass);
      }
@@ -996,7 +1016,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
        double mass = next_valid_alignment(*new_hit);
 
        if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // hit hasn't reach reference region
-         rewindHit(*new_hit);
+         rewindHit();
          if(_has_load_all_refs){
             rewindReference(clusterOut, num_added_refmRNA);
             return nextCluster_denovo(clusterOut);
@@ -1015,7 +1035,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
        }
 
        if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // read has gone too far.
-         rewindHit(*new_hit);
+         rewindHit();
          break;
        }
 

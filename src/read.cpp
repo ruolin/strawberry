@@ -429,12 +429,21 @@ void BAMHitFactory::markCurrPos()
    _curr_pos = bgzf_tell(_hit_file->x.bam);
 }
 
+int64_t BAMHitFactory::getCurrPos()
+{
+   return bgzf_tell(_hit_file->x.bam);
+}
+
 bool BAMHitFactory::recordsRemain() const{
    return !_eof_encountered;
 }
 
 void BAMHitFactory::undo_hit(){
    bgzf_seek(_hit_file->x.bam, _curr_pos, SEEK_SET);
+}
+
+void BAMHitFactory::return2Pos(int64_t pos){
+   bgzf_seek(_hit_file->x.bam, pos, SEEK_SET);
 }
 
 bool BAMHitFactory::nextRecord(const char* &buf, size_t& buf_size)
