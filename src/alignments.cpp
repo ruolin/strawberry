@@ -1127,7 +1127,10 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
                const shared_ptr<HitCluster> cluster,
                FILE *plogfile) {
 
-   if (transcripts.empty()) return;
+   if (transcripts.empty()) {
+      std::cerr<<"Error: no reference transcripts are found\n";
+      return;
+   }
    _total_mapped_reads += (int) cluster->weighted_mass();
 
    vector<Contig> hits;
@@ -1136,29 +1139,35 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
      hits.push_back(hit);
    }
 
-   if (transcripts.size() == 1) {
-     for (auto const &assembled_transcript: transcripts) {
-       for (size_t h = 0; h < hits.size(); ++h) {
-         //if (hits[h].is_single_read()) continue;
-         if (!Contig::is_compatible(hits[h], assembled_transcript)) continue;
-         double frag_len = Contig::exonic_overlaps_len(assembled_transcript,
-                                    hits[h].left(),
-                                    hits[h].right());
+   //if (transcripts.size() == 1) {
+   for (size_t h = 0; h < hits.size(); ++h) {
+     int counter = 0;
+     size_t mark = 0;
+     for (size_t t = 0; t < transcripts.size(); ++t) {
+        //if (hits[h].is_single_read()) continue;
+        if (Contig::is_compatible(hits[h], transcripts[t])) {
+           ++counter;
+           mark = t;
+        }
+     } //end for
+     if (counter == 1) {
+        double frag_len = Contig::exonic_overlaps_len(transcripts[mark],
+                                                      hits[h].left(),
+                                                      hits[h].right());
 
 #if ENABLE_THREADS
-         if (use_threads) {
-            thread_pool_lock.lock();
-            _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-            thread_pool_lock.unlock();
-         } else {
-            _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-         }
+        if (use_threads) {
+           thread_pool_lock.lock();
+           _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+           thread_pool_lock.unlock();
+        } else {
+           _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+        }
+     }
 #else
          _hit_factory->_reads_table._frag_dist.push_back(frag_len);
 #endif
-       }// end for
-     }// end for
-   } // end if (assembled_transcripts.size()==1)
+   }// end for
 
 #if ENABLE_THREADS
    if (use_threads) {
