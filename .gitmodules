@@ -1,0 +1,3 @@
+[submodule "external/easyloggingpp"]
+	path = external/easyloggingpp
+	url = git@github.com:muflihun/easyloggingpp.git

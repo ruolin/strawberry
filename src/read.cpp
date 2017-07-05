@@ -382,12 +382,12 @@ bool BAMHitFactory::inspect_header()
 {
    bam_header_t* header = _hit_file->header;
    if(header == NULL || header->l_text == 0){
-      LOG_WARN("No BAM header");
+      std::cerr<<"No BAM header\n";
       return false;
    }
 
    if(header->l_text >= MAX_HEADER_LEN ){
-      LOG_WARN("BAM header too large");
+      std::cerr<<"BAM header too large\n";
       return false;
    }
 
@@ -558,7 +558,9 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          read_len += length;
          cigar.push_back(CigarOp(_type, length));
          if(length > kMaxIntronLength || length < kMinIntronLength){
-            LOG_ERR("At read ", bam1_qname(hit_buf), " has unreasonable intron size: ", length);
+            if (!NO_LOGGING) {
+               LOG(WARNING)<<"At read "<< bam1_qname(hit_buf)<< " has unreasonable intron size: "<< length;
+            }
             return false;
          }
          break;
@@ -590,12 +592,14 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       }
       else {
          if(sam_flag & 0x8){ // next segment unmapped
-            if( mate_pos != 0 || mate_target_id >= 0) {
-               cerr<<"read "<<bam1_qname(hit_buf)<<" is ill-formed"<<endl;
+            if (!NO_LOGGING) {
+               LOG(ERROR)<<"read "<<bam1_qname(hit_buf)<<" is ill-formed";
             }
          }
          else{
-            LOG_WARN("At read ", bam1_qname(hit_buf), " read pair aligns to different chromosome");
+            if (!NO_LOGGING) {
+               LOG(WARNING)<<"At read "<< bam1_qname(hit_buf)<< " read pair aligns to different chromosome";
+            }
             return false;
          }
 
@@ -603,7 +607,9 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
    else{ // single-end read
       if( mate_pos != 0 || mate_target_id >= 0) {
-         cerr<<"read "<<bam1_qname(hit_buf)<<" is ill-formed"<<endl;
+         if (!NO_LOGGING) {
+            LOG(ERROR)<<"read "<<bam1_qname(hit_buf)<<" is ill-formed";
+         }
       }
    }
 
@@ -621,7 +627,6 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          source_strand = Strand_t::StrandMinus;
          break;
       default:
-         //LOG_WARN("At read ", bam1_qname(hit_buf), " parsing spliced alignment without known strand information");
          break;
       }
    }

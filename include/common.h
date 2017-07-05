@@ -22,6 +22,7 @@ typedef int RefID;
 
 extern bool SINGLE_END_EXP;
 extern bool BIAS_CORRECTION;
+ extern bool NO_LOGGING;
 extern int kMaxGeneLength;
 extern int kMaxFragSpan;
 extern int kMaxFragPerCluster;
@@ -209,7 +210,8 @@ public:
    SlineReader(const char* fname) {
       FILE* f=fopen(fname, "rb");
       if (f==NULL) {
-         LOG_ERR("Error opening file: ",fname);
+         std::cerr<<"Error opening file: "<<fname;
+         exit(1);
       }
       closeFile=true;
       init(f);

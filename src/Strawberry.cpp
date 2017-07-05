@@ -200,88 +200,15 @@ int parse_options(int argc, char** argv)
    return 0;
 }
 
-int driver(int, char**);
 
-int main(int argc, char** argv){
-   driver(argc, argv);
-   //string test_string = "ATCAAGGCGGC";
-   //auto result = Kmer<string>::HighGCStrech(test_string.begin(), test_string.end(), 8, 0.8);
-   //cerr<<result<<endl;
-//   GenomicFeature gf1 (Match_t::S_MATCH, 1u, 12);
-//   GenomicFeature gf2 (Match_t::S_MATCH, 8u, 14);
-//   GenomicFeature gf3 (Match_t::S_MATCH, 25, 4);
-//   GenomicFeature gf4 (Match_t::S_MATCH, 4, 4);
-//   vector<GenomicFeature> gfs;
-//   gfs.push_back(gf1);
-//   gfs.push_back(gf2);
-//   gfs.push_back(gf3);
-//   gfs.push_back(gf4);
-//   IRanges<GenomicFeature, false> test_invs(gfs);
-//   vector<GenomicFeature> invs = test_invs.reduce();
-//   for(const auto& inv : invs) cout<<inv.left()<<"-"<<inv.right()<<endl;
-   fprintf(stdout, "Program finished\n");
-   return 0;
-}
 
-int driver(int argc, char** argv){
+int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragfile){
    auto start = chrono::steady_clock::now();
-   string cmdline;
-   for(int i=0; i<argc; i++){
-      cmdline += argv[i];
-      cmdline+=" ";
-   }
-   int parse_ret = parse_options(argc, argv);
-   if(parse_ret) return 1;
-   if(optind >= argc){
-      print_help();
-      return 1;
-   }
-
-
-
-   int ret = mkpath(output_dir.c_str(), 0777);
-   if(ret == -1){
-      if(errno != EEXIST){
-         fprintf(stderr, "ERROR: cannot create directory %s\n", output_dir.c_str());
-         exit(1);
-      }
-   }
-   output_dir += "/";
-   string assembled_file = output_dir;// assembled_transcripts.gtf 25 characters
-   assembled_file += string("assembled_transcripts.gtf");
-   string tracker = output_dir + tracking_log;
-   string fragfile = output_dir + frag_context_out;
-
-   if(verbose){
-      fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
-      fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
-   }
-   FILE *pFile = fopen(assembled_file.c_str(), "w");
-   fprintf(pFile, "#%s\n", cmdline.c_str());
-   fprintf(pFile, "#########################################\n");
-   FILE *plogfile = fopen(tracker.c_str(), "w");
-
-   FILE* pfragfile = NULL;
-   if (print_frag_context) pfragfile = fopen(fragfile.c_str(), "w");
-
-   char* bam_file = argv[optind++];
    ReadTable read_table;
    RefSeqTable ref_seq_table(true);
    shared_ptr<HitFactory> hf(new BAMHitFactory(bam_file, read_table, ref_seq_table));
    hf->inspect_header();
    Sample read_sample(move(hf));
-
-
-/*
- * The hexmer reweighting does not make a different now.
- */
-//   std::ifstream inputFile("Genominator.bias");
-//   string kmer_name;
-//   double kmer_weight;
-//   while(inputFile >> kmer_name >> kmer_weight){
-//      read_sample._kmer_bias[kmer_name] = kmer_weight;
-//   }
-
 
    GffReader* greader= NULL;
    if(ref_gtf_filename != ""){
@@ -291,8 +218,7 @@ int driver(int argc, char** argv){
          exit(1);
       }
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
-      greader->readAll();
-      fclose(gff);
+      greader->readAll(); fclose(gff);
       // count 2-isoform genes
 //      int num_iso2gene = 0;
 //      for (auto const& each : greader->_g_seqs) {
@@ -375,3 +301,47 @@ int driver(int argc, char** argv){
 }
 
 
+INITIALIZE_EASYLOGGINGPP
+int main(int argc, char** argv){
+   string cmdline;
+   for(int i=0; i<argc; i++){
+      cmdline += argv[i];
+      cmdline+=" ";
+   }
+   int parse_ret = parse_options(argc, argv);
+   if(parse_ret) return 1;
+   if(optind >= argc){
+      print_help();
+      return 1;
+   }
+   int ret = mkpath(output_dir.c_str(), 0777);
+   if(ret == -1){
+      if(errno != EEXIST){
+         fprintf(stderr, "ERROR: cannot create directory %s\n", output_dir.c_str());
+         exit(1);
+      }
+   }
+   string exec_log_file = output_dir + "/" + "execution.log";
+   CreateLogger(exec_log_file);
+   string assembled_file = output_dir + "/";// assembled_transcripts.gtf 25 characters
+   assembled_file += string("assembled_transcripts.gtf");
+   string tracker = output_dir + "/" + tracking_log;
+   string fragfile = output_dir + "/" + frag_context_out;
+
+   if(verbose){
+      fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
+      fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
+   }
+   FILE *pFile = fopen(assembled_file.c_str(), "w");
+   fprintf(pFile, "#%s\n", cmdline.c_str());
+   fprintf(pFile, "#########################################\n");
+   FILE *plogfile = fopen(tracker.c_str(), "w");
+
+   FILE* pfragfile = NULL;
+   if (print_frag_context) pfragfile = fopen(fragfile.c_str(), "w");
+
+   char* bam_file = argv[optind++];
+   driver(bam_file, pFile, plogfile, pfragfile);
+   fprintf(stdout, "Program finished\n");
+   return 0;
+}

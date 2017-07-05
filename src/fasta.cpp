@@ -21,11 +21,11 @@ void SubSeq::setup(uint s, uint l){
 //initialize .fa file and .fai file name
 FaIndex::FaIndex(const char* fname, const char* finame){
    if(fileExists(fname) != 2) {
-      LOG_ERR("Error: fasta file ", fname, " not found");
+      std::cerr<<"Error: fasta file "<< fname<< " not found\n";
       exit(1);
    }
    if (fileSize(fname)<=0) {
-      LOG_ERR("Error: invalid fasta file",fname);
+      std::cerr<<"Error: invalid fasta file "<<fname<<std::endl;
       exit(1);
    }
    _fa_name.assign(fname);
@@ -45,8 +45,8 @@ int FaIndex::loadIndex(){
    _haveFai = false;
    FILE* fi = fopen(_fai_name.c_str(), "rb");
    if(!fi){
-      LOG_ERR("cannot open fasta index file for reading ",_fai_name.c_str());
-      LOG_ERR("Currently creating fasta index is not supported. Please use samtools to build fasta index.");
+      std::cerr<<"cannot open fasta index file for reading "<<_fai_name<<std::endl;
+      std::cerr<<"Currently creating fasta index is not supported. Please use samtools to build fasta index.\n";
       exit(1);
    }
    SlineReader fl(fi);
@@ -55,7 +55,7 @@ int FaIndex::loadIndex(){
       if(*line == '#') continue;
       size_t idx = strcspn(line, " \t"); // first occurrence of space or tab delimiter
       if(idx == strlen(line)) {
-         LOG_ERR("Error parsing fasta index line: ",line);
+         std::cerr<<"Error parsing fasta index line: "<<line<<std::endl;
          exit(1);
       }
       char *p = (char*)(line+idx); //s now holds the genomic sequence name
@@ -70,7 +70,7 @@ int FaIndex::loadIndex(){
          sscanf(p, "%d%lld%d%d", &len, &offset, &line_len, &bline_len);
       #endif
       if(len==0 || line_len==0 || bline_len==0 || line_len > bline_len){
-         LOG_ERR("Error parsing fasta index line: ",line);
+         std::cerr<<"Error parsing fasta index line: "<<line<<std::endl;
          exit(1);
       }
       #ifdef DEBUG
@@ -94,7 +94,9 @@ bool FaIndex::add_record(string seqname, const uint seqlen, const off_t fpos, co
    pair<FaRecord_p, bool> res;
    res = _records.insert( make_pair(seqname, FaRecord(seqname, seqlen, fpos, linelen, lineblen) ) );
    if(!res.second){
-      LOG_WARN("duplicated seqname ", seqname, " in fasta file");
+      if (NO_LOGGING) {
+         LOG(WARNING)<<"duplicated seqname "<<seqname<< " in fasta file";
+      }
    }
 
    return res.second;
@@ -136,7 +138,7 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
    off_t orig_start = _my_record._fpos;
    uint seq_len = _my_record._seq_len;
    if(seq_len == 0){
-      LOG_ERR("Empty or zero-length fasta record ", _my_record._seq_name);
+      std::cerr<<"Empty or zero-length fasta record "<< _my_record._seq_name<<std::endl;
       exit(1);
    }
    uint start_line_number = (start-1) / line_len;
@@ -157,7 +159,7 @@ uint FaSeqGetter::loadSeq(uint start, uint len){
       if (should_read_len > toread) should_read_len = toread; // in case we need just a few chars
       act_read_len = fread((void*)cur_char_p, 1, should_read_len, _fh);
       if( act_read_len < should_read_len){
-         LOG_ERR("reading ",_fname, " encountered a premature eof. Please check input.");
+         std::cerr<<"reading "<<_fname<< " encountered a premature eof. Please check input.\n";
          exit(1);
       }
       toread -= act_read_len;
@@ -236,7 +238,7 @@ void FaInterface::initiate(const char* fpath){
          pair<unordered_map<string, string>::iterator, bool> ret_it;
          ret_it = _seqname_2_fafile.insert(make_pair(record->first,fasta_file_name));
          if(!ret_it.second){
-            LOG_ERR("Please checking fasta file ", fasta_file_name,  "for possible duplicated sequence names" );
+            std::cerr<<"Please checking fasta file "<< fasta_file_name<<" for possible duplicated sequence names\n";
          }
       }//end for loop
 
@@ -271,7 +273,7 @@ void FaInterface::initiate(const char* fpath){
                   pair<unordered_map<string, string>::iterator, bool> ret_it;
                   ret_it = _seqname_2_fafile.insert(make_pair(record->first, fasta_file_name));
                   if(!ret_it.second){
-                     LOG_ERR("Please checking fasta file ", fasta_file_name,  "for possible duplicated sequence names" );
+                     std::cerr<<"Please checking fasta file "<< fasta_file_name<<" for possible duplicated sequence names\n";
                   }
                }//end for loop
             }
@@ -301,7 +303,7 @@ void FaInterface::initiate(const char* fpath){
                   pair<unordered_map<string, string>::iterator, bool> ret_it;
                   ret_it = _seqname_2_fafile.insert(make_pair(record->first, fasta_file_name));
                   if(!ret_it.second){
-                     LOG_ERR("Please checking fasta file ", fasta_file_name,  "for possible duplicated sequence names" );
+                     std::cerr<<"Please checking fasta file "<< fasta_file_name<<" for possible duplicated sequence names\n";
                   }
                }//end for loop
             }

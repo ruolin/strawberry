@@ -480,7 +480,7 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    auto it = exon_boundaries.begin();
    while(it != exon_boundaries.end()){
      if(it->second <= it->first){
-        LOG_ERR("Unreal exon seg on ",ref_id,":", it->first, "-", it->second);
+        LOG(WARNING)<<"Unreal exon seg on "<<ref_id<<":"<<it->first<< "-"<< it->second;
         //exit(0);
         it = exon_boundaries.erase(it);
      }
@@ -597,21 +597,18 @@ bool FlowNetwork::createNetwork(
 
       if(ArcLookUp<ListDigraph>(_g)(s,t) == INVALID && is_valid){ // no existing edge and valid constraint
 
-         LOG("Path Constraints:\t");
          for(size_t i = 0; i< c.size()-1; ++i){
             const Graph::Node &pre = feat2node[&exons[c[i]]];
             const Graph::Node &sec = feat2node[&exons[c[i+1]]];
-            LOG("(", exons[c[i]].left(), ",",exons[c[i]].right(),\
-                ")-(", exons[c[i+1]].left(),",",exons[c[i+1]].right(),")\t");
 //#ifdef DEBUG
 //            cout<<exons[c[i]]._genomic_offset<<"---"<<exons[c[i+1]]._genomic_offset<<endl;
 //#endif
             Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
             if(arc_found == INVALID){
 
-               LOG_ERR("Calculating Path Constraints failed");
-               LOG_ERR("No intron connects exon ", hits[0].ref_id(), ":",node2feat[pre]->left(), "-", node2feat[pre]->right());
-               LOG_ERR("No intron connects exon ", hits[0].ref_id(), ":",node2feat[sec]->left(), "-", node2feat[sec]->right());
+               LOG(ERROR)<<"Calculating Path Constraints failed";
+               LOG(ERROR)<<"No intron connects exon "<< hits[0].ref_id()<< ":"<<node2feat[pre]->left()<< "-"<< node2feat[pre]->right();
+               LOG(ERROR)<<"No intron connects exon "<< hits[0].ref_id()<< ":"<<node2feat[sec]->left()<< "-"<< node2feat[sec]->right();
                continue;
             }
             path_cstr.push_back(arc_found);
@@ -620,55 +617,6 @@ bool FlowNetwork::createNetwork(
             path_cstrs.push_back(path_cstr);
       }
    }
-
-
-   /*
-    * Paired-end path constraint algorithm. Currently defunct.
-    */
-
-//   for(auto c: constraints){
-//      std::vector<Graph::Arc> path_cstr;
-//
-//      for(size_t i = 0; i< c.size()-1; ++i){
-//         const Graph::Node &pre = feat2node[&exons[c[i]]];
-//         const Graph::Node &sec = feat2node[&exons[c[i+1]]];
-//
-//         Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
-//         if(arc_found == INVALID){
-//            Dijkstra<Graph, Graph::ArcMap<int>> shortest_path(_g, cost_map);
-//            shortest_path.run(pre);
-//            std::cout << "The distance of node t from node s: "
-//              << shortest_path.dist(sec) << std::endl;
-//            if(shortest_path.dist(sec) == 0){
-//               LOG("Path Constraints:\t");
-//               LOG("(", exons[c[i]].left(), ",",exons[c[i]].right(),\
-//             ")-(", exons[c[i+1]].left(),",",exons[c[i+1]].right(),")\t");
-//            }
-//            else{
-//                std::stack<Graph::Arc> arcs_stack;
-//                for (Graph::Node v=sec;v != pre; v=shortest_path.predNode(v)) {
-//                   assert(v != INVALID);
-//                   arcs_stack.push(shortest_path.predArc(v));
-//                }
-//                while(!arcs_stack.empty()){
-//
-//                   auto it = find(path_cstr.begin(), path_cstr.end(), arcs_stack.top());
-//                   if(it != path_cstr.end());
-//                      path_cstr.push_back(arcs_stack.top());
-//                   arcs_stack.pop();
-//                }
-//            }
-//
-//         }
-//         else{
-//            auto it = find(path_cstr.begin(), path_cstr.end(), arc_found);
-//            if( it != path_cstr.end());
-//               path_cstr.push_back(arc_found);
-//         }
-//      }
-//      if(path_cstr.size() > 1)
-//         path_cstrs.push_back(path_cstr);
-//   }
 
 
    if(path_cstrs.empty()){

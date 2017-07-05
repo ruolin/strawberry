@@ -141,7 +141,9 @@ Strand_t HitCluster::ref_strand() const{
 
 Strand_t HitCluster::guessStrand() const{
    if(_first_encounter_strand == Strand_t::StrandUnknown){
-     LOG("HitCluster ", _ref_id, ":", _leftmost,"-",_rightmost," does not have strand information. It is likely to be a single exon transcript." );
+     if (!NO_LOGGING) {
+        LOG(INFO)<<"HitCluster "<< _ref_id<< ":"<< _leftmost<<"-"<<_rightmost<<" does not have strand information. It is likely to be a single exon transcript.";
+     }
      return Strand_t::StrandUnknown;
    }
    if(_first_encounter_strand == Strand_t::StrandPlus){
@@ -265,23 +267,6 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
    uint hit_partner_pos = hit->partner_pos();
    ReadID hit_id = hit->read_id();
 
-//   if(hit->contains_splice() && hit->intron_len() > kMaxIntronLen4ExtCluster){
-//     vector<pair<uint,uint>> intron_coords = hit->intron_coords();
-//
-//     //count_current_intron(intron_coords);
-//     if(extend_by_hit && current_intron_is_reliable()){
-//       _leftmost = min(_leftmost, hit_left);
-//       _rightmost = max(_rightmost, hit_right);
-//     }
-//     if(extend_by_partner && hit_partner_pos != 0 && current_intron_is_reliable()){
-//       if((int)hit_partner_pos - (int)hit_left > max_inner_d){
-//         LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
-//         return false;
-//       }
-//       _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
-//     }
-//   } //end if
-//   else{
      if(extend_by_hit){
        _leftmost = min(_leftmost, hit_left);
        _rightmost = max(_rightmost, hit_right);
@@ -302,7 +287,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
 
    if(abs((int)hit_right - (int)hit_left) > kMaxFragSpan){
      reset(orig_left, orig_right, orig_ref_id);
-     LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
+      if (!NO_LOGGING) {
+         LOG(WARNING)<<"Hit start at "<<hit_left<< "  is longer than max gene length<< skipping";
+      }
      return false;
    }
 
@@ -332,7 +319,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        if(hit->partner_pos() > hit->right()){
          if(hit->reverseCompl())
          {
-            LOG_ERR("Possible wrong read orientation at chr: ", hit->ref_id(), " for read start at ", hit->left(), " and his partner at ",hit->partner_pos() );
+            if (!NO_LOGGING) {
+               LOG(WARNING)<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos();
+            }
          }
          PairedHit open_hit(hit, nullptr);
          unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
@@ -345,7 +334,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        else if(hit->partner_pos() < hit->left()){
          if(!hit->reverseCompl())
          {
-            LOG_ERR("Possible wrong read orientation at chr: ", hit->ref_id(), " for read start at ", hit->left(), " and his partner at ",hit->partner_pos() );
+            if (!NO_LOGGING) {
+               LOG(WARNING)<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos();
+            }
          }
 
          PairedHit open_hit(nullptr, hit);
@@ -358,7 +349,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        }
        else{
          reset(orig_left, orig_right, orig_ref_id);
-         LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
+          if (!NO_LOGGING) {
+             LOG(WARNING)<<"POSSIBLE wrong alignment "<< hit->ref_id()<<":"<<hit->left()<<" with no gap between its paried hit:"<<hit->partner_pos();
+          }
          return false;
        }
      } else{
@@ -420,7 +413,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        }
        else{
          reset(orig_left, orig_right, orig_ref_id);
-         LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
+          if (!NO_LOGGING) {
+             LOG(WARNING)<<"POSSIBLE wrong alignment "<< hit->ref_id()<<":"<<hit->left()<<" with no gap between its paried hit:"<<hit->partner_pos();
+          }
          return false;
        }
 
@@ -885,7 +880,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
      } else { //add the rest
        if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
          // should never reach here
-         LOG_ERR("In alignments.cpp: It appears that SAM/BAM not sorted!");
+         std::cerr<<"It appears that SAM/BAM not sorted!\n";
        }
        if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
          // read has gone to far.
@@ -1128,7 +1123,7 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
                FILE *plogfile) {
 
    if (transcripts.empty()) {
-      std::cerr<<"Error: no reference transcripts are found\n";
+      LOG(WARNING) << "no reference transcripts are found";
       return;
    }
    _total_mapped_reads += (int) cluster->weighted_mass();
@@ -1649,7 +1644,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
  * assemble each cluster-> Right now only nextCluster_refGuide() is implemented.
  * if no reference mRNA than nextCluster_refGuide will call nextCluster_denovo()
  */
-   //cout<<"reach in procSample"<<endl;
+   NO_LOGGING = true;
    _hit_factory->reset();
    reset_refmRNAs();
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
@@ -1804,19 +1799,23 @@ void Sample::filter_intron(uint cluster_left,
           float depth_j = j->second.total_junc_reads;
          if( depth_i / depth_j < kMinIsoformFrac){
             bad_intron_pos.push_back(i->first);
-            LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
-                depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
-                j->first.second, " has ", depth_j, " read supporting. ");
+            if (!NO_LOGGING) {
+               LOG(INFO)<<"Filtering overlapping intron by depth: "<< _current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
+                        depth_i<<" read supporting. "<<"Intron at "<< _current_chrom<<":"<<j->first.first<< "-"<<
+                        j->first.second<< " has "<< depth_j<< " read supporting. ";
+            }
          }
          if( depth_j / depth_i < kMinIsoformFrac){
             bad_intron_pos.push_back(j->first);
-            LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
-            depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
-            j->first.second, " has ", depth_j, " read supporting. ");
+            if (!NO_LOGGING) {
+               LOG(INFO)<<"Filtering overlapping intron by depth: "<< _current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
+                        depth_i<<" read supporting. "<<"Intron at "<< _current_chrom<<":"<<j->first.first<< "-"<<
+                        j->first.second<< " has "<< depth_j<< " read supporting. ";
+            }
          }
        }
-     }
-   }
+     } // end for
+   } //end for
    sort(bad_intron_pos.begin(), bad_intron_pos.end());
    auto last = unique(bad_intron_pos.begin(), bad_intron_pos.end());
    bad_intron_pos.erase(last, bad_intron_pos.end());
@@ -1836,8 +1835,10 @@ void Sample::filter_intron(uint cluster_left,
 //     cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
      if(total_read < kMinJuncSupport && !enforce_ref_models){
-       LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
-          " has only ", total_read, " total read.");
+        if (!NO_LOGGING) {
+           LOG(INFO)<<"Filtering intron at by overall read support: "<< _current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has only "<< total_read<< " total read.";
+        }
        i = intron_counter.erase(i);
        continue;
      }
@@ -1859,8 +1860,10 @@ void Sample::filter_intron(uint cluster_left,
      double x = (small_read-0.5 - normal_mean)/normal_sd;
      prob_not_lt_observed = 1.0 - standard_normal_cdf(x);
      if(prob_not_lt_observed < kBinomialOverHangAlpha) {
-       LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
-          " has ", small_read, " small overhang read vs ", total_read, " total read.");
+        if (!NO_LOGGING) {
+           LOG(INFO)<<"Filtering intron at by small anchor: "<< _current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has "<< small_read<< " small overhang read vs "<< total_read<< " total read.";
+        }
        i = intron_counter.erase(i);
        continue;
      }
@@ -1888,8 +1891,10 @@ void Sample::filter_intron(uint cluster_left,
      avg_intron_exonic_doc /= (end-start);
      if(avg_intron_exonic_doc != 0){
        if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
-         LOG("Filtering intron at by exonic coverage: ", _current_chrom, ":",i->first.first,"-",i->first.second,
-         " averaged intron doc: ", avg_intron_doc, " vs averaged exonic doc on intron: ", avg_intron_exonic_doc, ".");
+         if (!NO_LOGGING) {
+            LOG(INFO)<<"Filtering intron at by exonic coverage: "<< _current_chrom<< ":"<<i->first.first<<"-"<<i->first.second<<
+                      " averaged intron doc: "<< avg_intron_doc<< " vs averaged exonic doc on intron: "<< avg_intron_exonic_doc<< ".";
+         }
          i = intron_counter.erase(i);
          continue;
        }

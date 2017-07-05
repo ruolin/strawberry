@@ -51,7 +51,7 @@ void GffLine::extractAttr(const string attr, string &val) {
    char* vp=pos+attrlen;
    while (*vp==' ') vp++;
    if (*vp==';' || *vp==0)
-      LOG_WARN("Error parsing value of GFF attribute ", attr.c_str(), "on line", _dupline);
+      LOG(WARNING)<<"Error parsing value of GFF attribute "<<attr<< "on line "<< _dupline;
    bool dq_enclosed=false; //value string enclosed by double quotes
    if (*vp=='"') {
       dq_enclosed=true;
@@ -122,13 +122,13 @@ GffLine::GffLine(const char* l)
    char* p=t[3];
    _start = (uint) atol(p);
    if(_start == 0){
-      LOG_WARN("Warning: invalid start coordinate at line:\n",l, "\n");
+      LOG(WARNING)<<"invalid start coordinate at line:\n"<<l;
       return;
    }
    p=t[4];
    _end = (uint) atol(p);
    if (_end == 0){
-      LOG_WARN("Warning: invalid end coordinate at line:\n",l, "\n");
+      LOG(WARNING)<<"invalid end coordinate at line:\n"<<l;
       return;
    }
    if (_end<_start) {
@@ -143,7 +143,7 @@ GffLine::GffLine(const char* l)
    else{
       _score = atof(p);
       if(_score == 0.0)
-         LOG_WARN("Warning: invalid feature score at line:\n",l, "\n");
+         LOG(WARNING)<<"invalid feature score at line:\n"<<l;
          return;
    }
    switch(*t[6]){
@@ -336,7 +336,7 @@ GffmRNA* GffLoci::getRNA(const string rna) {
       for(auto it = _mrnas.begin(); it != _mrnas.end(); ++it){
          if((*it)->_transcript_id == rna) return *it;
       }
-      LOG_ERR("Can not find the parent of mRNA", rna.c_str());
+      LOG(ERROR)<<"Can not find the parent of mRNA "<< rna;
    }
    return NULL;
 }
@@ -396,7 +396,6 @@ GffLoci* GffTree::findGene(const string gene_id){
       }
       //unique_ptr<GffLoci> gene (new GffLoci(gene_id));
       //addGene(move(gene));
-      //LOG_ERR("Gff file does not contain gene_id: ", gene_id.c_str());
       return nullptr;
    }
 }
@@ -413,8 +412,6 @@ GffmRNA* GffTree::findmRNA(const string mrna_id, const Strand_t strand){
             for(auto it = _forward_rnas.begin(); it!= _forward_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            //LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
-            //assert(false);
          }
          break;
       }
@@ -427,8 +424,6 @@ GffmRNA* GffTree::findmRNA(const string mrna_id, const Strand_t strand){
             for(auto it = _reverse_rnas.begin(); it!= _reverse_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            //LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
-            //assert(false);
          }
          break;
       }
@@ -441,8 +436,6 @@ GffmRNA* GffTree::findmRNA(const string mrna_id, const Strand_t strand){
             for(auto it = _unstranded_rnas.begin(); it!= _unstranded_rnas.end(); it++){
                if( (*it)->_transcript_id == mrna_id) return &(*(*it));
             }
-            //LOG_ERR("GFF error: parent mRNA ", mrna_id.c_str(), " cannot be found");
-            //assert(false);
          }
          break;
       }
@@ -469,11 +462,6 @@ bool GffReader::nextGffLine(){
       if(_gfline->_skip){
          continue;
       }
-      //if(_gfline->_ID.empty() && _gfline->_parent.empty()){
-         //LOG_WARN("Warning: malformed GFF line",_gfline->_dupline);
-         //continue;
-      //}
-//      cout<<string(l)<<endl;
       break;
    }
    return true;
