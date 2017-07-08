@@ -144,7 +144,7 @@ public:
 
    void calculate_raw_iso_counts();
 
-   bool estimate_abundances(bool with_bias_correction);
+   bool estimate_abundances();
 
    std::pair<std::set<std::pair<uint,uint>>, std::vector<double>> get_frag_info(const Contig& frag) const {
       // return a pair of exon bin coordinates and probabilities

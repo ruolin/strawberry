@@ -141,7 +141,9 @@ Strand_t HitCluster::ref_strand() const{
 
 Strand_t HitCluster::guessStrand() const{
    if(_first_encounter_strand == Strand_t::StrandUnknown){
-     LOG("HitCluster ", _ref_id, ":", _leftmost,"-",_rightmost," does not have strand information. It is likely to be a single exon transcript." );
+     if (!NO_LOGGING) {
+        LOG(INFO)<<"HitCluster "<< _ref_id<< ":"<< _leftmost<<"-"<<_rightmost<<" does not have strand information. It is likely to be a single exon transcript.";
+     }
      return Strand_t::StrandUnknown;
    }
    if(_first_encounter_strand == Strand_t::StrandPlus){
@@ -265,23 +267,6 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
    uint hit_partner_pos = hit->partner_pos();
    ReadID hit_id = hit->read_id();
 
-//   if(hit->contains_splice() && hit->intron_len() > kMaxIntronLen4ExtCluster){
-//     vector<pair<uint,uint>> intron_coords = hit->intron_coords();
-//
-//     //count_current_intron(intron_coords);
-//     if(extend_by_hit && current_intron_is_reliable()){
-//       _leftmost = min(_leftmost, hit_left);
-//       _rightmost = max(_rightmost, hit_right);
-//     }
-//     if(extend_by_partner && hit_partner_pos != 0 && current_intron_is_reliable()){
-//       if((int)hit_partner_pos - (int)hit_left > max_inner_d){
-//         LOG_ERR("Read Pair ", hit_left, "-",hit_partner_pos, " inner distance is larger than ",  max_inner_d);
-//         return false;
-//       }
-//       _rightmost = max(max(_rightmost, hit->right()), hit->partner_pos());
-//     }
-//   } //end if
-//   else{
      if(extend_by_hit){
        _leftmost = min(_leftmost, hit_left);
        _rightmost = max(_rightmost, hit_right);
@@ -302,7 +287,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
 
    if(abs((int)hit_right - (int)hit_left) > kMaxFragSpan){
      reset(orig_left, orig_right, orig_ref_id);
-     LOG_WARN("Hit start at ",hit_left, "  is longer than max gene length, skipping");
+      if (!NO_LOGGING) {
+         LOG(WARNING)<<"Hit start at "<<hit_left<< "  is longer than max gene length<< skipping";
+      }
      return false;
    }
 
@@ -332,7 +319,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        if(hit->partner_pos() > hit->right()){
          if(hit->reverseCompl())
          {
-            LOG_ERR("Possible wrong read orientation at chr: ", hit->ref_id(), " for read start at ", hit->left(), " and his partner at ",hit->partner_pos() );
+            if (!NO_LOGGING) {
+               LOG(WARNING)<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos();
+            }
          }
          PairedHit open_hit(hit, nullptr);
          unordered_map<ReadID, list<PairedHit>>::iterator ins_pos;
@@ -345,7 +334,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        else if(hit->partner_pos() < hit->left()){
          if(!hit->reverseCompl())
          {
-            LOG_ERR("Possible wrong read orientation at chr: ", hit->ref_id(), " for read start at ", hit->left(), " and his partner at ",hit->partner_pos() );
+            if (!NO_LOGGING) {
+               LOG(WARNING)<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos();
+            }
          }
 
          PairedHit open_hit(nullptr, hit);
@@ -358,7 +349,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        }
        else{
          reset(orig_left, orig_right, orig_ref_id);
-         LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
+          if (!NO_LOGGING) {
+             LOG(WARNING)<<"POSSIBLE wrong alignment "<< hit->ref_id()<<":"<<hit->left()<<" with no gap between its paried hit:"<<hit->partner_pos();
+          }
          return false;
        }
      } else{
@@ -420,7 +413,9 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        }
        else{
          reset(orig_left, orig_right, orig_ref_id);
-         LOG_ERR("POSSIBLE wrong alignment ", hit->ref_id(),":",hit->left()," with no gap between paired hits");
+          if (!NO_LOGGING) {
+             LOG(WARNING)<<"POSSIBLE wrong alignment "<< hit->ref_id()<<":"<<hit->left()<<" with no gap between its paried hit:"<<hit->partner_pos();
+          }
          return false;
        }
 
@@ -747,30 +742,38 @@ double Sample::next_valid_alignment(ReadHit& readin){
      if(readin.ref_id() == -1) continue; // unmapped read
      raw_mass += readin.mass(); // suck in read mass for future if mask_gtf is used.
 
-     if(_prev_hit_ref_id != -1){
-       if(_prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
-       {
-         const string cur_chr_name = _hit_factory->_ref_table.ref_real_name(readin.ref_id());
-         const string last_chr_name = _hit_factory->_ref_table.ref_real_name(_prev_hit_ref_id);
-         cerr<<"BAM file not sort correctly!\n";
-         cerr<<"The current position is: "<<cur_chr_name<<":"<<readin.left();
-         cerr<<"and previous position is: "<<last_chr_name<<":"<<_prev_hit_pos;
-       }
-     }
-
-     _prev_hit_ref_id = readin.ref_id();
-     _prev_hit_pos = readin.left();
+//     if(_prev_hit_ref_id != -1){
+//       if(_prev_hit_ref_id == readin.ref_id() && _prev_hit_pos > readin.left())
+//       {
+//         const string cur_chr_name = _hit_factory->_ref_table.ref_real_name(readin.ref_id());
+//         const string last_chr_name = _hit_factory->_ref_table.ref_real_name(_prev_hit_ref_id);
+//         cerr<<"BAM file not sort correctly!\n";
+//         cerr<<"The current position is: "<<cur_chr_name<<":"<<readin.left();
+//         cerr<<" and previous position is: "<<last_chr_name<<":"<<_prev_hit_pos;
+//         cerr<<endl;
+//       }
+//     }
+//
+//     _prev_hit_ref_id = readin.ref_id();
+//     _prev_hit_pos = readin.left();
      break;
    }
    _hit_factory->_reads_table._read_len_abs = max(_hit_factory->_reads_table._read_len_abs, readin.read_len());
    return raw_mass;
 }
 
-double Sample::rewindHit(const ReadHit& rh)
+void Sample::rewindHit()
 {
-   double mass = rh.mass();
+   //double mass = rh.mass();
    _hit_factory->undo_hit();
-   return mass;
+   //return mass;
+}
+
+void Sample::rewindHits(uint64_t pos)
+{
+   //double mass = rh.mass();
+   _hit_factory->return2Pos(pos);
+   //return mass;
 }
 
 int Sample::addRef2Cluster(HitCluster &cluster_out){
@@ -792,21 +795,36 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
      return 1;
    }
 
-   // add the rest if overlapped with first
-   size_t i = 0;
-   while(i < cluster_out._ref_mRNAs.size()){
-     const Contig& ref = cluster_out._ref_mRNAs[i];
-     if (Contig::overlaps_directional(ref, _ref_mRNAs[_refmRNA_offset])) {
-       cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
-       if(_refmRNA_offset >= _ref_mRNAs.size()){
-         _has_load_all_refs = true;
-         return cluster_out._ref_mRNAs.size();
-       }
-       i=0;
-     }
-     else{
-       ++i;
-     }
+   if (!cluster_out.gene_id().empty()) {
+      while (_refmRNA_offset < _ref_mRNAs.size() && _ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
+         cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
+      }
+      size_t mark_next_gene = _refmRNA_offset;
+      //continue search a few forward
+      int over = 0;
+      while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 10) {
+         if (_ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
+            cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset]);
+         }
+      }
+      _refmRNA_offset = mark_next_gene;
+   }
+   else {
+      // add the rest if overlapped with first
+      size_t i = 0;
+      while (i < cluster_out._ref_mRNAs.size()) {
+         const Contig &ref = cluster_out._ref_mRNAs[i];
+         if (Contig::overlaps_directional(ref, _ref_mRNAs[_refmRNA_offset])) {
+            cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
+            if (_refmRNA_offset >= _ref_mRNAs.size()) {
+               _has_load_all_refs = true;
+               return cluster_out._ref_mRNAs.size();
+            }
+            i = 0;
+         } else {
+            ++i;
+         }
+      }
    }
    return cluster_out._ref_mRNAs.size();
 }
@@ -851,7 +869,7 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 
      if(new_hit->ref_id() > next_ref_start_ref ||
       (new_hit->ref_id() == next_ref_start_ref && new_hit->right() >= next_ref_start_pos)){
-       rewindHit(*new_hit);
+       rewindHit();
        return clusterOut.size();
      }
 
@@ -862,11 +880,11 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
      } else { //add the rest
        if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
          // should never reach here
-         LOG_ERR("In alignments.cpp: It appears that SAM/BAM not sorted!");
+         std::cerr<<"It appears that SAM/BAM not sorted!\n";
        }
        if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){
          // read has gone to far.
-         rewindHit(*new_hit);
+         rewindHit();
          break;
        }
        clusterOut.addOpenHit(new_hit, true, true);
@@ -877,6 +895,8 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
 }
 
 int Sample::nextClusterRefDemand(HitCluster &clusterOut){
+   // if assembly step was run. hasLoadRefmRNAs() will return true.
+
    if (!hasLoadRefmRNAs()) {
      std::cerr<<"if you use --no-assembly option, you must provide gff file through -g option!"<<std::endl;
      assert(false);
@@ -889,6 +909,8 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
    if (num_added_refmRNA == 0) {
      return -1;
    }
+   int64_t first_pos = _hit_factory->getCurrPos();
+//   int counter = 0;
    while (true) {
      if(!_hit_factory->recordsRemain()){
        break;
@@ -898,13 +920,28 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
      if (hit_lt_cluster(*new_hit, clusterOut, 0)) {  //hit hasn't read this region
 
      } else if (hit_gt_cluster(*new_hit, clusterOut, 0)) {
-       rewindHit(*new_hit);
+       rewindHit();
        break;
-     } else {
+     } else if (new_hit->strand() != Strand_t ::StrandUnknown && new_hit->strand() != clusterOut.ref_strand()) {
+//        if (counter > 1) {
+//           rewindHits(first_pos);
+//           break;
+//        }
+//        ++counter;
+        //std::cerr<<"hit strand "<<new_hit->strand()<<endl;
+        //std::cerr<<"ref strand "<<clusterOut.ref_strand()<<endl;
+        //for (int i = 0; i < counter; ++i) rewindHit();
+     }
+     else {
        clusterOut.addOpenHit(new_hit, false, false);
        clusterOut.addRawMass(mass);
      }
    }  //end while loop
+
+   //roger
+//   if (clusterOut.size() > 0) {
+//      std::cout<<num_added_refmRNA<<" transcript added\n";
+//   }
    return clusterOut.size();
 }
 
@@ -974,7 +1011,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
        double mass = next_valid_alignment(*new_hit);
 
        if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // hit hasn't reach reference region
-         rewindHit(*new_hit);
+         rewindHit();
          if(_has_load_all_refs){
             rewindReference(clusterOut, num_added_refmRNA);
             return nextCluster_denovo(clusterOut);
@@ -993,7 +1030,7 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
        }
 
        if(hit_gt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // read has gone too far.
-         rewindHit(*new_hit);
+         rewindHit();
          break;
        }
 
@@ -1085,7 +1122,10 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
                const shared_ptr<HitCluster> cluster,
                FILE *plogfile) {
 
-   if (transcripts.empty()) return;
+   if (transcripts.empty()) {
+      LOG(WARNING) << "no reference transcripts are found";
+      return;
+   }
    _total_mapped_reads += (int) cluster->weighted_mass();
 
    vector<Contig> hits;
@@ -1094,29 +1134,35 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
      hits.push_back(hit);
    }
 
-   if (transcripts.size() == 1) {
-     for (auto const &assembled_transcript: transcripts) {
-       for (size_t h = 0; h < hits.size(); ++h) {
-         //if (hits[h].is_single_read()) continue;
-         if (!Contig::is_compatible(hits[h], assembled_transcript)) continue;
-         double frag_len = Contig::exonic_overlaps_len(assembled_transcript,
-                                    hits[h].left(),
-                                    hits[h].right());
+   //if (transcripts.size() == 1) {
+   for (size_t h = 0; h < hits.size(); ++h) {
+     int counter = 0;
+     size_t mark = 0;
+     for (size_t t = 0; t < transcripts.size(); ++t) {
+        //if (hits[h].is_single_read()) continue;
+        if (Contig::is_compatible(hits[h], transcripts[t])) {
+           ++counter;
+           mark = t;
+        }
+     } //end for
+     if (counter == 1) {
+        double frag_len = Contig::exonic_overlaps_len(transcripts[mark],
+                                                      hits[h].left(),
+                                                      hits[h].right());
 
 #if ENABLE_THREADS
-         if (use_threads) {
-            thread_pool_lock.lock();
-            _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-            thread_pool_lock.unlock();
-         } else {
-            _hit_factory->_reads_table._frag_dist.push_back(frag_len);
-         }
+        if (use_threads) {
+           thread_pool_lock.lock();
+           _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+           thread_pool_lock.unlock();
+        } else {
+           _hit_factory->_reads_table._frag_dist.push_back(frag_len);
+        }
+     }
 #else
          _hit_factory->_reads_table._frag_dist.push_back(frag_len);
 #endif
-       }// end for
-     }// end for
-   } // end if (assembled_transcripts.size()==1)
+   }// end for
 
 #if ENABLE_THREADS
    if (use_threads) {
@@ -1349,9 +1395,10 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
-   bool success = est.estimate_abundances(BIAS_CORRECTION);
+   bool success = est.estimate_abundances();
 
    if(success){
+      //cout<<"assembled transcripts size: "<<assembled_transcripts.size()<<endl;
 #if ENABLE_THREADS
      if(use_threads) {
         out_file_lock.lock();
@@ -1597,7 +1644,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
  * assemble each cluster-> Right now only nextCluster_refGuide() is implemented.
  * if no reference mRNA than nextCluster_refGuide will call nextCluster_denovo()
  */
-   //cout<<"reach in procSample"<<endl;
+   NO_LOGGING = true;
    _hit_factory->reset();
    reset_refmRNAs();
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
@@ -1752,19 +1799,23 @@ void Sample::filter_intron(uint cluster_left,
           float depth_j = j->second.total_junc_reads;
          if( depth_i / depth_j < kMinIsoformFrac){
             bad_intron_pos.push_back(i->first);
-            LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
-                depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
-                j->first.second, " has ", depth_j, " read supporting. ");
+            if (!NO_LOGGING) {
+               LOG(INFO)<<"Filtering overlapping intron by depth: "<< _current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
+                        depth_i<<" read supporting. "<<"Intron at "<< _current_chrom<<":"<<j->first.first<< "-"<<
+                        j->first.second<< " has "<< depth_j<< " read supporting. ";
+            }
          }
          if( depth_j / depth_i < kMinIsoformFrac){
             bad_intron_pos.push_back(j->first);
-            LOG("Filtering overlapping intron by depth: ", _current_chrom,":",i->first.first,"-",i->first.second, " has ",
-            depth_i," read supporting. ","Intron at ", _current_chrom,":",j->first.first, "-",
-            j->first.second, " has ", depth_j, " read supporting. ");
+            if (!NO_LOGGING) {
+               LOG(INFO)<<"Filtering overlapping intron by depth: "<< _current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
+                        depth_i<<" read supporting. "<<"Intron at "<< _current_chrom<<":"<<j->first.first<< "-"<<
+                        j->first.second<< " has "<< depth_j<< " read supporting. ";
+            }
          }
        }
-     }
-   }
+     } // end for
+   } //end for
    sort(bad_intron_pos.begin(), bad_intron_pos.end());
    auto last = unique(bad_intron_pos.begin(), bad_intron_pos.end());
    bad_intron_pos.erase(last, bad_intron_pos.end());
@@ -1784,8 +1835,10 @@ void Sample::filter_intron(uint cluster_left,
 //     cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
      if(total_read < kMinJuncSupport && !enforce_ref_models){
-       LOG("Filtering intron at by overall read support: ", _current_chrom,":", i->first.first,"-",i->first.second,
-          " has only ", total_read, " total read.");
+        if (!NO_LOGGING) {
+           LOG(INFO)<<"Filtering intron at by overall read support: "<< _current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has only "<< total_read<< " total read.";
+        }
        i = intron_counter.erase(i);
        continue;
      }
@@ -1807,8 +1860,10 @@ void Sample::filter_intron(uint cluster_left,
      double x = (small_read-0.5 - normal_mean)/normal_sd;
      prob_not_lt_observed = 1.0 - standard_normal_cdf(x);
      if(prob_not_lt_observed < kBinomialOverHangAlpha) {
-       LOG("Filtering intron at by small anchor: ", _current_chrom,":", i->first.first,"-",i->first.second,
-          " has ", small_read, " small overhang read vs ", total_read, " total read.");
+        if (!NO_LOGGING) {
+           LOG(INFO)<<"Filtering intron at by small anchor: "<< _current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has "<< small_read<< " small overhang read vs "<< total_read<< " total read.";
+        }
        i = intron_counter.erase(i);
        continue;
      }
@@ -1836,8 +1891,10 @@ void Sample::filter_intron(uint cluster_left,
      avg_intron_exonic_doc /= (end-start);
      if(avg_intron_exonic_doc != 0){
        if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
-         LOG("Filtering intron at by exonic coverage: ", _current_chrom, ":",i->first.first,"-",i->first.second,
-         " averaged intron doc: ", avg_intron_doc, " vs averaged exonic doc on intron: ", avg_intron_exonic_doc, ".");
+         if (!NO_LOGGING) {
+            LOG(INFO)<<"Filtering intron at by exonic coverage: "<< _current_chrom<< ":"<<i->first.first<<"-"<<i->first.second<<
+                      " averaged intron doc: "<< avg_intron_doc<< " vs averaged exonic doc on intron: "<< avg_intron_exonic_doc<< ".";
+         }
          i = intron_counter.erase(i);
          continue;
        }

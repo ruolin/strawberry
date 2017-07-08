@@ -7,10 +7,9 @@ add_library(bam STATIC IMPORTED)
 set_property(TARGET bam PROPERTY IMPORTED_LOCATION ${BAM_LIBRARY})
 
 include_directories(
-
-  #${PROJECT_SOURCE_DIR}/include/sam
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/external/eigen3
+  ${PROJECT_SOURCE_DIR}/external/easyloggingpp/src
 )
 
 set( STRAWBERRY_MAIN_SRCS
@@ -19,13 +18,15 @@ fasta.cpp
 contig.cpp
 read.cpp
 gff.cpp
-logger.cpp
 estimate.cpp
 alignments.cpp
 assembly.cpp
 Strawberry.cpp
-#kmer.cpp
-bias.cpp ../include/isoform.h ../include/utils.h ../include/kmer.h)
+${PROJECT_SOURCE_DIR}/external/easyloggingpp/src/easylogging++.cc
+bias.cpp 
+../include/isoform.h 
+../include/utils.h 
+../include/kmer.h)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 

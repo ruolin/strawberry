@@ -205,6 +205,8 @@ public:
    virtual std::string sample_name() const {
       return _hit_file_name;
    }
+   virtual void return2Pos(int64_t pos) = 0;
+   virtual int64_t getCurrPos() = 0;
 };
 
 class BAMHitFactory : public HitFactory
@@ -230,6 +232,8 @@ public:
    bool nextRecord(const char* &buf, size_t& buf_size);
    bool getHitFromBuf(const char* bwt_buf, ReadHit& bh);
    bool inspect_header();
+   int64_t getCurrPos();
+   void return2Pos(int64_t pos);
 };
 
 typedef std::shared_ptr<ReadHit> ReadHitPtr;

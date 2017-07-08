@@ -37,6 +37,7 @@ int kMaxCoverGap1 = 20; // cover gap due the read depth.
 int kMaxCoverGap2 = 10;
 int kMaxReadNum4FD = 500000;
 int num_threads = 1;
+bool NO_LOGGING = false;
 //bool singleExon4FD = false;
 //int kMinExonLen4FD = 200; // if singleExon4FD is used.
 //int kMinExonCov4FD = 0;  // if singleExon4FD is used.
@@ -408,8 +409,8 @@ bool GenomicInterval::contain(const GenomicInterval &d, bool nonStrandness) cons
 uint GenomicInterval::overlapLen(const GenomicInterval& other) const
 {
      if (!other.overlap(*this)) {
-        LOG_ERR("Calling overlapLen for two non-overlapping interval: ", _left, "-", _right,
-              "\t", other._left, "-", other._right);
+        LOG(ERROR)<<"Calling overlapLen for two non-overlapping interval: "<< _left<< "-"<< _right<<
+              "\t"<<other._left<<"-"<<other._right;
      }
      if (_left<other._left) {
         if (other._left>_right) return 0;

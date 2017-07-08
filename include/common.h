@@ -22,6 +22,7 @@ typedef int RefID;
 
 extern bool SINGLE_END_EXP;
 extern bool BIAS_CORRECTION;
+ extern bool NO_LOGGING;
 extern int kMaxGeneLength;
 extern int kMaxFragSpan;
 extern int kMaxFragPerCluster;
@@ -209,7 +210,8 @@ public:
    SlineReader(const char* fname) {
       FILE* f=fopen(fname, "rb");
       if (f==NULL) {
-         LOG_ERR("Error opening file: ",fname);
+         std::cerr<<"Error opening file: "<<fname;
+         exit(1);
       }
       closeFile=true;
       init(f);
@@ -241,6 +243,24 @@ enum class Strand_t: char{
    StrandMinus,
    StrandBoth
 };
+
+ inline std::ostream& operator<<(std::ostream& os , const Strand_t& s) {
+    switch(s) {
+       case Strand_t::StrandUnknown:
+          os <<"?";
+          break;
+       case Strand_t::StrandPlus:
+          os <<"+";
+          break;
+       case Strand_t::StrandMinus:
+          os <<"-";
+          break;
+       case Strand_t::StrandBoth:
+          os <<"*";
+          break;
+    }
+    return os;
+ }
 
 template<typename str>
 std::ostream& operator<<(std::ostream& os, const std::vector<str>& vec) {

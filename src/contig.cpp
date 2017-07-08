@@ -29,7 +29,7 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
          break;
       case DEL:
          if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
-            LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has suspicious DELETION");
+            LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious DELETION\n";
             return false;
          }
          feats.back()._match_op._len += cig[i]._length;
@@ -40,7 +40,7 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
          break;
       case INS:
          if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
-            LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has suspicious INSERTION");
+            LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious INSERTION\n";
             return false;
          }
          ++i;
@@ -50,7 +50,7 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
       case SOFT_CLIP:
          break;
       default:
-         LOG_INPUT("Read at reference id: ", rh.ref_id()+1, " and position ", rh.left(), " has unknown cigar");
+         LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has unknown CIGAR\n";
          return false;
       }
    }
@@ -239,7 +239,7 @@ Contig::Contig(const PairedHit& ph):
       int gap_len = (int)ph._right_read->left() - (int)ph._left_read->right() -1 ;
       if( gap_len < 0){
          gap_len = 0;
-         LOG_ERR("Read at reference id: ", ph.ref_id()+1, " and position ", ph.left_pos(), " has suspicious GAP");
+         LOG(WARNING)<<"Read at reference id: "<< ph.ref_id()+1<< " and position "<< ph.left_pos()<< " has suspicious GAP\n";
       }
       g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
       readhit_2_genomicFeats(ph.right_read_obj(), g_feats);

@@ -162,8 +162,8 @@ class LocusContext;
 class Sample {
     std::atomic<int> _num_cluster;
     //uint _prev_pos = 0;
-    RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
-    uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
+    //RefID _prev_hit_ref_id = -1; //used to judge if sam/bam is sorted.
+    //uint _prev_hit_pos = 0; //used to judge if sam/bam is sorted.
     size_t _refmRNA_offset;
     bool _has_load_all_refs;
     std::string _current_chrom;
@@ -218,7 +218,8 @@ public:
 
     double next_valid_alignment(ReadHit &readin);
 
-    double rewindHit(const ReadHit &rh);
+    void rewindHit();
+    void rewindHits(uint64_t pos);
 
     int nextCluster_denovo(HitCluster &clusterOut,
                            uint next_ref_start_pos = UINT_MAX,
