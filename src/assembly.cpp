@@ -488,7 +488,10 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
         ++it;
      }
    }
-   //remove_low_cov_exon(left, exon_doc, exon_boundaries);
+   remove_low_cov_exon(left, exon_doc, exon_boundaries);
+//   for (auto e : exon_boundaries) {
+//      std::cout<<e.first<<"-"<<e.second<<std::endl;
+//   }
    filter_exon_segs(paired_bars, exon_boundaries);
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)

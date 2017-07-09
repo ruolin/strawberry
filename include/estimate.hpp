@@ -70,7 +70,12 @@ public:
       std::vector<Contig> hits;
       for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
         Contig hit(*r);
-        hits.push_back(hit);
+        if (hit.ref_id() != -1) {
+           hits.push_back(hit);
+        }
+        else {
+           LOG(WARNING)<<"paired reads "<<r->_left_read->read_name()<<" and "<<r->_right_read->read_name()<<" are not compatible";
+        }
       }
 
       std::vector<GenomicFeature> exons; //= Contig::uniqueFeatsFromContigs(assembled_transcripts, Match_t::S_MATCH);

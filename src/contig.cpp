@@ -32,8 +32,6 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
             LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious DELETION\n";
             return false;
          }
-         feats.back()._match_op._len += cig[i]._length;
-         offset += cig[i]._length;
          ++i;
          feats.back()._match_op._len += cig[i]._length;
          offset += cig[i]._length;
@@ -44,8 +42,6 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
             return false;
          }
          ++i;
-         feats.back()._match_op._len += cig[i]._length;
-         offset += cig[i]._length;
          break;
       case SOFT_CLIP:
          break;
@@ -202,21 +198,21 @@ bool GenomicFeature::operator<(const GenomicFeature & rhs) const
 void GenomicFeature::mergeFeatures(const vector<GenomicFeature> & feats, vector<GenomicFeature> &result){
    /*
     * Merge the introduced exon segments back together
+    * The genomic features has to be sorted.
     */
 
    for(size_t i=0; i<feats.size(); ++i){
       result.push_back(feats[i]);
       GenomicFeature & f = result.back();
-      while(i<feats.size()-1 &&
-         f.right() + 1 == feats[i+1].left() &&
-         f._match_op._code == feats[i+1]._match_op._code)
+      while(i + 1< feats.size() &&
+         f.right() + 1 == feats[i + 1].left() &&
+         f._match_op._code == feats[i + 1]._match_op._code)
       {
-         f._match_op._len += feats[i+1]._match_op._len;
+         f._match_op._len += feats[i + 1]._match_op._len;
          ++i;
       }
    }
 }
-
 
 
 Contig::Contig(const PairedHit& ph):
@@ -236,13 +232,22 @@ Contig::Contig(const PairedHit& ph):
    vector<GenomicFeature> g_feats;
    if(ph._left_read && ph._right_read){
       readhit_2_genomicFeats(ph.left_read_obj(), g_feats);
-      int gap_len = (int)ph._right_read->left() - (int)ph._left_read->right() -1 ;
-      if( gap_len < 0){
-         gap_len = 0;
-         LOG(WARNING)<<"Read at reference id: "<< ph.ref_id()+1<< " and position "<< ph.left_pos()<< " has suspicious GAP\n";
-      }
-      g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
       readhit_2_genomicFeats(ph.right_read_obj(), g_feats);
+      int gap_len = (int)ph._right_read->left() - (int)ph._left_read->right() -1 ;
+      if( gap_len > 0){
+         g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
+      } else {
+         //std::cerr<<ph._left_read->read_name()<<std::endl;
+         //std::cerr<<ph._right_read->read_name()<<std::endl;
+         std::sort(g_feats.begin(), g_feats.end());
+         g_feats = merge_genomicFeats(g_feats);
+         if (g_feats.empty()) {
+            _ref_id = -1;
+            _contig_id = -1;
+            _strand = Strand_t::StrandUnknown;
+            return;
+         }
+      }
    }
 
    else{
@@ -254,16 +259,14 @@ Contig::Contig(const PairedHit& ph):
       }
    }
 
-   if(!is_sorted(g_feats.begin(), g_feats.end()))
-   {
-      sort(g_feats.begin(), g_feats.end());
-   }
+   sort(g_feats.begin(), g_feats.end());
 
    uint check_right = ph.left_pos();
    for(auto i = g_feats.cbegin(); i != g_feats.cend(); ++i){
       check_right += i->_match_op._len;
    }
    assert(check_right = ph.right_pos()+1);
+   assert(!g_feats.empty());
    _genomic_feats = move(g_feats);
    _mass = ph.collapse_mass();
 }

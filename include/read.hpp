@@ -48,6 +48,7 @@ class ReadHit{
 private:
 
    ReadID _read_id;
+   std::string _read_name;
    GenomicInterval _iv;
    std::vector<CigarOp> _cigar;
    RefID _partner_ref_id;
@@ -61,6 +62,7 @@ public:
    std::string _seq;
    ReadHit() = default;
    ReadHit( ReadID readID,
+            std::string read_name,
          GenomicInterval iv,
          const std::vector<CigarOp> & cigar,
          RefID partnerRef,
@@ -90,6 +92,9 @@ public:
    int num_mismatch() const;
    int numHits() const;
    bool is_singleton() const;
+   std::string read_name() const {
+      return _read_name;
+   }
    uint left() const;
    uint right() const;
    Strand_t strand() const;

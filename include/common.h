@@ -23,6 +23,7 @@ typedef int RefID;
 extern bool SINGLE_END_EXP;
 extern bool BIAS_CORRECTION;
  extern bool NO_LOGGING;
+ extern int kMinMapQual;
 extern int kMaxGeneLength;
 extern int kMaxFragSpan;
 extern int kMaxFragPerCluster;
