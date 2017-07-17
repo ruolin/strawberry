@@ -75,8 +75,21 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
    size_t s = r - l + 1;
    exon_doc.resize(s, 0);
    double avg_dep = 0.0;
+
+//   for (const auto& h :hits) {
+//     std::cerr<<h;
+//   }
    avg_dep = compute_doc(l, r, hits, exon_doc, intron_counter, kMaxSmallAnchor);
    //cout<<avg_dep<<endl;
+
+//#ifdef DEBUG
+//   cout<<"cluster starts at: "<<l<<endl;
+//   cout<<"cluster end at: "<<r<<endl;
+//   cout<<"exon coverage:"<<endl;
+//   for(auto i : exon_doc)
+//      cout<<i;
+//   cout<<endl;
+//#endif
 
    if (avg_dep < kMinDepth4Locus) {
       return result;
@@ -93,13 +106,6 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
    vector<vector<GenomicFeature>> assembled_feats;
    vector<vector<size_t>> constraints;
 
-//#ifdef DEBUG
-//     cout<<"cluster starts at: "<<cluster->left()<<endl;
-//     cout<<"exon coverage:"<<endl;
-//     for(auto i : exon_doc)
-//       cout<<i;
-//     cout<<endl;
-//#endif
 
    flow_network.splicingGraph(ref_id, l, exon_doc, intron_counter, exons);
 //#ifdef DEBUG
@@ -275,6 +281,9 @@ bool HitCluster::addHit(const PairedHit &hit){
             }
          }
       }
+   }
+   if (hit._right_read->contains_splice()) {
+      vector<GenomicFeature> gfs;
       if (readhit_2_genomicFeats(hit.right_read_obj(), gfs)) {
          for (auto const & gf : gfs) {
             if (gf._match_op._code == Match_t::S_INTRON) {

@@ -418,10 +418,6 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    };
 
 
-//      for(auto ex: exon_boundaries){
-//         std::cout<<ex.first<<"-"<<ex.second<<std::endl;
-//      }
-
    /*
     * for single exon genes
     * */
@@ -488,10 +484,20 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
         ++it;
      }
    }
+
+   //#ifdef DEBUG
+//   for(auto ex: exon_boundaries){
+//      std::cerr<<ex.first<<"-"<<ex.second<<std::endl;
+//   }
+   //#endif
+
    remove_low_cov_exon(left, exon_doc, exon_boundaries);
+
+//   std::cerr<<"after filter\n";
 //   for (auto e : exon_boundaries) {
 //      std::cout<<e.first<<"-"<<e.second<<std::endl;
 //   }
+
    filter_exon_segs(paired_bars, exon_boundaries);
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)
@@ -503,7 +509,6 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    sort(exons.begin(), exons.end());
    compute_exon_doc(left, exon_doc, exons);
    filter_intron(exons, intron_counter);
-
 }
 
 bool FlowNetwork::createNetwork(

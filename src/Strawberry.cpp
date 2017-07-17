@@ -21,6 +21,7 @@
 #define OPT_MIN_DEPTH_4_TRANSCRIPT     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
+#define OPT_MIN_EXON_COV   264
 //#define OPT_NO_ASSEMBLY 260
 using namespace std;
 
@@ -54,6 +55,7 @@ static struct option long_options[] = {
       {"min-isoform-frac",                required_argument,      0,       'm'},
       {"fragment-context",                required_argument,      0,       'f'},
       {"filter-low-expression",           required_argument,      0,       'e'},
+      {"min-exon-cov",                    required_argument,      0,       OPT_MIN_EXON_COV},
       {0, 0, 0, 0} // terminator
 };
 
@@ -82,6 +84,7 @@ void print_help()
    fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
    fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                                                   [default:     0]\n");
    fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     1.0] \n");
+   fprintf(stderr, "   --min-exon-cov                        Minimum exon coverage.                                                                               [default:     1.0] \n");
    fprintf(stderr, "   -c/-combine-short-transfrag           merging non-overlap short transfrags.                                                                [default:     false]\n");
 //   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                                                      [default:     1]\n");
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
@@ -160,9 +163,9 @@ int parse_options(int argc, char** argv)
                case OPT_MIN_SUPPORT_4_INTRON:
                         kMinJuncSupport = parseInt(optarg, 1, "--min-support-4-intron must be at least 1", print_help);
                         break;
-//               case OPT_MIN_DEPTH_4_ASSEMBLY:
-//                        kMinDepth4Locus = parseFloat(optarg, 0, 999999.0, "--min-depth-4-assembly must be at least 0", print_help);
-//                        break;
+               case OPT_MIN_EXON_COV:
+                        kMinExonDoc= parseFloat(optarg, 0, 999999.0, "--min-exon-cov must be at least 0", print_help);
+                        break;
                case OPT_MIN_DEPTH_4_TRANSCRIPT:
                         kMinDepth4Contig = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
                         break;
