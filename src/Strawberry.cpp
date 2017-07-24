@@ -146,7 +146,7 @@ int parse_options(int argc, char** argv)
                         break;
                case 'e':
                         kMinIsoformFrac = parseFloat(optarg, 0, 1.0, "-e/--filter-low-expression must be between 0-1.0", print_help);
-                        filter_by_expression = true;
+                        //filter_by_expression = true;
                         break;
                case 't':
                         kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);

@@ -25,7 +25,7 @@ int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron lengt
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
 int kMaxOlapDist = 30; // merge cluster if within this distance.
 double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
-double kMinIsoformFrac = 0.05;
+double kMinIsoformFrac = 0.01;
 double kBinomialOverHangAlpha = 0.0;
 float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
 int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
@@ -62,7 +62,7 @@ bool effective_len_norm = false;
 bool use_only_unique_hits = true;
 //bool use_only_paired_hits = false;
 bool use_threads = false;
-bool filter_by_expression = false;
+bool filter_by_expression = true;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

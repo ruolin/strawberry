@@ -41,8 +41,33 @@ struct CigarOp
 
    CigarOp(CigarOpCode o, uint32_t l) : _type(o), _length(l) {}
    bool operator==(const CigarOp& rhs) const { return _type == rhs._type && _length == rhs._length; }
-
 };
+
+inline std::ostream& operator<<(std::ostream& os, const CigarOp& co){
+   switch(co._type){
+      case BAM_CMATCH:
+         os<<co._length<<"M";
+         break;
+      case INS:
+         os<<co._length<<"I";
+         break;
+      case DEL:
+         os<<co._length<<"D";
+         break;
+      case REF_SKIP:
+         os<<co._length<<"N";
+         break;
+      case SOFT_CLIP:
+         os<<co._length<<"S";
+         break;
+      case HARD_CLIP:
+         os<<co._length<<"H";
+         break;
+      default:
+         break;
+   }
+   return os;
+}
 
 class ReadHit{
 private:
@@ -109,7 +134,6 @@ public:
    //char* read_seq() const;
    //std::vector<CigarOp> cigars() const;
 };
-
 
 // Now it is used only to convert read name to read id
 //

@@ -79,7 +79,7 @@ public:
    bool operator<(const GenomicFeature & rhs) const;
 
    friend bool operator!=(const GenomicFeature &lhs, const GenomicFeature &rhs);
-    friend std::ostream& operator<<(std::ostream&, const GenomicFeature& );
+   friend std::ostream& operator<<(std::ostream&, const GenomicFeature& );
 
    void printOut(){
       printf("<%d,%d>\n", left(), right());

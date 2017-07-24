@@ -272,7 +272,7 @@ bool HitCluster::addHit(const PairedHit &hit){
      return false;
    }
    assert(_ref_id == hit.ref_id());
-   if (hit._left_read->contains_splice()) {
+   if (hit._left_read && hit._left_read->contains_splice()) {
       vector<GenomicFeature> gfs;
       if (readhit_2_genomicFeats(hit.left_read_obj(), gfs)) {
          for (auto const & gf : gfs) {
@@ -282,7 +282,7 @@ bool HitCluster::addHit(const PairedHit &hit){
          }
       }
    }
-   if (hit._right_read->contains_splice()) {
+   if (hit._right_read && hit._right_read->contains_splice()) {
       vector<GenomicFeature> gfs;
       if (readhit_2_genomicFeats(hit.right_read_obj(), gfs)) {
          for (auto const & gf : gfs) {
@@ -377,6 +377,7 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
    }
 
    if(hit->is_singleton() || hit->partner_ref_id() != _ref_id){
+   //if(hit->is_singleton()){
      if(hit->reverseCompl()){
        PairedHit ph(nullptr, hit);
        addHit(ph);
@@ -918,12 +919,10 @@ int Sample::nextCluster_denovo(HitCluster &clusterOut,
    while(true){
      ReadHitPtr new_hit(new ReadHit());
      double mass = next_valid_alignment(*new_hit);
-     //cout<<new_hit->left()<<endl;
 
      if(!_hit_factory->recordsRemain()){
        return clusterOut.size();
      }
-
 
      if(new_hit->ref_id() > next_ref_start_ref ||
       (new_hit->ref_id() == next_ref_start_ref && new_hit->right() >= next_ref_start_pos)){
@@ -1697,6 +1696,7 @@ double compute_doc(const uint left, const uint right,
        else if( gf._match_op._code == Match_t::S_INTRON){
          if(gf.left() < left || gf.right() > right)
             continue;
+         if (gf.left() >= gf.right()) continue;
          IntronTable cur_intron(gf.left(), gf.right());
          pair<uint,uint> coords(cur_intron.left, cur_intron.right);
          if(intron_counter.empty()){

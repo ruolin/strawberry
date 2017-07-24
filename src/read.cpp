@@ -127,12 +127,10 @@ void ReadHit::mass(double m)
 }
 
 bool ReadHit::contains_splice()const{
-      for (size_t i = 0; i < _cigar.size(); ++i){
-
-            if (_cigar[i]._type == REF_SKIP)
-               return true;
-      }
-      return false;
+   for (size_t i = 0; i < _cigar.size(); ++i){
+      if (_cigar[i]._type == REF_SKIP) return true;
+   }
+   return false;
 }
 
 bool ReadHit::is_first() const
