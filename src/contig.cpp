@@ -32,7 +32,6 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
             LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious DELETION\n";
             return false;
          }
-         ++i;
          feats.back()._match_op._len += cig[i]._length;
          offset += cig[i]._length;
          break;
@@ -41,7 +40,6 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
             LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious INSERTION\n";
             return false;
          }
-         ++i;
          break;
       case SOFT_CLIP:
          break;
@@ -237,8 +235,6 @@ Contig::Contig(const PairedHit& ph):
       if( gap_len > 0){
          g_feats.push_back(GenomicFeature(Match_t::S_GAP, ph._left_read->right()+1, (uint)gap_len));
       } else {
-         //std::cerr<<ph._left_read->read_name()<<std::endl;
-         //std::cerr<<ph._right_read->read_name()<<std::endl;
          std::sort(g_feats.begin(), g_feats.end());
          g_feats = merge_genomicFeats(g_feats);
          if (g_feats.empty()) {

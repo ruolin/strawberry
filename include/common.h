@@ -30,7 +30,7 @@ extern int kMaxFragPerCluster;
 extern int kMaxIntronLength; // max-junction-splice-distance
 extern int kMinIntronLength; // min-junction-splice-distance
 extern int kMaxIntronLen4ExtCluster; /*Do not extend the cluster if intron length large than this*/
-extern unsigned int kMinExonLen;
+extern unsigned int SmallExonLen;
 extern int kMinTransLen; //ignore isoforms if its length is too short.
 extern int kMaxOlapDist; // merge cluster if within this distance.
 extern double kMaxSmallAnchor;  // smallAnchor 4bp;
@@ -39,7 +39,9 @@ extern double kBinomialOverHangAlpha;
 extern bool enforce_ref_models;
 extern bool utilize_ref_models;
 extern bool no_assembly;
-extern float kMinJuncSupport; // min number of spliced aligned reads for a valid intron
+extern int kMinJuncSupport; // min number of spliced aligned reads for a valid intron
+extern int LongJuncLength;
+extern int kMinSupportForLongJunc;
 extern int kMinDist4ExonEdge; // used in FlowNetwork::addWeight() for assigning
                                         // weights on non-intron edges.
 extern double kMinDepth4Locus; //used in ClusterFactory::finalizeCluster() to
@@ -48,6 +50,7 @@ extern double kMinDepth4Contig;
 extern double kMinExonDoc;
 extern int kMaxCoverGap1;
 extern int kMaxCoverGap2;
+extern int kMinReadForAssemb; // min number of reads for assembly
 extern int kMaxReadNum4FD;
 //extern int kMinExonLen4FD;
 //extern int kMinExonCov4FD;
@@ -160,6 +163,11 @@ int stricmp(const char* a, const char* b, int n);
 inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint rhs_right)
 {
    return lhs_left <= rhs_right && rhs_left <= lhs_right;
+}
+
+inline bool contains_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint rhs_right)
+{
+   return lhs_left <= rhs_left && lhs_right >= rhs_right;
 }
 
 int parseInt(const char* optarg,
@@ -496,6 +504,10 @@ struct IntronTable{
    }
    static bool overlap(const IntronTable& lhs, const IntronTable& rhs){
       return overlaps_locally(lhs.left, lhs.right, rhs.left, rhs.right);
+   }
+   static bool contains_or_is_contained(const IntronTable& lhs, const IntronTable& rhs){
+      return contains_locally(lhs.left, lhs.right, rhs.left, rhs.right) ||
+             contains_locally(rhs.left, rhs.right, lhs.left, lhs.right);
    }
 };
 

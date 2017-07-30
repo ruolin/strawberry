@@ -107,12 +107,14 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
    vector<vector<size_t>> constraints;
 
 
-   flow_network.splicingGraph(ref_id, l, exon_doc, intron_counter, exons);
-//#ifdef DEBUG
-//   for(auto const& e: exons) {
-//      cerr<<e<<std::endl;
-//   }
-//#endif
+   bool is_ok = flow_network.splicingGraph(ref_id, l, exon_doc, intron_counter, exons);
+   if (!is_ok) return result;
+
+#ifdef DEBUG
+   for(auto const& e: exons) {
+      cerr<<"input"<<e<<std::endl;
+   }
+#endif
    constraints = flow_network.findConstraints(exons, hits);
 
    bool stat = flow_network.createNetwork(hits, exons, intron_counter,
@@ -654,9 +656,12 @@ bool HitCluster::see_both_strands(){
 
    int minor = std::min(plus_count, minus_count);
    int major = std::max(plus_count, minus_count);
-   //std::cerr<<minor<<std::endl;
-   //std::cerr<<(int) major * kMinIsoformFrac<<std::endl;
-   if (minor > (int) major * kMinIsoformFrac) return true;
+#ifdef DEBUG
+   std::cerr<<"minor iso junc: "<<minor<<std::endl;
+   std::cerr<<"major iso junc: "<<major<<std::endl;
+#endif
+   int scale = 1;
+   if (minor > (int) scale * major * kMinIsoformFrac) return true;
    return false;
 }
 
@@ -1243,7 +1248,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
    vector<Contig> assembled_transcripts;
    vector<Contig> hits;
 
-   if (cluster->size() == 0) {
+   if (cluster->size() < kMinReadForAssemb) {
 //#if ENABLE_THREADS
 //      if (use_threads) decr_pool_count();
 //#endif
@@ -1745,27 +1750,34 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
 //Filtering one: by overlapping with better intron
    vector<pair<uint, uint>> bad_intron_pos;
    for(auto i = intron_counter.cbegin(); i != intron_counter.cend(); ++i){
-     for(auto j = next(intron_counter.cbegin()); j != intron_counter.cend(); ++j){
-       if(IntronTable::overlap(i->second, j->second)){
-          float depth_i = i->second.total_junc_reads;
-          float depth_j = j->second.total_junc_reads;
-         if( depth_i / depth_j < kMinIsoformFrac){
-            bad_intron_pos.push_back(i->first);
-            if (!NO_LOGGING) {
-               LOG(INFO)<<"Filtering overlapping intron by depth: "<< current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
-                        depth_i<<" read supporting. "<<"Intron at "<< current_chrom<<":"<<j->first.first<< "-"<<
-                        j->first.second<< " has "<< depth_j<< " read supporting. ";
-            }
-         }
-         if( depth_j / depth_i < kMinIsoformFrac){
-            bad_intron_pos.push_back(j->first);
-            if (!NO_LOGGING) {
-               LOG(INFO)<<"Filtering overlapping intron by depth: "<< current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
-                        depth_i<<" read supporting. "<<"Intron at "<< current_chrom<<":"<<j->first.first<< "-"<<
-                        j->first.second<< " has "<< depth_j<< " read supporting. ";
-            }
-         }
-       }
+     for(auto j = next(i); j != intron_counter.cend(); ++j){
+        int scale = -1;
+        if(IntronTable::overlap(i->second, j->second)){
+           scale = 1;
+           if (!IntronTable::contains_or_is_contained(i->second, j->second)) {
+             scale = 30;
+           }
+        }
+
+        float depth_i = i->second.total_junc_reads;
+        float depth_j = j->second.total_junc_reads;
+        std::pair<uint, uint> bad;
+        float min_junc = 0;
+        if (depth_j < depth_i) {
+           min_junc = depth_j;
+           bad = j->first;
+        } else {
+           min_junc = depth_i;
+           bad = i->first;
+        }
+        if( min_junc / (depth_i + depth_j) < kMinIsoformFrac * scale){
+           bad_intron_pos.push_back(bad);
+           if (!NO_LOGGING) {
+              LOG(INFO)<<"Filtering overlapping intron by depth: "<< current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
+                       depth_i<<" read supporting. "<<"Intron at "<< current_chrom<<":"<<j->first.first<< "-"<<
+                       j->first.second<< " has "<< depth_j<< " read supporting. ";
+           }
+        }
      } // end for
    } //end for
    sort(bad_intron_pos.begin(), bad_intron_pos.end());
@@ -1786,9 +1798,17 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
 //     cout<<small_read<<": ";
 //     cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
-     if(total_read < kMinJuncSupport && !enforce_ref_models){
+     if (total_read < kMinJuncSupport && !enforce_ref_models) {
         if (!NO_LOGGING) {
            LOG(INFO)<<"Filtering intron at by overall read support: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has only "<< total_read<< " total read.";
+        }
+        i = intron_counter.erase(i);
+        continue;
+     }
+     if(i->first.second - i->first.first > LongJuncLength && total_read < kMinSupportForLongJunc && !enforce_ref_models){
+        if (!NO_LOGGING) {
+           LOG(INFO)<<"Filtering long intron at by overall read support: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
                     " has only "<< total_read<< " total read.";
         }
        i = intron_counter.erase(i);

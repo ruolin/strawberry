@@ -61,7 +61,7 @@ public:
 //           std::vector<GenomicFeature> &exons,
 //           Graph::NodeMap<const GenomicFeature*> &node2feat);
 
-   void splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
+   bool splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
          std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
          std::vector<GenomicFeature> &exons);
 
