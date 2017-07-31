@@ -48,7 +48,6 @@ void  constraints_4_single_end(const std::vector<GenomicFeature>& feats,
       }
    }
 
-   assert(end>start);
    for(size_t i = 0; i< exons.size(); ++i){
       if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
          bool valid = true;
@@ -87,21 +86,6 @@ bool FlowNetwork::search_right(const GenomicFeature & lhs, const uint rhs)
    return right < rhs;
 }
 
-//void FlowNetwork::initGraph(const int &left,
-//        const vector<float> &exon_doc,
-//        const vector<IntronTable> &intron_counter,
-//        const vector<size_t> &bad_introns,
-//        vector<GenomicFeature> &exons,
-//        Graph::NodeMap<const GenomicFeature*> &node2feat)
-//{
-//   splicingGraph(left, exon_doc, intron_counter, bad_introns, exons);
-//   createNetwork(exons, intron_counter, bad_introns, node2feat);
-//}
-
-// comparator used for searching in the split_bars object, which records the
-// intron boundaries. We use pair<uint,bool> to indicate its position and
-// whether it is left boundary or right boundary.
-// left = true; right = false
 
 void FlowNetwork::add_sink_source(Graph &g, Graph::Node &source, Graph::Node &sink)
 {
@@ -196,10 +180,15 @@ void FlowNetwork::remove_low_cov_exon(const int cluster_left, const std::vector<
      auto it_end = next(exon_doc.begin(), it->second - cluster_left);
      double cov = accumulate(it_start, it_end, 0.0);
      cov = cov / (it->second - it->first);
-     if(cov < kMinExonDoc)
-       it =  exon_boundaries.erase(it);
-     else if(it->second - it->first + 1 < kMinExonLen && cov < 5.0)
+     if(cov < kMinExonDoc) {
+        //std::cerr<<"1 remove exon: "<<it->first<<"-"<<it->second<<std::endl;
+        it = exon_boundaries.erase(it);
+     }
+
+     else if(it->second - it->first + 1 < SmallExonLen && cov < 5.0) {
+        //std::cerr<<"2 remove exon: "<<it->first<<"-"<<it->second<<std::endl;
         it =  exon_boundaries.erase(it);
+     }
      else
         ++it;
   }
@@ -293,6 +282,7 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
    }
 
    for(auto&d: drops){
+      //std::cerr<<"3 remove exon: "<<d->first<<"-"<<d->second<<std::endl;
       exon_boundaries.erase(d);
    }
 
@@ -302,15 +292,18 @@ void FlowNetwork::filter_intron(const std::vector<GenomicFeature> &exons,
          std::map<std::pair<uint,uint>, IntronTable> &intron_counter)
 {
    auto it = intron_counter.begin();
+   //std::cerr<<"has exon: "<<exons<<std::endl;
    while(it != intron_counter.end()){
       const IntronTable &intron = it->second;
       auto e1 = lower_bound(exons.begin(), exons.end(), intron.left-1, search_right);
       auto e2 = lower_bound(exons.begin(), exons.end(), intron.right+1, search_left);
       if(e1 == exons.end() || e2 == exons.end()) {
+         //std::cerr<<"1 remove intron "<<it->first.first<<"-"<<it->first.second<<std::endl;
          it = intron_counter.erase(it);
       }
       else{
         if(e1->right() != intron.left-1 || e2->left() != intron.right + 1){
+           //std::cerr<<"2 remove intron "<<it->first.first<<"-"<<it->first.second<<std::endl;
            it = intron_counter.erase(it);
         }
         else{
@@ -320,7 +313,7 @@ void FlowNetwork::filter_intron(const std::vector<GenomicFeature> &exons,
    }
 }
 
-void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
+bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
       std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
       std::vector<GenomicFeature> &exons)
 {
@@ -328,7 +321,6 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
     * create non overlapping exon segments which will be
     * used as nodes in createNetwork();
     */
-
 
    std::vector<std::pair<uint,uint>> paired_bars; // two end intron boundaries
    std::vector<std::pair<uint,bool>> single_bars; // single intron boundaries
@@ -378,7 +370,6 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    if( l != 0 && l < left+exon_doc.size() )
       exon_boundaries.push_back(std::pair<uint,uint>(l, left+exon_doc.size()-1));
 
-
    /*
     * When some exonic coverage gaps exist due to low sequncing coverages.
     * This loop tries to fill in gaps and bring together separated exons.
@@ -418,32 +409,31 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    };
 
 
-//      for(auto ex: exon_boundaries){
-//         std::cout<<ex.first<<"-"<<ex.second<<std::endl;
-//      }
-
    /*
     * for single exon genes
     * */
 
    if(paired_bars.size() == 0){
+      if (exon_boundaries.size() > 1) {
+         return false;
+      }
       uint l = exon_boundaries.front().first;
       uint r = exon_boundaries.back().second;
       //cout<<exon_boundaries.size()<<endl;
       exons.push_back(GenomicFeature(Match_t::S_MATCH, l, r-l+1));
       compute_exon_doc(left, exon_doc, exons);
-      return;
+      return true;
    }
 
-//#ifdef DEBUG
-//   for(auto const & e: exon_boundaries){
-//      std::cout<<"exon segments: "<<e.first<<"-"<<e.second<<std::endl;
-//   }
-//   for(auto const &s : single_bars){
-//      std::cout<<s.first<<":"<<s.second<<"\t";
-//   }
-//   std::cout<<std::endl;
-//#endif
+#ifdef DEBUG
+   for(auto const & e: exon_boundaries){
+      std::cerr<<"exon segments: "<<e.first<<"-"<<e.second<<std::endl;
+   }
+   for(auto const &s : single_bars){
+      std::cerr<<s.first<<":"<<s.second<<"\t";
+   }
+   std::cerr<<std::endl;
+#endif
 
    /*
     * further divided preliminary exon segments into smaller pieces based on intorn boundaries.
@@ -488,7 +478,20 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
         ++it;
      }
    }
-   //remove_low_cov_exon(left, exon_doc, exon_boundaries);
+
+   #ifdef DEBUG
+   for(auto ex: exon_boundaries){
+      std::cerr<<ex.first<<"-"<<ex.second<<std::endl;
+   }
+   #endif
+
+   remove_low_cov_exon(left, exon_doc, exon_boundaries);
+
+//   std::cerr<<"after filter\n";
+//   for (auto e : exon_boundaries) {
+//      std::cout<<e.first<<"-"<<e.second<<std::endl;
+//   }
+
    filter_exon_segs(paired_bars, exon_boundaries);
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)
@@ -500,7 +503,7 @@ void FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    sort(exons.begin(), exons.end());
    compute_exon_doc(left, exon_doc, exons);
    filter_intron(exons, intron_counter);
-
+   return true;
 }
 
 bool FlowNetwork::createNetwork(
@@ -513,16 +516,16 @@ bool FlowNetwork::createNetwork(
       Graph::ArcMap<int> &min_flow_map,
       std::vector<std::vector<Graph::Arc>> &path_cstrs)
 {
-//#ifdef DEBUG
-//   std::cout<<std::endl;
-//   for(auto e: exons){
-//      std::cout<<"exon: "<<e.left()<<"-"<<e.right()<<std::endl;
-//   }
-//   for(auto i:intron_counter){
-//       const IntronTable &intron = i.second;
-//       std::cout<<"intron: "<<intron.left<< "-" << intron.right<<std::endl;
-//   }
-//#endif
+#ifdef DEBUG
+   std::cerr<<std::endl;
+   for(auto e: exons){
+      std::cerr<<"i exon: "<<e.left()<<"-"<<e.right()<<std::endl;
+   }
+   for(auto i:intron_counter){
+       const IntronTable &intron = i.second;
+       std::cerr<<"i intron: "<<intron.left<< "-" << intron.right<<std::endl;
+   }
+#endif
    assert(!hits.empty());
    if(exons.size() == 1) {
       //std::cout<<exons[0].left()<<"-"<<exons[0].right()<<std::endl;

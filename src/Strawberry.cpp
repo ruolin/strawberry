@@ -21,6 +21,7 @@
 #define OPT_MIN_DEPTH_4_TRANSCRIPT     261
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
+#define OPT_MIN_EXON_COV   264
 //#define OPT_NO_ASSEMBLY 260
 using namespace std;
 
@@ -31,6 +32,7 @@ static struct option long_options[] = {
       {"max-insert-size",                 required_argument,      0,       'I'},
       {"max-junction-splice-size",        required_argument,      0,       'J'},
       {"min-junction-splice-size",        required_argument,      0,       'j'},
+      {"min-mapping-qual",                required_argument,      0,       'q'},
       {"num-reads-4-prerun",              required_argument,      0,       'n'},
       {"allow-multiple-his",              no_argument,            0,       OPT_ALLOW_MULTIPLE_HITS},
 #if ENABLE_THREADS
@@ -50,17 +52,14 @@ static struct option long_options[] = {
 //quantification
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
-      {"infer-missing-end",               no_argument,            0,       'm'},
+      {"min-isoform-frac",                required_argument,      0,       'm'},
       {"fragment-context",                required_argument,      0,       'f'},
       {"filter-low-expression",           required_argument,      0,       'e'},
+      {"min-exon-cov",                    required_argument,      0,       OPT_MIN_EXON_COV},
       {0, 0, 0, 0} // terminator
 };
 
-#if ENABLE_THREADS
-const char *short_options = "p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvGcm";
-#else
-const char *short_options = "o:i:j:J:n:g:t:d:s:a:b:fecvGcm";
-#endif
+const char *short_options = "m:q:p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvGc";
 
 void print_help()
 {
@@ -69,14 +68,14 @@ void print_help()
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
-#if ENABLE_THREADS
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current support gff3 and gtf format.                          [default:     NULL]\n");
    fprintf(stderr, "   -r/--no-assembly                      Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
-#endif
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
-   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     200000]\n");
+   fprintf(stderr, "   -q/--min-mapping-qual                 Minimum mapping quality to be included in the analyses.                                              [default:     0]\n");
+   fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     300000]\n");
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
+   fprintf(stderr, "   -m/--min-isoform-frac                 Minimum isoform fraction.                                                                            [default:     0.01]\n");
    //fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
    fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
    fprintf(stderr, "\n Assembly Options:\n");
@@ -84,7 +83,8 @@ void print_help()
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
    fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
    fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                                                   [default:     0]\n");
-   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     1.0] \n");
+   fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     2.0] \n");
+   fprintf(stderr, "   --min-exon-cov                        Minimum exon coverage.                                                                               [default:     1.0] \n");
    fprintf(stderr, "   -c/-combine-short-transfrag           merging non-overlap short transfrags.                                                                [default:     false]\n");
 //   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                                                      [default:     1]\n");
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
@@ -94,7 +94,7 @@ void print_help()
    fprintf(stderr, "   -i/--insert-size-mean-and-sd          User specified insert size mean and standard deviation, format: mean/sd, e.g., 300/25.               [default:     Disabled]\n");
    fprintf(stderr, "                                         This will disable empirical insert distribution learning.                                            [default:     NULL]\n");
    fprintf(stderr, "   -b/--bias-correction                  Specify reference genome for bias correction.                                                        [default:     NULL]\n");
-   //fprintf(stderr, "   -m/--infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
+   //fprintf(stderr, "  --infer-missing-end                Disable infering the missing end for a pair of reads.                                                [default:     true]\n" );
    fprintf(stderr, "   -e/--filter-low-expression            Skip isoforms whose relative expression (within locus) are less than this number.                    [default:     0.]\n" );
 }
 
@@ -124,6 +124,9 @@ int parse_options(int argc, char** argv)
                case 'v':
                         verbose = true;
                         break;
+               case 'q':
+                        kMinMapQual = parseInt(optarg, 0, "-q/--min-mapping-qual must be at least 0", print_help);
+                        break;
                case 'J':
                         kMaxIntronLength = parseInt(optarg, 1, "-J/--max-intron-size must be at least 1", print_help);
                         break;
@@ -143,7 +146,7 @@ int parse_options(int argc, char** argv)
                         break;
                case 'e':
                         kMinIsoformFrac = parseFloat(optarg, 0, 1.0, "-e/--filter-low-expression must be between 0-1.0", print_help);
-                        filter_by_expression = true;
+                        //filter_by_expression = true;
                         break;
                case 't':
                         kMinTransLen = parseInt(optarg, 1, "-t/--min-trancript-size must be at least 1", print_help);
@@ -160,9 +163,9 @@ int parse_options(int argc, char** argv)
                case OPT_MIN_SUPPORT_4_INTRON:
                         kMinJuncSupport = parseInt(optarg, 1, "--min-support-4-intron must be at least 1", print_help);
                         break;
-//               case OPT_MIN_DEPTH_4_ASSEMBLY:
-//                        kMinDepth4Locus = parseFloat(optarg, 0, 999999.0, "--min-depth-4-assembly must be at least 0", print_help);
-//                        break;
+               case OPT_MIN_EXON_COV:
+                        kMinExonDoc= parseFloat(optarg, 0, 999999.0, "--min-exon-cov must be at least 0", print_help);
+                        break;
                case OPT_MIN_DEPTH_4_TRANSCRIPT:
                         kMinDepth4Contig = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
                         break;
@@ -170,7 +173,7 @@ int parse_options(int argc, char** argv)
                         kCombineShrotTransfrag = true;
                         break;
                case 'm':
-                        infer_the_other_end = false;
+                        kMinIsoformFrac = parseFloat(optarg, 0.001, 999999.0, "--min-isoform-frac must be at least 0.001", print_help);
                         break;
                case 'b':
                         ref_fasta_file = optarg;

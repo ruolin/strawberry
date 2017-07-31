@@ -79,7 +79,7 @@ public:
    bool operator<(const GenomicFeature & rhs) const;
 
    friend bool operator!=(const GenomicFeature &lhs, const GenomicFeature &rhs);
-    friend std::ostream& operator<<(std::ostream&, const GenomicFeature& );
+   friend std::ostream& operator<<(std::ostream&, const GenomicFeature& );
 
    void printOut(){
       printf("<%d,%d>\n", left(), right());
@@ -106,7 +106,33 @@ inline std::ostream& operator<<(std::ostream& os, const GenomicFeature& gf){
 
 
 
-bool readhit_2_genomicFeats(const ReadHit& rh, const std::vector<GenomicFeature> & feats);
+bool readhit_2_genomicFeats(const ReadHit& rh, std::vector<GenomicFeature> & feats);
+
+inline auto merge_genomicFeats(const std::vector<GenomicFeature>& feats) {
+   std::vector<GenomicFeature> result;
+
+   for(size_t i=0; i<feats.size(); ++i){
+      result.push_back(feats[i]);
+      GenomicFeature & f = result.back();
+      while(i < feats.size() - 1&&
+            f._match_op._code == feats[i + 1]._match_op._code)
+      {
+         if (f._match_op._code == Match_t::S_INTRON) {
+            if(f != feats[i + 1]) {
+               return std::vector<GenomicFeature>();
+            }
+         } else {
+            unsigned right = std::max(f.right(), feats[i + 1].right());
+            f._match_op._len = right - f.left() + 1;
+         }
+         ++i;
+      }
+   }
+//   for (auto f: result) {
+//      std::cerr<<"output "<<f<<std::endl;
+//   }
+   return result;
+}
 
 /* Reduced representation of GffmRNA using a vector of GenomicFeatures which include intron
  * exon, and unknown*/

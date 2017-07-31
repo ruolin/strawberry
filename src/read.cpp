@@ -6,6 +6,7 @@
 //#include <typeinfo>
 #include<cxxabi.h>
 #include<numeric>
+#include <sam/bam.h>
 #include "read.hpp"
 //#include "kmer.h"
 
@@ -21,6 +22,7 @@ void mean_and_sd_insert_size(const vector<int> & vec, double & mean, double &sd)
 
 ReadHit::ReadHit(
    ReadID readID,
+   std::string readname,
    GenomicInterval iv,
    const vector<CigarOp> & cigar,
    RefID partnerRef,
@@ -31,6 +33,7 @@ ReadHit::ReadHit(
    double mass,
    char* seq):
       _read_id(readID),
+      _read_name(readname),
       _iv(iv),
       _cigar(cigar),
       _partner_ref_id(partnerRef),
@@ -73,7 +76,7 @@ uint ReadHit::read_len() const
    return len;
 }
 
-uint ReadHit::intron_len() const
+uint ReadHit::intron_lens() const
 {
    uint len = 0;
    for(size_t i=0; i< _cigar.size(); ++i){
@@ -124,12 +127,10 @@ void ReadHit::mass(double m)
 }
 
 bool ReadHit::contains_splice()const{
-      for (size_t i = 0; i < _cigar.size(); ++i){
-
-            if (_cigar[i]._type == REF_SKIP)
-               return true;
-      }
-      return false;
+   for (size_t i = 0; i < _cigar.size(); ++i){
+      if (_cigar[i]._type == REF_SKIP) return true;
+   }
+   return false;
 }
 
 bool ReadHit::is_first() const
@@ -477,7 +478,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
     * */
    uint pos = hit_buf->core.pos + 1; // BAM file index starts at 0
    uint mate_pos = hit_buf->core.mpos + 1; // BAM file index starts at 0
-
+   uint32_t qual = hit_buf->core.qual;
    int target_id = hit_buf->core.tid;
    int mate_target_id = hit_buf->core.mtid;
    string mate_text_name;
@@ -498,6 +499,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    if( (sam_flag & 0x4) || target_id < 0 ){ // unmapped reads
          return false;
       bh = ReadHit(readid,
+                   bam1_qname(hit_buf),
                    GenomicInterval(),
                    cigar,
                    parterner_ref_id,
@@ -509,6 +511,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
                    NULL
                    );
       return true;
+   }
+
+   if (qual < kMinMapQual) {
+      LOG(WARNING)<<"Read "<< bam1_qname(hit_buf)<< " has not reach min map qual: "<< kMinMapQual;
    }
 
    string text_name = _hit_file->header->target_name[target_id];
@@ -655,8 +661,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
 //         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
 //   }
 
-   if(use_only_unique_hits && num_hits > 1)
+   if(use_only_unique_hits && num_hits > 1) {
+      LOG(INFO)<<"Ignoring read "<< bam1_qname(hit_buf)<<" has multiple hits";
       return false;
+   }
 //   if(use_only_paired_hits && ( sam_flag & 0x8 || mate_target_id != target_id ))
 //      return false;
 
@@ -673,6 +681,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    qseq[n] = 0;
    bh = ReadHit(
                readid,
+               bam1_qname(hit_buf),
                GenomicInterval(ref_id, pos, pos+read_len-1, source_strand),
                cigar,
                parterner_ref_id,

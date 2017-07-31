@@ -15,25 +15,28 @@ bool SINGLE_END_EXP = true;
 bool BIAS_CORRECTION = false;
 int kMaxGeneLength = 2500000;
 int kMaxFragSpan = 1000000;
-int kMaxFragPerCluster = 100000;
-int kMaxIntronLength = 200000; // max-junction-splice-distance
+int kMaxFragPerCluster = 1000000;
+int kMinMapQual = 0;
+int kMaxIntronLength = 300000; // max-junction-splice-distance
 int kMinIntronLength = 50; // min-junction-splice-distance
-unsigned int kMinExonLen = 10;
+int kMinReadForAssemb = 5; // min number of reads for assembly
+unsigned int SmallExonLen = 10;
 double kMinExonDoc = 1.0;
-int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
-int kMaxOlapDist = 30; // merge cluster if within this distance.
+int kMaxOlapDist = 50; // merge cluster if within this distance.
 double kMaxSmallAnchor = 4;  // smallAnchor 4bp;
-double kMinIsoformFrac = 0.;
+double kMinIsoformFrac = 0.01;
 double kBinomialOverHangAlpha = 0.0;
-float kMinJuncSupport = 1; // min number of spliced aligned reads for a valid intron
+int kMinJuncSupport = 2; // min number of spliced aligned reads for a valid intron
+int LongJuncLength = 30000; // junction that is larger than this length is considered as long junc
+int kMinSupportForLongJunc = 5; // min read support for large junction
 int kMinDist4ExonEdge = 5; // used in FlowNetwork::addWeight() for assigning
                                      // weights on non-intron edges.
 float kIntronEdgeWeight = 1;
 double kMinDepth4Locus = 1.0; //used in ClusterFactory::finalizeCluster() to
                                         //select locus have enough reads covered.
 double kMinDepth4Contig = 1.0;
-int kMaxCoverGap1 = 20; // cover gap due the read depth.
+int kMaxCoverGap1 = 30; // cover gap due the read depth.
 int kMaxCoverGap2 = 10;
 int kMaxReadNum4FD = 500000;
 int num_threads = 1;
@@ -61,7 +64,7 @@ bool effective_len_norm = false;
 bool use_only_unique_hits = true;
 //bool use_only_paired_hits = false;
 bool use_threads = false;
-bool filter_by_expression = false;
+bool filter_by_expression = true;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/

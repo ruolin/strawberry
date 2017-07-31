@@ -29,9 +29,9 @@ class HitCluster {
 private:
     uint _leftmost;
     uint _rightmost;
-    int _plus_strand_num_hits;
-    int _minus_strand_num_hits;
-    Strand_t _first_encounter_strand;
+    //int _plus_strand_num_hits;
+    //int _minus_strand_num_hits;
+    //Strand_t _first_encounter_strand;
     int _id = -1;
     std::string _gene_id;
     RefID _ref_id = -1;
@@ -50,6 +50,7 @@ private:
     void reweight_read(bool weight_bais);
     //map<std::pair<int,int>,int> _current_intron_counter;
 public:
+    std::map<Strand_t, std::map<GenomicFeature, int>> _strand_intron;
     decltype(auto) uniq_hits() const { return (_uniq_hits);}
     decltype(auto) id() const { return (_id);}
     double _weighted_mass = 0.0;
@@ -169,12 +170,6 @@ class Sample {
     std::string _current_chrom;
     std::atomic_int _total_mapped_reads = {0};
 
-    double compute_doc(const uint left,
-                       const uint right,
-                       const std::vector<Contig> &hits,
-                       std::vector<float> &exon_doc,
-                       IntronMap &intron_doc,
-                       uint smallOverhang);
 
 public:
     std::shared_ptr<HitFactory> _hit_factory;
@@ -238,7 +233,6 @@ public:
     void quantifyCluster(const RefSeqTable &ref_t, const std::shared_ptr<HitCluster> cluster,
                          const std::vector<Contig> &assembled_transcripts, FILE* pfile, FILE* plogfile, FILE* fragfile) const;
 
-    void filter_intron(uint cluster_left, std::vector<float> &exon_doc, IntronMap &intron_counter);
 
     void procSample(FILE *f, FILE *log, FILE* fragfile);
 
@@ -248,7 +242,8 @@ public:
 
     void finalizeCluster(std::shared_ptr<HitCluster>, bool);
 
-    void addAssembly(std::vector<Contig>&, int);
+    std::vector<Contig> assembleContig(const uint l, const uint r, const Strand_t, const std::vector<Contig>&);
+    void addAssembly(const std::vector<Contig>&);
     void fragLenDist(const RefSeqTable &ref_t, const std::vector<Contig> &isoforms,
                      const std::shared_ptr<HitCluster> cluster, FILE *plogfile);
     void preProcess(FILE *log);
@@ -262,5 +257,15 @@ bool hit_lt_cluster(const ReadHit &hit, const HitCluster &cluster, uint olap_rad
 bool hit_gt_cluster(const ReadHit &hit, const HitCluster &cluster, uint olap_radius);
 
 bool hit_complete_within_cluster(const PairedHit &hit, const HitCluster &cluster, uint olap_radius);
+
+double compute_doc(const uint left,
+                   const uint right,
+                   const std::vector<Contig> &hits,
+                   std::vector<float> &exon_doc,
+                   IntronMap &intron_doc,
+                   uint smallOverhang);
+
+void filter_intron(const std::string& current_chrom, const uint cluster_left,
+                   const uint read_abs_len, const std::vector<float> &exon_doc, IntronMap& intron_counter);
 
 #endif /* STRAWB_ALIGNMENTS_H_ */
