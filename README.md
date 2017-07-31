@@ -18,11 +18,9 @@ Prerequisites if you want to install Strawberry from stratch
 ===================
 * A C++14 conformant compiler (currently tested with GCC>=5.3).
 
-Here is wiki about how to install GCC, https://gcc.gnu.org/wiki/InstallingGCC.
-
-And for ubuntu user, please refer to the post for how to install gcc 5+,
+  * Here is wiki about how to install GCC, https://gcc.gnu.org/wiki/InstallingGCC.
+  * And for ubuntu user, please refer to the post for how to install gcc 5+,
 https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-in-ubuntucurrently-14-04.
-
 
 * Strawberry uses [CMake](https://cmake.org/)(2.8.12+) build system to check and install dependencies and to compile and install Strawberry. Make sure the CMake version is at least 2.8.12. 
 * [Samtools](http://samtools.sourceforge.net/). Strawberry uses an older version of Samtools(v0.1.19) as a dependent library.   
