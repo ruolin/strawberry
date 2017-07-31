@@ -358,10 +358,10 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
    }
 
    // Double check. This is only useful when called in Sample::mergeCluster()
-   if(hit_lt_cluster(*hit, *this, kMaxOlapDist)){
-     reset(orig_left, orig_right, orig_ref_id);
-     return false;
-   }
+//   if(hit_lt_cluster(*hit, *this, kMaxOlapDist)){
+//     reset(orig_left, orig_right, orig_ref_id);
+//     return false;
+//   }
 
    if(abs((int)hit_right - (int)hit_left) > kMaxFragSpan){
      reset(orig_left, orig_right, orig_ref_id);

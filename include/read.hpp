@@ -105,7 +105,7 @@ public:
 //      }
 //   }
    uint read_len() const;
-   uint intron_len() const; /*Return intron len, otherwise return 0*/
+   uint intron_lens() const; /*Return intron len, otherwise return 0*/
    std::vector<std::pair<uint,uint>> intron_coords() const;
    ReadID read_id() const;
    bool contains_splice() const;

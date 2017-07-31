@@ -22,7 +22,6 @@ int kMinIntronLength = 50; // min-junction-splice-distance
 int kMinReadForAssemb = 5; // min number of reads for assembly
 unsigned int SmallExonLen = 10;
 double kMinExonDoc = 1.0;
-int kMaxIntronLen4ExtCluster = 3000; /*Do not extend the cluster if intron length large than this*/
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
 int kMaxOlapDist = 50; // merge cluster if within this distance.
 double kMaxSmallAnchor = 4;  // smallAnchor 4bp;

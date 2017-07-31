@@ -29,7 +29,6 @@ extern int kMaxFragSpan;
 extern int kMaxFragPerCluster;
 extern int kMaxIntronLength; // max-junction-splice-distance
 extern int kMinIntronLength; // min-junction-splice-distance
-extern int kMaxIntronLen4ExtCluster; /*Do not extend the cluster if intron length large than this*/
 extern unsigned int SmallExonLen;
 extern int kMinTransLen; //ignore isoforms if its length is too short.
 extern int kMaxOlapDist; // merge cluster if within this distance.

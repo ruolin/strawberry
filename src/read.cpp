@@ -76,7 +76,7 @@ uint ReadHit::read_len() const
    return len;
 }
 
-uint ReadHit::intron_len() const
+uint ReadHit::intron_lens() const
 {
    uint len = 0;
    for(size_t i=0; i< _cigar.size(); ++i){

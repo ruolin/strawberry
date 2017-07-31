@@ -75,7 +75,7 @@ void print_help()
    fprintf(stderr, "   -q/--min-mapping-qual                 Minimum mapping quality to be included in the analyses.                                              [default:     0]\n");
    fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     300000]\n");
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
-   fprintf(stderr, "   -m/--min-isoform-frac                 Minimum isoform fraction.                                                                            [default:     0.05]\n");
+   fprintf(stderr, "   -m/--min-isoform-frac                 Minimum isoform fraction.                                                                            [default:     0.01]\n");
    //fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
    fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
    fprintf(stderr, "\n Assembly Options:\n");
