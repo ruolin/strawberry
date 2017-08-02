@@ -246,7 +246,8 @@ public:
 
     void finalizeCluster(std::shared_ptr<HitCluster>, bool);
 
-    std::vector<Contig> assembleContig(const uint l, const uint r, const Strand_t, const std::vector<Contig>&);
+    std::vector<std::vector<Contig>> assembleContig(const uint l, const uint r, const Strand_t, const std::vector<Contig>&);
+    void AddTranscripts(std::vector<Contig>& transcripts, std::vector<Contig>& result);
     void addAssembly(const std::vector<Contig>&);
     void fragLenDist(const RefSeqTable &ref_t, const std::vector<Contig> &isoforms,
                      const std::shared_ptr<HitCluster> cluster, FILE *plogfile);

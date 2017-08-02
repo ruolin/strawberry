@@ -48,7 +48,7 @@ static struct option long_options[] = {
       {"min-support-4-intron",            required_argument,      0,       OPT_MIN_SUPPORT_4_INTRON},
       //{"min-depth-4-assembly",            required_argument,      0,       OPT_MIN_DEPTH_4_ASSEMBLY},
       {"min-depth-4-transcript",              required_argument,      0,       OPT_MIN_DEPTH_4_TRANSCRIPT},
-      {"combine-short-transfrag",          no_argument,            0,       'c'},
+      //{"combine-short-transfrag",          no_argument,            0,       'c'},
 //quantification
       {"insert-size-mean-and-sd",         required_argument,      0,       'i'},
       {"bias-correction",                 required_argument,      0,       'b'},
@@ -59,7 +59,7 @@ static struct option long_options[] = {
       {0, 0, 0, 0} // terminator
 };
 
-const char *short_options = "m:q:p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvGc";
+const char *short_options = "m:q:p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvG";
 
 void print_help()
 {
@@ -81,11 +81,11 @@ void print_help()
    fprintf(stderr, "\n Assembly Options:\n");
    fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                                             [default:     200]\n");
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
-   fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
+   fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     10]\n");
    fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                                                   [default:     0]\n");
    fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     2.0] \n");
    fprintf(stderr, "   --min-exon-cov                        Minimum exon coverage.                                                                               [default:     1.0] \n");
-   fprintf(stderr, "   -c/-combine-short-transfrag           merging non-overlap short transfrags.                                                                [default:     false]\n");
+   //fprintf(stderr, "   -c/-combine-short-transfrag           merging non-overlap short transfrags.                                                                [default:     false]\n");
 //   fprintf(stderr, "   --min-depth-4-assembly                Minimum read depth for a locus to be assembled.                                                      [default:     1]\n");
    fprintf(stderr, "   --min-depth-4-transcript              Minimum average read depth for transcript.                                                           [default:     1.0]\n");
 
@@ -169,11 +169,11 @@ int parse_options(int argc, char** argv)
                case OPT_MIN_DEPTH_4_TRANSCRIPT:
                         kMinDepth4Contig = parseFloat(optarg, 0.1, 999999.0, "--min-depth-4-quant must be at least 0.1", print_help);
                         break;
-               case 'c':
-                        kCombineShrotTransfrag = true;
-                        break;
+//               case 'c':
+//                        kCombineShrotTransfrag = true;
+//                        break;
                case 'm':
-                        kMinIsoformFrac = parseFloat(optarg, 0.001, 999999.0, "--min-isoform-frac must be at least 0.001", print_help);
+                        kMinIsoformFrac = parseFloat(optarg, 0.0, 1.0, "--min-isoform-frac must be from 0 to 1", print_help);
                         break;
                case 'b':
                         ref_fasta_file = optarg;

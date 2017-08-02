@@ -60,8 +60,8 @@ bool hit_complete_within_cluster(const PairedHit& hit, HitCluster& cluster, uint
    return true;
 }
 
-vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t strand, const vector<Contig>& hits) {
-   vector<Contig> result;
+std::vector<vector<Contig>> Sample::assembleContig(const uint l, const uint r, const Strand_t strand, const vector<Contig>& hits) {
+   std::vector<vector<Contig>> result;
 
    if (hits.empty()) {
       return result;
@@ -105,12 +105,53 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
    if (!is_ok) return result;
 
 #ifdef DEBUG
-   for(auto const& e: exons) {
-      cerr<<"input"<<e<<std::endl;
+   std::cerr<<std::endl;
+   for(auto e: exons){
+      std::cerr<<"i exon: "<<e.left()<<"-"<<e.right()<<std::endl;
+   }
+   for(auto i:intron_counter){
+       const IntronTable &intron = i.second;
+       std::cerr<<"i intron: "<<intron.left<< "-" << intron.right<<std::endl;
    }
 #endif
-   auto txs = runFlowAlgorithm(strand, hits, intron_counter, exons);
-   result.insert(result.end(), txs.begin(), txs.end());
+   vector<vector<GenomicFeature>::const_iterator> bundles;
+   bundles.push_back(exons.cbegin());
+   for (auto it = exons.cbegin(); it + 1 < exons.cend(); ++it) {
+      auto ij = it + 1;
+      if (it->right() + 1 == ij->left()) continue;
+
+      bool no_connect = true;
+      //search forward
+      for (auto search = it + 1; search < exons.cend(); ++search) {
+         if (intron_counter.find(make_pair<uint,uint>(it->right() + 1, search->left() - 1)) != intron_counter.end()) {
+            no_connect = false;
+         }
+      }
+      //search reverse
+      for (auto search = it; search >= exons.cbegin(); --search) {
+         if (intron_counter.find(make_pair<uint,uint>(search->right() + 1, ij->left() - 1)) != intron_counter.end()) {
+            no_connect = false;
+         }
+      }
+      if (no_connect) {
+         LOG(INFO)<<ref_id<<":"<<l<<"-"<<r<<"refine graph by spliting";
+         bundles.push_back(ij);
+         bundles.push_back(ij);
+      }
+   }
+   bundles.push_back(exons.cend());
+   for (size_t i = 0; i < bundles.size(); i += 2) {
+      vector<GenomicFeature> refined_exons(bundles[i], bundles[i+1]);
+      std::map<std::pair<uint,uint>, IntronTable> refined_introns;
+      for (auto const& intron : intron_counter) {
+         uint right_bound = bundles[i+1] == exons.cend() ? std::numeric_limits<uint>::max() : bundles[i+1]->left();
+         if (intron.first.second < right_bound && intron.first.first > bundles[i]->right()) {
+            refined_introns.emplace(intron.first, intron.second);
+         }
+      }
+      auto txs = runFlowAlgorithm(strand, hits, refined_introns, refined_exons);
+      result.push_back(vector<Contig>(txs.begin(), txs.end()));
+   }
    return result;
 }
 
@@ -127,14 +168,15 @@ vector<Contig> Sample::runFlowAlgorithm(const Strand_t& strand, const vector<Con
 
 
    vector<Contig> result;
-   bool stat = flow_network.createNetwork(hits, exons, intron_counter,
-                                          node_map, cost_map, min_flow_map, path_cstrs);
+   bool stat = flow_network.createNetwork(hits, exons, intron_counter, node_map, cost_map, min_flow_map, path_cstrs);
    if (!stat) {
+      //std::cerr<<"warning: cannot create network!\n";
       return result;
    }
 
    bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs, cost_map, min_flow_map, assembled_feats);
    if (!stat2) {
+      std::cerr<<"warning: cannot slove network!\n";
       return result;
    }
    RefID ref_id = hits[0].ref_id();
@@ -1299,83 +1341,33 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       }
    }
    sort(hits.begin(), hits.end());
-   assembled_transcripts = this->assembleContig(cluster->left(), cluster->right(), cluster->strand(), hits);
-
-   cluster->_id = ++_num_cluster;
-   int tid=0;
-   for (Contig& asmb: assembled_transcripts) {
-      ++tid;
-      asmb.parent_id() = "gene."+to_string(cluster->_id);
-      asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
+   auto result = this->assembleContig(cluster->left(), cluster->right(), cluster->strand(), hits);
+   for (auto& transcripts: result) {
+      AddTranscripts(transcripts, assembled_transcripts);
    }
 
    if (see_both_strand) {
       sort(hits_on_other_strands.begin(), hits_on_other_strands.end());
-      vector<Contig> secondary = this->assembleContig(cluster->left(), cluster->right(), second_strand, hits_on_other_strands);
-      cluster->_id = ++_num_cluster;
-      tid = 0;
-      for (Contig& asmb: secondary) {
-         ++tid;
-         asmb.parent_id() = "gene."+to_string(cluster->_id);
-         asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
+      auto result = this->assembleContig(cluster->left(), cluster->right(), second_strand, hits_on_other_strands);
+      for (auto& transcripts: result) {
+         AddTranscripts(transcripts, assembled_transcripts);
       }
-      assembled_transcripts.insert(assembled_transcripts.end(), secondary.begin(), secondary.end());
    }
 
    this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
 
-   /* Merge transfrags if they
-    *  do not overlaps.
-    *  Begin*/
-   if (kCombineShrotTransfrag && assembled_transcripts.size() > 1) {
-      vector<pair<uint, uint>> to_merge;
-      vector<Contig> merged_transcripts;
-      for (uint i = 0; i < assembled_transcripts.size() - 1; ++i) {
-         for (uint j = i + 1; j < assembled_transcripts.size(); ++j) {
-            if (!Contig::overlaps_directional(assembled_transcripts[i], assembled_transcripts[j])) {
-               to_merge.emplace_back(i, j);
-            }
-         }
-      }
-      if (!to_merge.empty()) {
-         vector<bool> flags(assembled_transcripts.size(), false);
-         for (auto iso_pair: to_merge) {
-            uint i = iso_pair.first;
-            uint j = iso_pair.second;
-            flags[i] = true;
-            flags[j] = true;
-            Contig new_contig;
-            if (assembled_transcripts[i] < assembled_transcripts[j]) {
-               new_contig = assembled_transcripts[i];
-               GenomicFeature intron(Match_t::S_INTRON, new_contig.right() + 1, \
-                assembled_transcripts[j].left() - new_contig.right() - 1);
-               new_contig._genomic_feats.push_back(intron);
-               new_contig._genomic_feats.insert(new_contig._genomic_feats.end(), \
-                                    assembled_transcripts[j]._genomic_feats.begin(), \
-                                    assembled_transcripts[j]._genomic_feats.end());
-            } else {
-               new_contig = assembled_transcripts[j];
-               GenomicFeature intron(Match_t::S_INTRON, new_contig.right() + 1, \
-                assembled_transcripts[i].left() - new_contig.right() - 1);
-               new_contig._genomic_feats.push_back(intron);
-               new_contig._genomic_feats.insert(new_contig._genomic_feats.end(), \
-                                    assembled_transcripts[i]._genomic_feats.begin(), \
-                                    assembled_transcripts[i]._genomic_feats.end());
-            }
-            merged_transcripts.push_back(new_contig);
-         } // end for
-
-         for (uint i = 0; i < assembled_transcripts.size(); ++i) {
-            if (flags[i]) continue;
-            merged_transcripts.push_back(assembled_transcripts[i]);
-         }
-         assembled_transcripts = merged_transcripts;
-      } // end if(!to_merge.empty())
-   }  //end if(kCombineShrotTransfrag)
-   /* Merge transfrags if they
-    *  do not overlaps.
-    *  End*/
    return assembled_transcripts;
+}
+
+void Sample::AddTranscripts(std::vector<Contig>& transcripts, std::vector<Contig>& result) {
+   ++_num_cluster;
+   int tid=0;
+   for (Contig& asmb: transcripts) {
+      ++tid;
+      asmb.parent_id() = "gene."+to_string(_num_cluster);
+      asmb.annotated_trans_id("transcript." + to_string(_num_cluster) + "." + to_string(tid));
+   }
+   result.insert(result.end(), transcripts.begin(), transcripts.end());
 }
 
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
