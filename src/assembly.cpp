@@ -490,16 +490,16 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
 
    remove_low_cov_exon(left, exon_doc, exon_boundaries);
 
-   std::cerr<<"befter filter\n";
-   for (auto e : exon_boundaries) {
-      std::cout<<e.first<<"-"<<e.second<<std::endl;
-   }
+//   std::cerr<<"befter filter\n";
+//   for (auto e : exon_boundaries) {
+//      std::cout<<e.first<<"-"<<e.second<<std::endl;
+//   }
 
    filter_exon_segs(paired_bars, exon_boundaries);
-   std::cerr<<"after filter\n";
-   for (auto e : exon_boundaries) {
-      std::cout<<e.first<<"-"<<e.second<<std::endl;
-   }
+//   std::cerr<<"after filter\n";
+//   for (auto e : exon_boundaries) {
+//      std::cout<<e.first<<"-"<<e.second<<std::endl;
+//   }
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)
          exons.push_back(GenomicFeature(Match_t::S_MATCH, i.first, i.second-i.first+1));
@@ -517,7 +517,6 @@ bool FlowNetwork::createNetwork(
       const std::vector<Contig> &hits,
       const std::vector<GenomicFeature> &exons,
       const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
-      const std::vector<std::vector<size_t>> &constraints,
       Graph::NodeMap<const GenomicFeature*> &node2feat,
       Graph::ArcMap<int> &cost_map,
       Graph::ArcMap<int> &min_flow_map,
@@ -539,6 +538,7 @@ bool FlowNetwork::createNetwork(
       return true;
    }
 
+   std::vector<std::vector<size_t>> constraints = findConstraints(exons, hits);
    std::vector<Graph::Node> nodes;
    std::vector<Graph::Arc> arcs;
    std::map<const GenomicFeature*, Graph::Node> feat2node;

@@ -238,6 +238,10 @@ public:
 
     void assembleSample(FILE *log);
 
+    std::vector<Contig> runFlowAlgorithm(const Strand_t& strand, const std::vector<Contig>& hits,
+                                      const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
+                                      const std::vector<GenomicFeature> &exons);
+
     std::vector<Contig> assembleCluster(const RefSeqTable &ref_t, std::shared_ptr<HitCluster> cluster, FILE *plogfile);
 
     void finalizeCluster(std::shared_ptr<HitCluster>, bool);

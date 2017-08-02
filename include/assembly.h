@@ -61,7 +61,7 @@ public:
 //           std::vector<GenomicFeature> &exons,
 //           Graph::NodeMap<const GenomicFeature*> &node2feat);
 
-   bool splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
+   static bool splicingGraph(const RefID & ref_id, const int &left, const std::vector<float> &exon_doc,
          std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
          std::vector<GenomicFeature> &exons);
 
@@ -69,7 +69,6 @@ public:
          const std::vector<Contig> &hits,
          const std::vector<GenomicFeature> &exons,
          const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
-         const std::vector<std::vector<size_t>> &constraints,
          Graph::NodeMap<const GenomicFeature*> &node_map,
          Graph::ArcMap<int> &cost_map,
          Graph::ArcMap<int> &min_flow_map,
@@ -92,12 +91,12 @@ public:
          Graph::ArcMap<int> &min_map,
          std::vector<std::vector<GenomicFeature>> &transcripts);
 
-   void filter_short_transcripts(std::vector<std::vector<GenomicFeature>> &transcripts);
-   void filter_exon_segs(const std::vector<std::pair<uint,uint>>& paired_bars,
+   static void filter_short_transcripts(std::vector<std::vector<GenomicFeature>> &transcripts);
+   static void filter_exon_segs(const std::vector<std::pair<uint,uint>>& paired_bars,
                          std::list<std::pair<uint,uint>>& exon_boundaries);
-   void remove_low_cov_exon(const int cluster_left, const std::vector<float>& exon_doc,
+   static void remove_low_cov_exon(const int cluster_left, const std::vector<float>& exon_doc,
                             std::list<std::pair<uint,uint>>& exon_boundaries);
-   void filter_intron(const std::vector<GenomicFeature> &exons,
+   static void filter_intron(const std::vector<GenomicFeature> &exons,
          std::map<std::pair<uint,uint>, IntronTable> &intron_counter);
 };
 

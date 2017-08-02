@@ -99,12 +99,6 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
 
    //local variables
    FlowNetwork flow_network;
-   Graph::NodeMap<const GenomicFeature *> node_map(flow_network._g);
-   Graph::ArcMap<int> cost_map(flow_network._g);
-   Graph::ArcMap<int> min_flow_map(flow_network._g);
-   vector<vector<Graph::Arc>> path_cstrs;
-   vector<vector<GenomicFeature>> assembled_feats;
-   vector<vector<size_t>> constraints;
 
 
    bool is_ok = flow_network.splicingGraph(ref_id, l, exon_doc, intron_counter, exons);
@@ -115,29 +109,37 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
       cerr<<"input"<<e<<std::endl;
    }
 #endif
-   constraints = flow_network.findConstraints(exons, hits);
+   auto txs = runFlowAlgorithm(strand, hits, intron_counter, exons);
+   result.insert(result.end(), txs.begin(), txs.end());
+   return result;
+}
 
+vector<Contig> Sample::runFlowAlgorithm(const Strand_t& strand, const vector<Contig>& hits,
+                                      const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
+                                      const std::vector<GenomicFeature> &exons) {
+   FlowNetwork flow_network;
+   Graph::NodeMap<const GenomicFeature *> node_map(flow_network._g);
+   Graph::ArcMap<int> cost_map(flow_network._g);
+   Graph::ArcMap<int> min_flow_map(flow_network._g);
+   vector<vector<Graph::Arc>> path_cstrs;
+   vector<vector<GenomicFeature>> assembled_feats;
+   vector<vector<size_t>> constraints;
+
+
+   vector<Contig> result;
    bool stat = flow_network.createNetwork(hits, exons, intron_counter,
-                                          constraints, node_map, cost_map, min_flow_map, path_cstrs);
+                                          node_map, cost_map, min_flow_map, path_cstrs);
    if (!stat) {
-//#if ENABLE_THREADS
-//      if (use_threads)
-//         decr_pool_count();
-//#endif
       return result;
    }
 
    bool stat2 = flow_network.solveNetwork(node_map, exons, path_cstrs, cost_map, min_flow_map, assembled_feats);
    if (!stat2) {
-//#if ENABLE_THREADS
-//      if (use_threads)
-//         decr_pool_count();
-//#endif
       return result;
    }
+   RefID ref_id = hits[0].ref_id();
    return assemble_2_contigs(assembled_feats, ref_id, strand);
 }
-
 /*
  * Global utility functions end:
  */
