@@ -202,14 +202,14 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
   * filter exon segments if it does not have intron supporting
 * */
 
-//#ifdef DEBUG
-//   for(auto ex = exon_boundaries.cbegin(); ex != exon_boundaries.cend(); ++ex){
-//      std::cout<<"exon seg: "<<ex->first <<"-"<<ex->second<<std::endl;
-//   }
-//   for(auto in = paired_bars.cbegin(); in != paired_bars.cend(); ++in){
-//      std::cout<<"intron: "<<in->first<<"-"<<in->second<<std::endl;
-//   }
-//#endif
+#ifdef DEBUG
+   for(auto ex = exon_boundaries.cbegin(); ex != exon_boundaries.cend(); ++ex){
+      std::cout<<"exon seg: "<<ex->first <<"-"<<ex->second<<std::endl;
+   }
+   for(auto in = paired_bars.cbegin(); in != paired_bars.cend(); ++in){
+      std::cout<<"intron: "<<in->first<<"-"<<in->second<<std::endl;
+   }
+#endif
    std::vector<size_t> dropoff;
    std::vector<std::pair<uint, uint>> left_coords;
    std::vector<std::pair<uint, uint>> right_coords;
@@ -270,10 +270,10 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
       }
    }
 
-//#ifdef DEBUG
-//   for(auto i: exon_boundaries)
-//      cout<<"left: "<<i.first<<" right: "<<i.second<<endl;
-//#endif
+#ifdef DEBUG
+   for(auto i: exon_boundaries)
+      std::cout<<"left: "<<i.first<<" right: "<<i.second<<std::endl;
+#endif
 
    std::vector<std::list<std::pair<uint,uint>>::iterator> drops;
    for(auto d: dropoff){
@@ -358,6 +358,9 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    uint l = 0;
    uint r = l;
    for(size_t i = 0; i< exon_doc.size(); ++i){
+//      if (exon_doc[i] > 0) {
+//         std::cerr<<left+i<<":"<<exon_doc[i]<<std::endl;
+//      }
       if(exon_doc[i] > 0 && l == 0){
          l = i+left;
       }
@@ -487,12 +490,16 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
 
    remove_low_cov_exon(left, exon_doc, exon_boundaries);
 
-//   std::cerr<<"after filter\n";
-//   for (auto e : exon_boundaries) {
-//      std::cout<<e.first<<"-"<<e.second<<std::endl;
-//   }
+   std::cerr<<"befter filter\n";
+   for (auto e : exon_boundaries) {
+      std::cout<<e.first<<"-"<<e.second<<std::endl;
+   }
 
    filter_exon_segs(paired_bars, exon_boundaries);
+   std::cerr<<"after filter\n";
+   for (auto e : exon_boundaries) {
+      std::cout<<e.first<<"-"<<e.second<<std::endl;
+   }
    for(auto i: exon_boundaries){
       if(i.second - i.first +1 > 0)
          exons.push_back(GenomicFeature(Match_t::S_MATCH, i.first, i.second-i.first+1));

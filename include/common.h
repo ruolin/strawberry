@@ -26,7 +26,7 @@ extern bool BIAS_CORRECTION;
  extern int kMinMapQual;
 extern int kMaxGeneLength;
 extern int kMaxFragSpan;
-extern int kMaxFragPerCluster;
+//extern int kMaxFragPerCluster;
 extern int kMaxIntronLength; // max-junction-splice-distance
 extern int kMinIntronLength; // min-junction-splice-distance
 extern unsigned int SmallExonLen;

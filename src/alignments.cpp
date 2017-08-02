@@ -1692,8 +1692,8 @@ double compute_doc(const uint left, const uint right,
      for(size_t j = 0; j<g_feats.size(); ++j){
        const GenomicFeature & gf = g_feats[j];
        if( gf._match_op._code == Match_t::S_MATCH){
-         size_t l  = gf.left() < left ? left: gf.left();
-         size_t r = gf.right() > right ? right: gf.right();
+         size_t l  = std::max(left, gf.left());
+         size_t r = std::min(gf.right(), right);
          for(size_t p = l; p < r+1; ++p){
             exon_doc[p-left] += hits[i].mass();
          }
@@ -1755,7 +1755,7 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
         if(IntronTable::overlap(i->second, j->second)){
            scale = 1;
            if (!IntronTable::contains_or_is_contained(i->second, j->second)) {
-             scale = 30;
+             scale = 10;
            }
         }
 

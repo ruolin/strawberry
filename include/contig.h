@@ -122,6 +122,9 @@ inline auto merge_genomicFeats(const std::vector<GenomicFeature>& feats) {
                return std::vector<GenomicFeature>();
             }
          } else {
+            if (f.right() < feats[i+1].left()) {
+               return std::vector<GenomicFeature>();
+            }
             unsigned right = std::max(f.right(), feats[i + 1].right());
             f._match_op._len = right - f.left() + 1;
          }
