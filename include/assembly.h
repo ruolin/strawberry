@@ -119,4 +119,43 @@ inline std::vector<Contig> assemble_2_contigs(const std::vector<std::vector<Geno
     return results;
 }
 
+inline std::vector<size_t> overlap_exon_idx(const std::vector<GenomicFeature>& exons, const Contig& read)
+{
+   std::vector<size_t> result;
+   for( size_t i = 0; i < exons.size(); ++ i){
+      const GenomicFeature& gfeat = exons[i];
+      if (gfeat._match_op._code != Match_t::S_MATCH) continue;
+
+      for(auto const &read_f: read._genomic_feats){
+         if (read_f._match_op._code != Match_t::S_MATCH) continue;
+
+         if (GenomicFeature::overlaps(read_f, gfeat)){
+
+            //assert(ret.second);
+         }
+      }
+   }
+   std::sort(result.begin(), result.end());
+   return result;
+}
+
+inline std::vector<size_t> overlap_exon_idx(const std::vector<GenomicFeature>& exons, const std::vector<GenomicFeature>& read)
+{
+   std::vector<size_t> result;
+   for( size_t i = 0; i < exons.size(); ++ i){
+      const GenomicFeature& gfeat = exons[i];
+      if (gfeat._match_op._code != Match_t::S_MATCH) continue;
+
+      for(auto const &read_f: read){
+         if (read_f._match_op._code != Match_t::S_MATCH) continue;
+
+         if (GenomicFeature::overlaps(read_f, gfeat)){
+
+            //assert(ret.second);
+         }
+      }
+   }
+   std::sort(result.begin(), result.end());
+   return result;
+}
 #endif /* ASSEMBLY_H_ */

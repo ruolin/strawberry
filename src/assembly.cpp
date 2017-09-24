@@ -27,42 +27,42 @@ void compute_exon_doc(const int left, const std::vector<float> & exon_doc, std::
 }
 
 
-void  constraints_4_single_end(const std::vector<GenomicFeature>& feats,
-                               const std::vector<GenomicFeature> & exons,
-                               std::vector<size_t> &constraint
-                              )
-{
-   uint start = 0;
-   uint end = 0;
-   std::vector<GenomicFeature> introns;
-   for(auto feat = feats.cbegin(); feat != feats.cend(); ++feat){
-      if(feat->_match_op._code == Match_t::S_INTRON){
-         introns.push_back(*feat);
-      }
-      if(start == 0){
-         start = feat->left();
-         end = feat->right();
-      }
-      else{
-         end = feat->right();
-      }
-   }
-
-   for(size_t i = 0; i< exons.size(); ++i){
-      if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
-         bool valid = true;
-         for(auto intron: introns){
-            if(intron.contains(exons[i])){
-               valid = false;
-               break;
-            }
-         }
-
-         if(valid)
-            constraint.push_back(i);
-      }
-   }
-}
+//void  constraints_4_single_end(const std::vector<GenomicFeature>& feats,
+//                               const std::vector<GenomicFeature> & exons,
+//                               std::vector<size_t> &constraint
+//                              )
+//{
+//   uint start = 0;
+//   uint end = 0;
+//   std::vector<GenomicFeature> introns;
+//   for(auto feat = feats.cbegin(); feat != feats.cend(); ++feat){
+//      if(feat->_match_op._code == Match_t::S_INTRON){
+//         introns.push_back(*feat);
+//      }
+//      if(start == 0){
+//         start = feat->left();
+//         end = feat->right();
+//      }
+//      else{
+//         end = feat->right();
+//      }
+//   }
+//
+//   for(size_t i = 0; i< exons.size(); ++i){
+//      if(GenomicFeature::overlap_in_genome(exons[i], start, end)){
+//         bool valid = true;
+//         for(auto intron: introns){
+//            if(intron.contains(exons[i])){
+//               valid = false;
+//               break;
+//            }
+//         }
+//
+//         if(valid)
+//            constraint.push_back(i);
+//      }
+//   }
+//}
 
 
 bool FlowNetwork::comp_lt_first(const std::pair<uint, uint> & lhs, const std::pair<uint,uint> &rhs)
@@ -796,15 +796,13 @@ std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
       }
 
       if(!first_read.empty()){
-         std::vector<size_t> constraint;
-         constraints_4_single_end(first_read, exons, constraint);
+         std::vector<size_t> constraint = overlap_exon_idx(exons, first_read);
          if(constraint.size() > 2){
             result.push_back(constraint);
          }
       }
       if(!second_read.empty()){
-         std::vector<size_t> constraint;
-         constraints_4_single_end(first_read, exons, constraint);
+         std::vector<size_t> constraint = overlap_exon_idx(exons, second_read);
          if(constraint.size() > 2){
             result.push_back(constraint);
          }
@@ -844,22 +842,20 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    // get flow of arcs
    Graph::ArcMap<LimitValueType> flow(_g);
    FlowNetwork.flowMap(flow);
-   if(ret == NetworkSimplex<Graph>::INFEASIBLE || ret == NetworkSimplex<Graph>::UNBOUNDED){
-   //if(exons[0].left() == 18415940){
 #ifdef DEBUG
-      for(Graph::NodeIt n(_g); n != lemon::INVALID; ++n){
-         if( n == _source|| n == _sink) continue;
-         std::cout<<_g.id(n)<<":"<<node_map[n]->left()<<"-"<<node_map[n]->right()<<std::endl;
-      }
-      digraphWriter(_g).                  // write g to the standard output
-        arcMap("cost", cost_map).          // write 'cost' for for arcs
-        arcMap("flow", min_flow_map).          // write 'flow' for for arcs
-        node("source", _source).             // write s to 'source'
-        node("target", _sink).             // write t to 'target'
-        run();
-      fprintf(stderr, "Infeasible or unbounded FlowNetwork flow\n");
-      assert(false);
+   for(Graph::NodeIt n(_g); n != lemon::INVALID; ++n){
+      if( n == _source|| n == _sink) continue;
+      std::cout<<_g.id(n)<<":"<<node_map[n]->left()<<"-"<<node_map[n]->right()<<std::endl;
+   }
+   digraphWriter(_g).                  // write g to the standard output
+           arcMap("cost", cost_map).          // write 'cost' for for arcs
+           arcMap("flow", min_flow_map).          // write 'flow' for for arcs
+           node("source", _source).             // write s to 'source'
+           node("target", _sink).             // write t to 'target'
+           run();
 #endif
+   if(ret == NetworkSimplex<Graph>::INFEASIBLE || ret == NetworkSimplex<Graph>::UNBOUNDED){
+      fprintf(stderr, "Infeasible or unbounded FlowNetwork flow\n");
       return false;
    }
    std::vector<std::vector<Graph::Arc>> paths;
