@@ -130,7 +130,7 @@ inline std::vector<size_t> overlap_exon_idx(const std::vector<GenomicFeature>& e
          if (read_f._match_op._code != Match_t::S_MATCH) continue;
 
          if (GenomicFeature::overlaps(read_f, gfeat)){
-
+            result.push_back(i);
             //assert(ret.second);
          }
       }

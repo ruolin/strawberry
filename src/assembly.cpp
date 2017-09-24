@@ -778,39 +778,21 @@ std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
 {
    std::vector<std::vector<size_t>> result;
    for(auto mp = hits.cbegin(); mp != hits.cend(); ++mp){
-      std::vector<GenomicFeature> first_read;
-      std::vector<GenomicFeature> second_read;
-
-      bool is_first =true;
-      for(auto feat = mp->_genomic_feats.cbegin(); feat != mp->_genomic_feats.cend(); ++feat){
-         if(feat->_match_op._code == Match_t::S_GAP){
-            is_first = false;
-            continue;
-         }
-         if(is_first){
-            first_read.push_back(*feat);
-         }
-         else{
-            second_read.push_back(*feat);
-         }
-      }
-
-      if(!first_read.empty()){
-         std::vector<size_t> constraint = overlap_exon_idx(exons, first_read);
-         if(constraint.size() > 2){
-            result.push_back(constraint);
-         }
-      }
-      if(!second_read.empty()){
-         std::vector<size_t> constraint = overlap_exon_idx(exons, second_read);
-         if(constraint.size() > 2){
-            result.push_back(constraint);
-         }
+      std::vector<size_t> constraint = overlap_exon_idx(exons, *mp);
+      if(constraint.size() > 2){
+         result.push_back(constraint);
       }
    }
    sort(result.begin(), result.end());
    auto new_end = unique(result.begin(), result.end());
    result.erase(new_end, result.end());
+   std::cerr<< " constraints\n";
+   for (auto const& r : result) {
+      for (auto const& e: r) {
+         std::cerr<<e<<",";
+      }
+      std::cerr<<"\n";
+   }
    return result;
 }
 
