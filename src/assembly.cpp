@@ -538,7 +538,6 @@ bool FlowNetwork::createNetwork(
       return true;
    }
 
-   std::vector<std::vector<size_t>> constraints = findConstraints(exons, hits);
    std::vector<Graph::Node> nodes;
    std::vector<Graph::Arc> arcs;
    std::map<const GenomicFeature*, Graph::Node> feat2node;
@@ -586,9 +585,10 @@ bool FlowNetwork::createNetwork(
    OutDegMap<Graph> outDeg(_g);
 
     /*
-    * Single-end path constraint algorithm.
+    * paired-end path constraint algorithm.
     */
 
+   std::vector<std::vector<size_t>> constraints = findConstraints(exons, hits);
    for(auto c: constraints){
       std::vector<Graph::Arc> path_cstr;
 
@@ -615,13 +615,37 @@ bool FlowNetwork::createNetwork(
 //#endif
             Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
             if(arc_found == INVALID){
+               //Bfs<ListDigraph> bfs(_g);
+               Dijkstra<ListDigraph> dijkstra(_g, cost_map);
+               dijkstra.init();
+               dijkstra.addSource(pre);
+               dijkstra.run(pre, sec);
+               //std::cerr<<"source: " <<_g.id(pre) <<" to sink: " << _g.id(sec) << std::endl;
+               std::vector<Graph::Node> node_vec;
+               if(!dijkstra.emptyQueue()) {
+                  for (Graph::Node v = sec; v != pre; v = dijkstra.predNode(v)) {
+                     node_vec.push_back(v);
+                  }
+                  node_vec.push_back(pre);
+                  assert(node_vec.size() > 2);
+                  for (size_t jj = node_vec.size() - 1; jj > 0; --jj) {
+                     Graph::Arc a = ArcLookUp<ListDigraph>(_g)(node_vec[jj], node_vec[jj-1]);
+                     if (a == INVALID) {
+//                        std::cerr<<"Calculating Path Constraints failed\n";
+//                        std::cerr<<"No intron connects node id "<<_g.id(node_vec[jj])<<" at "<< hits[0].ref_id()<< ":"<<node2feat[node_vec[jj]]->left()
+//                                 << "-"<< node2feat[node_vec[jj]]->right();
+//                        std::cerr<<" and node id "<<_g.id(node_vec[jj-1])<<" at "<< hits[0].ref_id()<< ":"<<node2feat[node_vec[jj-1]]->left()<< "-"
+//                                 << node2feat[node_vec[jj-1]]->right();
+//                        std::cerr<<"\n";
+                     } else {
+                        path_cstr.push_back(a);
+                     }
+                  }
+               }
 
-               LOG(ERROR)<<"Calculating Path Constraints failed";
-               LOG(ERROR)<<"No intron connects exon "<< hits[0].ref_id()<< ":"<<node2feat[pre]->left()<< "-"<< node2feat[pre]->right();
-               LOG(ERROR)<<"No intron connects exon "<< hits[0].ref_id()<< ":"<<node2feat[sec]->left()<< "-"<< node2feat[sec]->right();
-               continue;
+            } else {
+               path_cstr.push_back(arc_found);
             }
-            path_cstr.push_back(arc_found);
          }
          if(!path_cstr.empty())
             path_cstrs.push_back(path_cstr);
@@ -786,13 +810,13 @@ std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
    sort(result.begin(), result.end());
    auto new_end = unique(result.begin(), result.end());
    result.erase(new_end, result.end());
-   std::cerr<< " constraints\n";
-   for (auto const& r : result) {
-      for (auto const& e: r) {
-         std::cerr<<e<<",";
-      }
-      std::cerr<<"\n";
-   }
+//   std::cerr<< " constraints\n";
+//   for (auto const& r : result) {
+//      for (auto const& e: r) {
+//         std::cerr<<e<<",";
+//      }
+//      std::cerr<<"\n";
+//   }
    return result;
 }
 
@@ -800,7 +824,7 @@ std::vector<std::vector<size_t>> FlowNetwork::findConstraints(
 bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
       const std::vector<GenomicFeature> &exons,
       const std::vector<std::vector<Graph::Arc>> &path_cstrs,
-      Graph::ArcMap<int> &cost_map,
+      const Graph::ArcMap<int> &cost_map,
       Graph::ArcMap<int> &min_flow_map,
       std::vector<std::vector<GenomicFeature>> &transcripts)
 {
@@ -843,8 +867,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    std::vector<std::vector<Graph::Arc>> paths;
    flowDecompose(_g, flow, cost_map, _source, _sink, paths);
 
-   //put paths into std::vector<std::vector<GenomicFeature>>
-   //int i=0;
+   //std::cerr<<"num paths: " << paths.size() << std::endl;
    for(auto p: paths){
       //cout<<"number "<<i<<endl;
       //++i;
@@ -886,7 +909,6 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
          }
          // else it is edge originally
          if(is_edge){
-            //cout<<node_map[s]->left()<<"-"<<node_map[s]->right()<<"\t";
             tscp.push_back(*node_map[arc_s]);
             if( i+1 < p.size()){
                if(node_map[arc_t]->left()-node_map[arc_s]->right() > 1){
@@ -900,7 +922,6 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
 
    filter_short_transcripts(transcripts);
    if(transcripts.empty()) return false;
-
    return true;
 }
 

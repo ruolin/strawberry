@@ -87,7 +87,7 @@ public:
    bool solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node_map,
          const std::vector<GenomicFeature> &exons,
          const std::vector<std::vector<Graph::Arc>> &path_cstrs,
-         Graph::ArcMap<int> &cost_map,
+         const Graph::ArcMap<int> &cost_map,
          Graph::ArcMap<int> &min_map,
          std::vector<std::vector<GenomicFeature>> &transcripts);
 
@@ -116,6 +116,9 @@ inline std::vector<Contig> assemble_2_contigs(const std::vector<std::vector<Geno
         }
         results.push_back(assembled_transcript);
     }
+    std::sort(results.begin(), results.end());
+    auto new_end = std::unique(results.begin(), results.end());
+    results.erase(new_end, results.end());
     return results;
 }
 
@@ -135,7 +138,9 @@ inline std::vector<size_t> overlap_exon_idx(const std::vector<GenomicFeature>& e
          }
       }
    }
-   std::sort(result.begin(), result.end());
+   sort(result.begin(), result.end());
+   auto new_end = unique(result.begin(), result.end());
+   result.erase(new_end, result.end());
    return result;
 }
 
@@ -150,12 +155,14 @@ inline std::vector<size_t> overlap_exon_idx(const std::vector<GenomicFeature>& e
          if (read_f._match_op._code != Match_t::S_MATCH) continue;
 
          if (GenomicFeature::overlaps(read_f, gfeat)){
-
+            result.push_back(i);
             //assert(ret.second);
          }
       }
    }
-   std::sort(result.begin(), result.end());
+   sort(result.begin(), result.end());
+   auto new_end = unique(result.begin(), result.end());
+   result.erase(new_end, result.end());
    return result;
 }
 #endif /* ASSEMBLY_H_ */

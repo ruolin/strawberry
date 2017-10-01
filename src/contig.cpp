@@ -237,12 +237,6 @@ Contig::Contig(const PairedHit& ph):
       } else {
          std::sort(g_feats.begin(), g_feats.end());
          g_feats = merge_genomicFeats(g_feats);
-         if (g_feats.empty()) {
-            _ref_id = -1;
-            _contig_id = -1;
-            _strand = Strand_t::StrandUnknown;
-            return;
-         }
       }
    }
 
@@ -255,16 +249,21 @@ Contig::Contig(const PairedHit& ph):
       }
    }
 
-   sort(g_feats.begin(), g_feats.end());
+   if (g_feats.empty()) {
+      _ref_id = -1;
+      _contig_id = -1;
+      _strand = Strand_t::StrandUnknown;
+   } else {
+      sort(g_feats.begin(), g_feats.end());
+//      uint check_right = ph.left_pos();
+//      for(auto i = g_feats.cbegin(); i != g_feats.cend(); ++i){
+//         check_right += i->_match_op._len;
+//      }
+//      assert(check_right = ph.right_pos()+1);
+      _genomic_feats = move(g_feats);
+      _mass = ph.collapse_mass();
 
-   uint check_right = ph.left_pos();
-   for(auto i = g_feats.cbegin(); i != g_feats.cend(); ++i){
-      check_right += i->_match_op._len;
    }
-   assert(check_right = ph.right_pos()+1);
-   assert(!g_feats.empty());
-   _genomic_feats = move(g_feats);
-   _mass = ph.collapse_mass();
 }
 
 //Contig::Contig(const ExonBin& eb)
@@ -319,30 +318,37 @@ SingleOrit_t Contig::single_read_orit() const
    return _single_read_orit;
 }
 
-bool Contig::operator<(const Contig &rhs) const
-{
+//bool Contig::operator<(const Contig &rhs) const
+//{
+//   if(_ref_id != rhs._ref_id){
+//      return _ref_id < rhs._ref_id;
+//   }
+//   if(left() != rhs.left()){
+//      return left() < rhs.left();
+//   }
+//   if(right() != rhs.right()){
+//      return right() < rhs.right();
+//   }
+//   if(_genomic_feats.size() != rhs._genomic_feats.size()){
+//      return _genomic_feats.size() < rhs._genomic_feats.size();
+//   }
+//   for(size_t i=0; i<_genomic_feats.size(); ++i){
+//      if(_genomic_feats[i] != rhs._genomic_feats[i])
+//         return _genomic_feats[i] < rhs._genomic_feats[i];
+//   }
+//   return false;
+//}
+
+bool Contig::operator<(const Contig &rhs) const {
    if(_ref_id != rhs._ref_id){
       return _ref_id < rhs._ref_id;
    }
-   if(left() != rhs.left()){
-      return left() < rhs.left();
-   }
-   if(right() != rhs.right()){
-      return right() < rhs.right();
-   }
-   if(_genomic_feats.size() != rhs._genomic_feats.size()){
-      return _genomic_feats.size() < rhs._genomic_feats.size();
-   }
-   for(size_t i=0; i<_genomic_feats.size(); ++i){
-      if(_genomic_feats[i] != rhs._genomic_feats[i])
-         return _genomic_feats[i] < rhs._genomic_feats[i];
-   }
-   return false;
+   return _genomic_feats < rhs._genomic_feats;
 }
 
 bool operator==(const Contig &lhs, const Contig & rhs)
 {
-   return lhs == rhs;
+   return lhs._genomic_feats == rhs._genomic_feats;
 }
 
 bool Contig::is_single_read() const

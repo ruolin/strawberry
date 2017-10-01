@@ -26,7 +26,7 @@ ${PROJECT_SOURCE_DIR}/external/easyloggingpp/src/easylogging++.cc
 bias.cpp 
 ../include/isoform.h 
 ../include/utils.h 
-../include/kmer.h)
+../include/kmer.h ../include/clustering.h)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 

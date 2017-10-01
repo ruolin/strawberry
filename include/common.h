@@ -32,7 +32,7 @@ extern int kMinIntronLength; // min-junction-splice-distance
 extern unsigned int SmallExonLen;
 extern int kMinTransLen; //ignore isoforms if its length is too short.
 extern int kMaxOlapDist; // merge cluster if within this distance.
-extern double kMaxSmallAnchor;  // smallAnchor 4bp;
+extern double kMinAnchor;  // smallAnchor 4bp;
 extern double kMinIsoformFrac;
 extern double kBinomialOverHangAlpha;
 extern bool enforce_ref_models;
@@ -91,6 +91,39 @@ T normal_pdf(T x, T m, T s)
     return inv_sqrt_2pi / s * std::exp(-T(0.5) * a * a);
 }
 
+template<typename T>
+inline std::pair<double, double> getMeanAndSd(const std::vector<T>& v) {
+   double sum = std::accumulate(v.cbegin(), v.cend(), 0.0);
+   double mean = sum / v.size();
+   std::vector<double> diff(v.size());
+   std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) {return x - mean;});
+   double sq_sum = inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+   double stdev = std::sqrt(sq_sum / v.size());
+   return std::make_pair(mean, stdev);
+}
+
+inline double phi(double x)
+{
+    // constants
+    double a1 =  0.254829592;
+    double a2 = -0.284496736;
+    double a3 =  1.421413741;
+    double a4 = -1.453152027;
+    double a5 =  1.061405429;
+    double p  =  0.3275911;
+
+    // Save the sign of x
+    int sign = 1;
+    if (x < 0)
+       sign = -1;
+    x = fabs(x)/sqrt(2.0);
+
+    // A&S formula 7.1.26
+    double t = 1.0/(1.0 + p*x);
+    double y = 1.0 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*exp(-x*x);
+
+    return 0.5*(1.0 + sign*y);
+}
 
 int fileExists(const char* fname);
 
@@ -328,6 +361,7 @@ public:
 
   uint left() const;
   uint right() const;
+
   void set_seq_id(int id);
   void set_left(uint l);
   void set_right(uint r);
@@ -350,6 +384,11 @@ public:
   bool operator>(const GenomicInterval& d) const;
   bool operator<(const GenomicInterval& d) const;
 };
+
+inline std::ostream& operator<<(std::ostream& os , const GenomicInterval& ginv) {
+   os <<ginv.seq_id() <<":"<< ginv.left() << "-" << ginv.right() <<"," <<ginv.strand();
+   return os;
+}
 
 enum FLD_source
 {

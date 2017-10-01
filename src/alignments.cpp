@@ -6,12 +6,13 @@
 #include <mutex>
 #include <atomic>
 #include <chrono>
+#include <complex>
 #include "alignments.h"
 #include "fasta.h"
 #include "assembly.h"
 #include "estimate.hpp"
 #include "bias.hpp"
-
+#include "clustering.h"
 using namespace std;
 
 
@@ -79,7 +80,7 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
 //   for (const auto& h :hits) {
 //     std::cerr<<h;
 //   }
-   avg_dep = compute_doc(l, r, hits, exon_doc, intron_counter, kMaxSmallAnchor);
+   avg_dep = compute_doc(l, r, hits, exon_doc, intron_counter, kMinAnchor);
    //cout<<avg_dep<<endl;
 
 //#ifdef DEBUG
@@ -90,7 +91,6 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
 //      cout<<i;
 //   cout<<endl;
 //#endif
-
    if (avg_dep < kMinDepth4Locus) {
       return result;
    }
@@ -155,6 +155,115 @@ HitCluster::HitCluster():
    _raw_mass(0.0)
 {}
 
+void HitCluster::refine_cluster(){
+   pair<uint, uint> bound = {_uniq_hits.front().left_pos(), _uniq_hits.front().right_pos()};
+   //kMinIsoformFrac = 0.2;
+   size_t start = 0;
+   size_t end = 1;
+   //int  plus_strand_count = 0;
+   //int  minus_strand_count = 0;
+   std::vector<int> plus_minus;
+   std::vector<size_t> intron_read_idx;
+   plus_minus.reserve(1024);
+   intron_read_idx.reserve(2048);
+   for (size_t i = 1; i != _uniq_hits.size(); ++i) {
+      auto it = _uniq_hits.begin() + i;
+      if (bound.first <= it->left_pos() && bound.second >= it->left_pos()) {
+         if (it->contains_splice() ) {
+            if (it->strand() == Strand_t::StrandPlus) {
+               //plus_strand_count++;
+               plus_minus.push_back(0);
+            }
+            else if (it->strand() == Strand_t::StrandMinus) {
+               //minus_strand_count++;
+               plus_minus.push_back(1);
+            }
+            intron_read_idx.push_back(i);
+         }
+         end = i;
+         bound.first = std::min(bound.first, it->left_pos());
+         bound.second = std::max(bound.second, it->right_pos());
+      } else {
+         //float max_strand_count = max(plus_strand_count, minus_strand_count);
+         //float min_strand_count = min(plus_strand_count, minus_strand_count);
+         //if (min_strand_count / max_strand_count > kMinIsoformFrac) {
+         size_t sep = one_d_binary_clustering(plus_minus);
+         int  first_class = plus_minus[sep];
+         if (sep + 5 < plus_minus.size() && sep > 5) {
+            size_t separator_read_idx_left = intron_read_idx[sep];
+            size_t separator_read_idx_right = intron_read_idx[sep + 1];
+//            std::cerr<<plus_minus<<std::endl;
+//            std::cerr<<"first class: " <<first_class << std::endl;
+//            std::cerr<<"plus_minus size: " << plus_minus.size() << std::endl;
+//            std::cerr<<"sep idx: " << sep << std::endl;
+//            std::cerr<<"start: " << start << std::endl;
+//            std::cerr<<"sep left " << separator_read_idx_left << std::endl;
+//            std::cerr<<"sep right " << separator_read_idx_right << std::endl;
+//            std::cerr<<"end: " << end << std::endl;
+            if (first_class == 0) {
+               _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
+                                  start, separator_read_idx_right, Strand_t::StrandPlus);
+               _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
+                                  separator_read_idx_left + 1, end + 1, Strand_t::StrandMinus);
+            } else {
+               _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
+                                  start, separator_read_idx_right, Strand_t::StrandMinus);
+               _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
+                                  separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
+            }
+         } else {
+            if (first_class == 0) {
+               _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandPlus);
+            } else {
+               _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandMinus);
+            }
+         }
+         start = i;
+         bound.first = it->left_pos();
+         bound.second = it->right_pos();
+         //plus_strand_count = 0;
+         //minus_strand_count = 0;
+         plus_minus.clear();
+         intron_read_idx.clear();
+      }
+   }
+
+   //float max_strand_count = max(plus_strand_count, minus_strand_count);
+   //float min_strand_count = min(plus_strand_count, minus_strand_count);
+   auto sep = one_d_binary_clustering(plus_minus);
+   int  first_class = plus_minus[sep];
+   //if (min_strand_count / max_strand_count > kMinIsoformFrac) {
+   if (sep + 5 < plus_minus.size() && sep > 5) {
+      size_t separator_read_idx_left = intron_read_idx[sep];
+      size_t separator_read_idx_right = intron_read_idx[sep + 1];
+//      std::cerr<<plus_minus<<std::endl;
+//      std::cerr<<"first class: " <<first_class << std::endl;
+//      std::cerr<<"plus_minus size: " << plus_minus.size() << std::endl;
+//      std::cerr<<"sep idx: " << sep << std::endl;
+//      std::cerr<<"start: " << start << std::endl;
+//      std::cerr<<"sep left " << separator_read_idx_left << std::endl;
+//      std::cerr<<"sep right " << separator_read_idx_right << std::endl;
+//      std::cerr<<"end: " << end << std::endl;
+      if (first_class == 0) {
+         _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
+                            start, separator_read_idx_right, Strand_t::StrandPlus);
+         _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
+                            separator_read_idx_left + 1, end + 1, Strand_t::StrandMinus);
+      } else {
+         _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
+                            start, separator_read_idx_right, Strand_t::StrandMinus);
+         _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
+                            separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
+      }
+   } else {
+      if (first_class == 0) {
+      //if (plus_strand_count > minus_strand_count) {
+         _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandPlus);
+      } else {
+         _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandMinus);
+      }
+   }
+}
 
 RefID HitCluster::ref_id() const
 {
@@ -373,6 +482,8 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
      return false;
    }
 
+   _read_ref_span.push_back(hit->interval().len());
+
    if(_ref_id == -1){
      if(hit_ref_id != -1)
        _ref_id = hit_ref_id;
@@ -503,46 +614,66 @@ void HitCluster::clearOpenMates()
    _open_mates.clear();
 }
 
-int HitCluster::collapseHits()
+int HitCluster::collapseAndFilterHits()
 {
-   if(!_uniq_hits.empty()){
-     assert(false);
-   }
+   assert(!_hits.empty());
    if(_hits.empty())
      return 0;
 
    sort(_hits.begin(), _hits.end());
+   auto mean = this->read_ref_span_mean_sd().first;
+   auto sd = this->read_ref_span_mean_sd().second * 3;
+   LOG(WARNING)<< "\n mean and sd read reference span: " << mean<<", " <<sd;
 
    for(size_t i = 0; i < _hits.size(); ++i){
-     if(_uniq_hits.empty()){
-       _uniq_hits.push_back(_hits[i]);
-       _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
-     }
-     else{
-       if(_uniq_hits.back() != _hits[i]){
+      if (_hits[i]._left_read) {
+         double x = (_hits[i]._left_read->interval().len() - mean)/ sd;
+         if (phi(x) > 0.999) {
+            LOG(WARNING) << "filter outlier read : " << _hits[i]._left_read->interval()<<"\t by ref span len "
+                      <<_hits[i]._left_read->interval().len();
+            continue;
+         }
+      }
+      if (_hits[i]._right_read) {
+         double y = (_hits[i]._right_read->interval().len() - mean)/ sd;
+         if (phi(y) > 0.999) {
+            LOG(WARNING) << "filter outlier read : " << _hits[i]._right_read->interval()<<"\t by ref span len "
+                      <<_hits[i]._right_read->interval().len();
+            continue;
+         }
+      }
+      _hits[i].init_raw_mass();
+      _weighted_mass += _hits[i].raw_mass(); // set cluster mass
+      if(_uniq_hits.empty()){
          _uniq_hits.push_back(_hits[i]);
          _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
-       }
-       else{
-         _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
-       }
+      }
+      else{
+         if(_uniq_hits.back() != _hits[i]){
+            _uniq_hits.push_back(_hits[i]);
+            _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
+         }
+         else{
+            _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
+         }
      }
    }
-
+   //sort(_uniq_hits.begin(),_uniq_hits.end());
+   //_hits.clear();
    return _uniq_hits.size();
 }
 
-void HitCluster::reweight_read(bool weight_bias)
-{
-   // this function is a place holder and does not
-   // weight the reads
-   assert(weight_bias == false);
-   for(auto & hit:_hits){
-     hit.init_raw_mass(); // set hit mass
-     _weighted_mass += hit.raw_mass(); // set cluster mass
-   }
-   return;
-}
+//void HitCluster::reweight_read()
+//{
+//   // this function is a place holder and does not
+//   // weight the reads
+//   assert(weight_bias == false);
+//   for(auto & hit:_hits){
+//     hit.init_raw_mass(); // set hit mass
+//     _weighted_mass += hit.raw_mass(); // set cluster mass
+//   }
+//   return;
+//}
 
 //void HitCluster::reweight_read(const unordered_map<std::string, double>& kmer_bias, int num_kmers){
 //
@@ -844,7 +975,6 @@ void Sample::rewindHits(uint64_t pos)
 
 int Sample::addRef2Cluster(HitCluster &cluster_out){
    if(_refmRNA_offset >=  _ref_mRNAs.size()) {
-      //std::cerr<<" all transcripts processed!\n";
      _has_load_all_refs = true;
      return 0;
    }
@@ -854,7 +984,6 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
    //cout<<"_ref_mRNAs size: "<<_ref_mRNAs[0].parent_id()<<endl;
 
    cluster_out.gene_id() = _ref_mRNAs[_refmRNA_offset].parent_id();
-   //std::cerr<<"a: "<<cluster_out.gene_id()<<std::endl;
    cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
    if(_refmRNA_offset >= _ref_mRNAs.size()){
      _has_load_all_refs = true;
@@ -1169,8 +1298,8 @@ void Sample::finalizeCluster(shared_ptr<HitCluster> cluster, bool clear_open_mat
    if(clear_open_mates){
      cluster->clearOpenMates();
    }
-   cluster->reweight_read(false);
-   cluster->collapseHits();
+   //cluster->reweight_read(false);
+   cluster->collapseAndFilterHits();
    cluster->setBoundaries(); // set boundaries if reference exist.
 }
 
@@ -1247,136 +1376,72 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
     * */
 
    //local variables
+   vector<Contig> result;
    vector<Contig> assembled_transcripts;
-   vector<Contig> hits;
-
+   //std::cerr<<"total number of reads: " << cluster->uniq_hits().size()<<"\n";
    if (cluster->size() < kMinReadForAssemb) {
-//#if ENABLE_THREADS
-//      if (use_threads) decr_pool_count();
-//#endif
-      return assembled_transcripts;
+      return result;
    }
 
-   cluster->_strand = cluster->guessStrand();
-   Strand_t second_strand = Strand_t::StrandUnknown;
-   bool see_both_strand = cluster->see_both_strands();
-
-   if(see_both_strand) {
-      switch(cluster->_strand) {
-         case Strand_t::StrandPlus:
-            second_strand = Strand_t::StrandMinus;
-            break;
-         case Strand_t::StrandMinus:
-            second_strand = Strand_t::StrandPlus;
-            break;
+   cluster->refine_cluster();
+   if (cluster->hasRefmRNAs() && utilize_ref_models ) {
+      uint cluster_left = std::numeric_limits<uint>::max();
+      vector<Contig> hits;
+      uint cluster_right = 0;
+      for (const auto& i: cluster->_ref_mRNAs) {
+         cluster_left = min(cluster_left, i.left());
+         cluster_right = max(cluster_right, i.right());
+         hits.push_back(i);
+         hits.back()._is_ref = true;
       }
-   }
-
-   vector<Contig> hits_on_other_strands;
-   for (auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r) {
-      Contig hit(*r);
-      if (hit.ref_id() != -1) {
-         if (hit.strand() == cluster->_strand || hit.strand() == Strand_t::StrandUnknown) {
+      for (auto r = cluster->_uniq_hits.cbegin(); r != cluster->_uniq_hits.cend(); ++r) {
+         Contig hit(*r);
+         if (hit.ref_id() != -1 && (hit.strand() == Strand_t::StrandUnknown || hit.strand() == cluster->ref_strand())) {
             hits.push_back(hit);
          }
-         if (see_both_strand) {
-            if (hit.strand() == second_strand || hit.strand() == Strand_t::StrandUnknown) {
-               hits_on_other_strands.push_back(hit);
-            }
-         }
       }
-   }
+      //sort(hits.begin(), hits.end());
+      assembled_transcripts = this->assembleContig(cluster_left, cluster_right, cluster->strand(), hits);
 
-   if (cluster->hasRefmRNAs() && utilize_ref_models ) {
-      for (const auto& i: cluster->_ref_mRNAs) {
-         if (i.strand() == cluster->_strand) {
-            hits.push_back(i);
-            hits.back()._is_ref = true;
-         } else {
-            hits_on_other_strands.push_back(i);
-            hits_on_other_strands.back()._is_ref = true;
-         }
-      }
-   }
-   sort(hits.begin(), hits.end());
-   assembled_transcripts = this->assembleContig(cluster->left(), cluster->right(), cluster->strand(), hits);
-
-   cluster->_id = ++_num_cluster;
-   int tid=0;
-   for (Contig& asmb: assembled_transcripts) {
-      ++tid;
-      asmb.parent_id() = "gene."+to_string(cluster->_id);
-      asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
-   }
-
-   if (see_both_strand) {
-      sort(hits_on_other_strands.begin(), hits_on_other_strands.end());
-      vector<Contig> secondary = this->assembleContig(cluster->left(), cluster->right(), second_strand, hits_on_other_strands);
       cluster->_id = ++_num_cluster;
-      tid = 0;
-      for (Contig& asmb: secondary) {
+      int tid=0;
+      for (Contig& asmb: assembled_transcripts) {
          ++tid;
          asmb.parent_id() = "gene."+to_string(cluster->_id);
          asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
       }
-      assembled_transcripts.insert(assembled_transcripts.end(), secondary.begin(), secondary.end());
+      this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
+      return assembled_transcripts;
    }
 
-   this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
-
-   /* Merge transfrags if they
-    *  do not overlaps.
-    *  Begin*/
-   if (kCombineShrotTransfrag && assembled_transcripts.size() > 1) {
-      vector<pair<uint, uint>> to_merge;
-      vector<Contig> merged_transcripts;
-      for (uint i = 0; i < assembled_transcripts.size() - 1; ++i) {
-         for (uint j = i + 1; j < assembled_transcripts.size(); ++j) {
-            if (!Contig::overlaps_directional(assembled_transcripts[i], assembled_transcripts[j])) {
-               to_merge.emplace_back(i, j);
-            }
+   for (auto const & seg: cluster->_segs) {
+//      std::cerr<<"num of uniq hit: " << cluster->_uniq_hits.size() << std::endl;
+//      std::cerr << "left read idx : "<<seg.left_read_idx << " right read idx: " << seg.right_read_idx<< std::endl;
+      vector<Contig> hits;
+      auto itbegin = cluster->_uniq_hits.cbegin() + seg.left_read_idx;
+      auto itend = cluster->_uniq_hits.cbegin() + seg.right_read_idx;
+      for (auto r = itbegin; r < itend; ++r) {
+         Contig hit(*r);
+         if (hit.ref_id() != -1 && (hit.strand() == Strand_t::StrandUnknown || hit.strand() == seg.strand)) {
+            hits.push_back(hit);
          }
       }
-      if (!to_merge.empty()) {
-         vector<bool> flags(assembled_transcripts.size(), false);
-         for (auto iso_pair: to_merge) {
-            uint i = iso_pair.first;
-            uint j = iso_pair.second;
-            flags[i] = true;
-            flags[j] = true;
-            Contig new_contig;
-            if (assembled_transcripts[i] < assembled_transcripts[j]) {
-               new_contig = assembled_transcripts[i];
-               GenomicFeature intron(Match_t::S_INTRON, new_contig.right() + 1, \
-                assembled_transcripts[j].left() - new_contig.right() - 1);
-               new_contig._genomic_feats.push_back(intron);
-               new_contig._genomic_feats.insert(new_contig._genomic_feats.end(), \
-                                    assembled_transcripts[j]._genomic_feats.begin(), \
-                                    assembled_transcripts[j]._genomic_feats.end());
-            } else {
-               new_contig = assembled_transcripts[j];
-               GenomicFeature intron(Match_t::S_INTRON, new_contig.right() + 1, \
-                assembled_transcripts[i].left() - new_contig.right() - 1);
-               new_contig._genomic_feats.push_back(intron);
-               new_contig._genomic_feats.insert(new_contig._genomic_feats.end(), \
-                                    assembled_transcripts[i]._genomic_feats.begin(), \
-                                    assembled_transcripts[i]._genomic_feats.end());
-            }
-            merged_transcripts.push_back(new_contig);
-         } // end for
+      //std::cerr<<"seg: " <<seg.left << "-" << seg.right << std::endl;
+      assembled_transcripts = this->assembleContig(seg.left, seg.right, seg.strand, hits);
+      cluster->_id = ++_num_cluster;
+      int tid=0;
+      for (Contig& asmb: assembled_transcripts) {
+         ++tid;
+         asmb.parent_id() = "gene."+to_string(cluster->_id);
+         asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
+      }
+      result.insert(result.end(), assembled_transcripts.begin(), assembled_transcripts.end());
+   }
 
-         for (uint i = 0; i < assembled_transcripts.size(); ++i) {
-            if (flags[i]) continue;
-            merged_transcripts.push_back(assembled_transcripts[i]);
-         }
-         assembled_transcripts = merged_transcripts;
-      } // end if(!to_merge.empty())
-   }  //end if(kCombineShrotTransfrag)
-   /* Merge transfrags if they
-    *  do not overlaps.
-    *  End*/
-   return assembled_transcripts;
+   this->fragLenDist(ref_t, result, cluster, plogfile);
+   return result;
 }
+
 
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
                  const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile, FILE *fragfile) const {
@@ -1566,7 +1631,7 @@ void Sample::assembleSample(FILE *plogfile)
 #else
    finalizeCluster(cur_cluster, true);
    assembleCluster(ref_t, cur_cluster, plogfile);
-   this->addAssembly(asmb);
+   for (auto const& a : asmb) this->addAssembly(a);
 #endif
      // _total_mapped_reads += (int) cur_cluster->raw_mass();
      //cout<<"weighted cluster mass: "<<cur_cluster->_weighted_mass<<endl;
@@ -1701,9 +1766,10 @@ double compute_doc(const uint left, const uint right,
          }
        }
        else if( gf._match_op._code == Match_t::S_INTRON){
-         if(gf.left() < left || gf.right() > right)
+         if(gf.left() < left || gf.right() > right) {
             continue;
-         if (gf.left() >= gf.right()) continue;
+         }
+         assert(gf.right() > gf.left());
          IntronTable cur_intron(gf.left(), gf.right());
          pair<uint,uint> coords(cur_intron.left, cur_intron.right);
          if(intron_counter.empty()){
@@ -1827,7 +1893,7 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
        ++i;
        continue;
      }
-     double success = 2 * (double) kMaxSmallAnchor / read_abs_len;
+     double success = 2 * (double) kMinAnchor / read_abs_len;
      double prob_not_lt_observed = 1.0;
      double normal_mean = total_read * success;
      double normal_sd = sqrt(total_read * success*(1-success));

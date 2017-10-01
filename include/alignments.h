@@ -24,6 +24,16 @@ class FaSeqGetter;
 
 using IntronMap = std::map<std::pair<uint, uint>, IntronTable>;
 
+struct Segment {
+   uint left;
+   uint right;
+   uint left_read_idx;
+   uint right_read_idx;
+   Strand_t strand;
+   Segment(): left(std::numeric_limits<uint>::max()), right(0), left_read_idx(0), right_read_idx(0), strand(Strand_t::StrandUnknown) {}
+   Segment(uint l, uint r, uint lidx, uint ridx, Strand_t s): left(l), right(r), left_read_idx(lidx),right_read_idx(ridx), strand(s){}
+};
+
 class HitCluster {
     friend Sample;
 private:
@@ -41,6 +51,7 @@ private:
     std::unordered_map<ReadID, std::list<PairedHit>> _open_mates;
     std::vector<PairedHit> _hits;
     std::vector<PairedHit> _uniq_hits;
+    std::vector<int> _read_ref_span;
     std::vector<Contig> _ref_mRNAs; // the actually objects are owned by Sample
     std::vector<GenomicFeature> _introns;
     std::vector<float> _dep_of_cov;
@@ -50,6 +61,7 @@ private:
     void reweight_read(bool weight_bais);
     //map<std::pair<int,int>,int> _current_intron_counter;
 public:
+    std::vector<Segment> _segs;
     std::map<Strand_t, std::map<GenomicFeature, int>> _strand_intron;
     decltype(auto) uniq_hits() const { return (_uniq_hits);}
     decltype(auto) id() const { return (_id);}
@@ -62,6 +74,9 @@ public:
 
     RefID ref_id() const;
 
+    std::pair<double,double> read_ref_span_mean_sd() const {
+        return getMeanAndSd(_read_ref_span);
+    };
     void ref_id(RefID id);
 
     uint left() const;
@@ -101,9 +116,11 @@ public:
 
     void clearOpenMates();
 
+    void refine_cluster();
+
     bool addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool extend_by_partner);
 
-    int collapseHits();
+    int collapseAndFilterHits();
 
     bool overlaps(const HitCluster &rhs) const;
 
@@ -272,4 +289,4 @@ double compute_doc(const uint left,
 void filter_intron(const std::string& current_chrom, const uint cluster_left,
                    const uint read_abs_len, const std::vector<float> &exon_doc, IntronMap& intron_counter);
 
-#endif /* STRAWB_ALIGNMENTS_H_ */
+#endif

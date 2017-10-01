@@ -81,7 +81,7 @@ void print_help()
    fprintf(stderr, "\n Assembly Options:\n");
    fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                                             [default:     200]\n");
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
-   fprintf(stderr, "   -s/--small-anchor-size                Read overhang less than this value is subject to Binomial test.                                      [default:     4]\n");
+   fprintf(stderr, "   -s/--min-anchor-size                  Read overhang less than this value is subject to Binomial test.                                      [default:     10]\n");
    fprintf(stderr, "   -a/--small-anchor-alpha               Threshold alpha for junction binomial test filter.                                                   [default:     0]\n");
    fprintf(stderr, "   --min-support-4-intron                Minimum number of spliced aligned read required to support a intron.                                 [default:     2.0] \n");
    fprintf(stderr, "   --min-exon-cov                        Minimum exon coverage.                                                                               [default:     1.0] \n");
@@ -155,7 +155,7 @@ int parse_options(int argc, char** argv)
                         kMaxOlapDist = parseInt(optarg, 1, "-d/--max-overlap-distance must be at least 1", print_help);
                         break;
                case 's':
-                        kMaxSmallAnchor = parseInt(optarg, 1, "-s/--small-anchor-size must be at least 1", print_help);
+                        kMinAnchor = parseInt(optarg, 1, "-s/--min-anchor-size must be at least 1", print_help);
                         break;
                case 'a':
                         kBinomialOverHangAlpha = parseFloat(optarg, 0, 1.0, "-a/--small-anchor-alpha must be between 0-1.0", print_help);
