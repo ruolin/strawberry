@@ -95,6 +95,7 @@ public:
    static void filter_exon_segs(const std::vector<std::pair<uint,uint>>& paired_bars,
                          std::list<std::pair<uint,uint>>& exon_boundaries);
    static void remove_low_cov_exon(const int cluster_left, const std::vector<float>& exon_doc,
+                                   const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
                             std::list<std::pair<uint,uint>>& exon_boundaries);
    static void filter_intron(const std::vector<GenomicFeature> &exons,
          std::map<std::pair<uint,uint>, IntronTable> &intron_counter);

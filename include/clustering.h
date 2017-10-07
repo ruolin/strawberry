@@ -9,7 +9,7 @@
 #include <stdexcept>
 #include <tuple>
 
-inline size_t one_d_binary_clustering(const std::vector<int>& vec) {
+inline int one_d_binary_clustering(const std::vector<int>& vec) {
    int total_c1 = 0;
    int total_c2 = 0;
    for (auto const& i : vec) {
@@ -26,8 +26,8 @@ inline size_t one_d_binary_clustering(const std::vector<int>& vec) {
    int l_c2 = 0;
    int r_c1 = total_c1;
    int r_c2 = total_c2;
-   int best_score = 0;
-   size_t best_idx = 0;
+   int best_score = std::numeric_limits<int>::min();
+   int best_idx = -1;
    for (size_t i = 0; i < vec.size(); ++i) {
       if (vec[i] == 0) {
          l_c1 ++;

@@ -87,7 +87,10 @@ public:
 
     uint right() const;
 
-    int size() const;
+    int num_uniq_hits() const;
+    int size() const {
+        return _hits.size();
+    }
 
     int len() const;
 

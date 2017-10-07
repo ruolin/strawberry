@@ -281,9 +281,10 @@ inline int ExonBin::num_exons() const
 inline float ExonBin::read_count() const
 {
    float sum = 0.0 ;
+   //std::cerr<<"frag size "<< _frags.size() << std::endl;
    for(auto it = _frags.cbegin(); it != _frags.cend(); ++it ){
 //#ifdef DEBUG
-//      cout<<"it->left "<<it->left()<<" mass: "<<it->mass()<<endl;
+      //std::cerr<<"it->left "<<it->left()<<" mass: "<<it->mass()<<std::endl;
 //#endif
       sum += it->mass();
    }

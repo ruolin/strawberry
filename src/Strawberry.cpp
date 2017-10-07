@@ -22,6 +22,7 @@
 #define OPT_MIN_SUPPORT_4_INTRON   262
 #define OPT_ALLOW_MULTIPLE_HITS   263
 #define OPT_MIN_EXON_COV   264
+#define OPT_NO_QUANT 265
 //#define OPT_NO_ASSEMBLY 260
 using namespace std;
 
@@ -41,6 +42,7 @@ static struct option long_options[] = {
 //assembly
       {"GTF",                             required_argument,      0,       'g'},
       {"no-assembly",                     no_argument,            0,       'r'},
+      {"no-quant",                        no_argument,            0,       OPT_NO_QUANT},
       {"min-transcript-size",             required_argument,      0,       't'},
       {"max-overlap-distance",            required_argument,      0,       'd'},
       {"small-anchor-size",               required_argument,      0,       's'},
@@ -70,6 +72,7 @@ void print_help()
    fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current support gff3 and gtf format.                          [default:     NULL]\n");
    fprintf(stderr, "   -r/--no-assembly                      Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
+   fprintf(stderr, "   --no-quant                            Skip quantification                                                                                  [default:     false]\n");
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
    fprintf(stderr, "   -q/--min-mapping-qual                 Minimum mapping quality to be included in the analyses.                                              [default:     0]\n");
@@ -143,6 +146,9 @@ int parse_options(int argc, char** argv)
                case 'r':
                         no_assembly = true;
                         enforce_ref_models = true;
+                        break;
+               case OPT_NO_QUANT:
+                        no_quant = true;
                         break;
                case 'e':
                         kMinIsoformFrac = parseFloat(optarg, 0, 1.0, "-e/--filter-low-expression must be between 0-1.0", print_help);
@@ -257,6 +263,13 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
    if (no_assembly) read_sample.preProcess(plogfile);
    else read_sample.assembleSample(plogfile);
 
+   if (no_quant) {
+      for (const auto &iso: read_sample._assembly) {
+         iso.print2gtf(pFile, read_sample._hit_factory->_ref_table, "NA",
+                               "NA", iso.parent_id(), iso.annotated_trans_id());
+      }
+      return 0;
+   }
    if(verbose){
       cerr<<"Total number of mapped reads is: "<<read_sample.total_mapped_reads()<<endl;
    }

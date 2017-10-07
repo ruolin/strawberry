@@ -353,6 +353,7 @@ bool EmSolver::init(const int num_iso,
                   const vector<int> &count,
                   const vector<vector<double>> &model)
 {
+   //std::cerr << "count size: " << count.size() << std::endl;
    int nrow = count.size();
    int ncol = num_iso;
    double total_count = accumulate(count.begin(), count.end(), 0.0);

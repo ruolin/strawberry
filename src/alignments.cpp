@@ -67,6 +67,7 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
    if (hits.empty()) {
       return result;
    }
+   //std::cerr << "l: " << l << " r: " << r << std::endl;
 
    RefID ref_id = hits[0].ref_id();
    vector<float> exon_doc;
@@ -95,6 +96,7 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
       return result;
    }
 
+   //std::cerr<< "num intron: " << intron_counter.size() << std::endl;
    filter_intron(this->_current_chrom, l, this->_hit_factory->_reads_table._read_len_abs, exon_doc, intron_counter);
 
    //local variables
@@ -156,6 +158,7 @@ HitCluster::HitCluster():
 {}
 
 void HitCluster::refine_cluster(){
+   //std::cerr<< "num uniq hits: "  << num_uniq_hits() << std::endl;
    pair<uint, uint> bound = {_uniq_hits.front().left_pos(), _uniq_hits.front().right_pos()};
    //kMinIsoformFrac = 0.2;
    size_t start = 0;
@@ -187,9 +190,9 @@ void HitCluster::refine_cluster(){
          //float max_strand_count = max(plus_strand_count, minus_strand_count);
          //float min_strand_count = min(plus_strand_count, minus_strand_count);
          //if (min_strand_count / max_strand_count > kMinIsoformFrac) {
-         size_t sep = one_d_binary_clustering(plus_minus);
+         int sep = one_d_binary_clustering(plus_minus);
          int  first_class = plus_minus[sep];
-         if (sep + 5 < plus_minus.size() && sep > 5) {
+         if (sep != -1 && sep + 1 != plus_minus.size() ) {
             size_t separator_read_idx_left = intron_read_idx[sep];
             size_t separator_read_idx_right = intron_read_idx[sep + 1];
 //            std::cerr<<plus_minus<<std::endl;
@@ -200,16 +203,24 @@ void HitCluster::refine_cluster(){
 //            std::cerr<<"sep left " << separator_read_idx_left << std::endl;
 //            std::cerr<<"sep right " << separator_read_idx_right << std::endl;
 //            std::cerr<<"end: " << end << std::endl;
+            uint first_left = std::numeric_limits<uint>::max();
+            uint first_right = std::numeric_limits<uint>::min();
+            uint second_left = std::numeric_limits<uint>::max();
+            uint second_right = std::numeric_limits<uint>::min();
+            for (size_t  ii = start ; ii < separator_read_idx_right; ++ii) {
+               first_left = std::min(_uniq_hits[ii].left_pos(), first_left);
+               first_right = std::max(_uniq_hits[ii].right_pos(), first_right);
+            }
+            for (size_t  ii = separator_read_idx_left ; ii < end; ++ii) {
+               second_left = std::min(_uniq_hits[ii].left_pos(), second_left);
+               second_right = std::max(_uniq_hits[ii].right_pos(), second_right);
+            }
             if (first_class == 0) {
-               _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
-                                  start, separator_read_idx_right, Strand_t::StrandPlus);
-               _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
-                                  separator_read_idx_left + 1, end + 1, Strand_t::StrandMinus);
+               _segs.emplace_back(first_left, first_right, start, separator_read_idx_right, Strand_t::StrandPlus);
+               _segs.emplace_back(second_left, second_right, separator_read_idx_left + 1, end + 1, Strand_t::StrandMinus);
             } else {
-               _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
-                                  start, separator_read_idx_right, Strand_t::StrandMinus);
-               _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
-                                  separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
+               _segs.emplace_back(first_left, first_right, start, separator_read_idx_right, Strand_t::StrandMinus);
+               _segs.emplace_back(second_left, second_right, separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
             }
          } else {
             if (first_class == 0) {
@@ -232,28 +243,37 @@ void HitCluster::refine_cluster(){
    //float min_strand_count = min(plus_strand_count, minus_strand_count);
    auto sep = one_d_binary_clustering(plus_minus);
    int  first_class = plus_minus[sep];
+//   std::cerr << plus_minus << std::endl;
+//   std::cerr<<"sep idx: " << sep << std::endl;
+//   std::cerr<<"first class: " <<first_class << std::endl;
    //if (min_strand_count / max_strand_count > kMinIsoformFrac) {
-   if (sep + 5 < plus_minus.size() && sep > 5) {
+   if (sep != -1 && sep + 1 != plus_minus.size() ) {
       size_t separator_read_idx_left = intron_read_idx[sep];
       size_t separator_read_idx_right = intron_read_idx[sep + 1];
 //      std::cerr<<plus_minus<<std::endl;
-//      std::cerr<<"first class: " <<first_class << std::endl;
 //      std::cerr<<"plus_minus size: " << plus_minus.size() << std::endl;
-//      std::cerr<<"sep idx: " << sep << std::endl;
 //      std::cerr<<"start: " << start << std::endl;
 //      std::cerr<<"sep left " << separator_read_idx_left << std::endl;
 //      std::cerr<<"sep right " << separator_read_idx_right << std::endl;
 //      std::cerr<<"end: " << end << std::endl;
+      uint first_left = std::numeric_limits<uint>::max();
+      uint first_right = std::numeric_limits<uint>::min();
+      uint second_left = std::numeric_limits<uint>::max();
+      uint second_right = std::numeric_limits<uint>::min();
+      for (size_t  ii = start ; ii < separator_read_idx_right; ++ii) {
+         first_left = std::min(_uniq_hits[ii].left_pos(), first_left);
+         first_right = std::max(_uniq_hits[ii].right_pos(), first_right);
+      }
+      for (size_t  ii = separator_read_idx_left ; ii < end; ++ii) {
+         second_left = std::min(_uniq_hits[ii].left_pos(), second_left);
+         second_right = std::max(_uniq_hits[ii].right_pos(), second_right);
+      }
       if (first_class == 0) {
-         _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
-                            start, separator_read_idx_right, Strand_t::StrandPlus);
-         _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
-                            separator_read_idx_left + 1, end + 1, Strand_t::StrandMinus);
+         _segs.emplace_back(first_left, first_right, start, separator_read_idx_right, Strand_t::StrandPlus);
+         _segs.emplace_back(second_left, second_right, separator_read_idx_left + 1, end + 1, Strand_t::StrandMinus);
       } else {
-         _segs.emplace_back(_uniq_hits[start].left_pos(), _uniq_hits[separator_read_idx_right-1].right_pos(),
-                            start, separator_read_idx_right, Strand_t::StrandMinus);
-         _segs.emplace_back(_uniq_hits[separator_read_idx_left + 1].left_pos(), _uniq_hits[end].right_pos(),
-                            separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
+         _segs.emplace_back(first_left, first_right, start, separator_read_idx_right, Strand_t::StrandMinus);
+         _segs.emplace_back(second_left, second_right, separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
       }
    } else {
       if (first_class == 0) {
@@ -312,8 +332,8 @@ void HitCluster::right(uint right)
    _rightmost = right;
 }
 
-int HitCluster::size() const {
-   return _hits.size();
+int HitCluster::num_uniq_hits() const {
+   return _uniq_hits.size();
 }
 
 int HitCluster::len() const{
@@ -622,7 +642,7 @@ int HitCluster::collapseAndFilterHits()
 
    sort(_hits.begin(), _hits.end());
    auto mean = this->read_ref_span_mean_sd().first;
-   auto sd = this->read_ref_span_mean_sd().second * 3;
+   auto sd = this->read_ref_span_mean_sd().second * 5;
    LOG(WARNING)<< "\n mean and sd read reference span: " << mean<<", " <<sd;
 
    for(size_t i = 0; i < _hits.size(); ++i){
@@ -743,35 +763,6 @@ bool HitCluster::overlaps( const HitCluster& rhs) const{
    return left() < rhs.left() ? right() >= rhs.left() : left() <= rhs.right();
 }
 
-//void HitCluster::guessStrand(){
-//   int plus_intron_size =0;
-//   int minus_intron_size =0;
-//
-//    for(auto r = _uniq_hits.cbegin(); r< _uniq_hits.cend(); ++r){
-//      if(r->contains_splice()){
-//         if(r->strand() == Strand_t::StrandPlus)
-//           ++plus_intron_size;
-//         else
-//           ++minus_intron_size;
-//      }
-//    }
-//    if(plus_intron_size == 0 && minus_intron_size >0){
-//      _strand = Strand_t::StrandMinus;
-//    }
-//    else if(plus_intron_size > 0 && minus_intron_size ==0){
-//      _strand = Strand_t::StrandPlus;
-//    }
-//    else if(plus_intron_size == 0 && minus_intron_size == 0){
-//      _strand = Strand_t::StrandUnknown;
-//    }
-//    else{
-//      if(plus_intron_size / minus_intron_size > _kMinFold4BothStrand)
-//         _strand = Strand_t::StrandPlus;
-//      if(minus_intron_size / plus_intron_size > _kMinFold4BothStrand)
-//         _strand = Strand_t::StrandMinus;
-//      _strand = Strand_t::StrandBoth;
-//    }
-//}
 
 bool HitCluster::see_both_strands(){
    int plus_count = 0;
@@ -1378,11 +1369,9 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
    //local variables
    vector<Contig> result;
    vector<Contig> assembled_transcripts;
-   //std::cerr<<"total number of reads: " << cluster->uniq_hits().size()<<"\n";
-   if (cluster->size() < kMinReadForAssemb) {
+   if (cluster->num_uniq_hits() < kMinReadForAssemb) {
       return result;
    }
-
    cluster->refine_cluster();
    if (cluster->hasRefmRNAs() && utilize_ref_models ) {
       uint cluster_left = std::numeric_limits<uint>::max();
@@ -1398,6 +1387,8 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
          Contig hit(*r);
          if (hit.ref_id() != -1 && (hit.strand() == Strand_t::StrandUnknown || hit.strand() == cluster->ref_strand())) {
             hits.push_back(hit);
+         } else{
+
          }
       }
       //sort(hits.begin(), hits.end());
@@ -1414,9 +1405,9 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       return assembled_transcripts;
    }
 
+   //std::cerr << "uniq hit size: " << cluster->_uniq_hits.size() << std::endl;
    for (auto const & seg: cluster->_segs) {
-//      std::cerr<<"num of uniq hit: " << cluster->_uniq_hits.size() << std::endl;
-//      std::cerr << "left read idx : "<<seg.left_read_idx << " right read idx: " << seg.right_read_idx<< std::endl;
+      //std::cerr << "left read idx : "<<seg.left_read_idx << " right read idx: " << seg.right_read_idx<< std::endl;
       vector<Contig> hits;
       auto itbegin = cluster->_uniq_hits.cbegin() + seg.left_read_idx;
       auto itend = cluster->_uniq_hits.cbegin() + seg.right_read_idx;
@@ -1424,10 +1415,14 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
          Contig hit(*r);
          if (hit.ref_id() != -1 && (hit.strand() == Strand_t::StrandUnknown || hit.strand() == seg.strand)) {
             hits.push_back(hit);
+         } else {
+            continue;
+            //std::cerr << r->strand() <<" vs " << seg.strand << std::endl;
          }
       }
       //std::cerr<<"seg: " <<seg.left << "-" << seg.right << std::endl;
       assembled_transcripts = this->assembleContig(seg.left, seg.right, seg.strand, hits);
+      //std::cerr<<" num assembled transcript: " << assembled_transcripts.size() << std::endl;
       cluster->_id = ++_num_cluster;
       int tid=0;
       for (Contig& asmb: assembled_transcripts) {
@@ -1451,6 +1446,9 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
    //est.calculate_raw_iso_counts(iso_2_bins_map, exon_bin_map);
+//   for (auto const& ass: assembled_transcripts) {
+//      std::cerr << ass <<std::endl;
+//   }
    bool success = est.estimate_abundances();
 
    if(success){
@@ -1567,6 +1565,10 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
 }
 
 void Sample::addAssembly(const std::vector<Contig>& assembs) {
+//   std::cerr << "add assemb : " << assembs.size() << std::endl;
+//   for (auto const& ass : assembs) {
+//      std::cerr<< ass << std::endl;
+//   }
 
 #if ENABLE_THREADS
    if (use_threads) thread_pool_lock.lock();
@@ -1597,7 +1599,6 @@ void Sample::assembleSample(FILE *plogfile)
      if(cur_cluster->ref_id() == -1){
        continue;
      }
-
 //Begin loading ref seqs
      if(current_ref_id != cur_cluster->ref_id()){
        current_ref_id = cur_cluster->ref_id();

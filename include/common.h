@@ -38,6 +38,7 @@ extern double kBinomialOverHangAlpha;
 extern bool enforce_ref_models;
 extern bool utilize_ref_models;
 extern bool no_assembly;
+extern bool no_quant;
 extern int kMinJuncSupport; // min number of spliced aligned reads for a valid intron
 extern int LongJuncLength;
 extern int kMinSupportForLongJunc;
@@ -178,9 +179,10 @@ inline void str2lupper(std::string &str){
    for(size_t i = 0; i<str.length(); i++)
       str[i] = toupper(str[i]);
 }
-
-inline double getMedian(const std::vector<float> &vec){
-   std::vector<float> dup = vec;
+template<typename T>
+double getMedian(const std::vector<T> &vec){
+   std::vector<T> dup = vec;
+   std::sort(dup.begin(), dup.end());
    double median = 0.0;
    size_t n = vec.size();
    if(n % 2 ==0)

@@ -21,6 +21,7 @@ int kMaxIntronLength = 300000; // max-junction-splice-distance
 int kMinIntronLength = 50; // min-junction-splice-distance
 int kMinReadForAssemb = 5; // min number of reads for assembly
 unsigned int SmallExonLen = 10;
+
 double kMinExonDoc = 1.0;
 int kMinTransLen = 200; //ignore isoforms if its length is too short.
 int kMaxOlapDist = 50; // merge cluster if within this distance.
@@ -57,6 +58,7 @@ bool print_frag_context = false;
 bool enforce_ref_models = false;
 bool utilize_ref_models = false;
 bool no_assembly = false;
+bool no_quant = false;
 
 std::string tracking_log = "/tracking.log";
 std::string frag_context_out = "frag_context.csv";

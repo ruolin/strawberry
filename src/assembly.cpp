@@ -171,26 +171,51 @@ void FlowNetwork::flowDecompose(const Graph &g,
 }
 
 void FlowNetwork::remove_low_cov_exon(const int cluster_left, const std::vector<float>& exon_doc,
+                                      const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,
                             std::list<std::pair<uint,uint>>& exon_boundaries)
 {
+   std::vector<double> exon_covs(exon_boundaries.size());
+   std::vector<double> exon_covs_for_median;
+   int i = 0;
+   for (auto it = exon_boundaries.begin(); it != exon_boundaries.end(); ++it, ++i) {
+      //std::cerr<<"exon: " << it->first <<"-" << it->second << std::endl;
+      auto it_start = next(exon_doc.begin(),it->first - cluster_left);
+      auto it_end = next(exon_doc.begin(), it->second - cluster_left);
+      double cov = accumulate(it_start, it_end, 0.0);
+      cov = cov / (it->second - it->first);
+      exon_covs[i] = cov;
+      float intron_support = 0.0;
+      for (auto const & intron : intron_counter) {
+         if (overlaps_locally(intron.first.first, intron.first.second, it->first, it->second)) {
+            intron_support = std::max(intron.second.total_junc_reads, intron_support);
+         }
+      }
+      if (cov > intron_support) {
+         exon_covs_for_median.push_back(cov);
+      }
+      //std::cerr<<"exon cov: " << exon_covs[i] << std::endl;
+   }
+   //std::cerr << "\n";
+  auto median = getMedian(exon_covs_for_median);
   auto it = exon_boundaries.begin();
+   i = 0;
   while(it != exon_boundaries.end()){
      assert(it->second > it->first);
-     auto it_start = next(exon_doc.begin(),it->first - cluster_left);
-     auto it_end = next(exon_doc.begin(), it->second - cluster_left);
-     double cov = accumulate(it_start, it_end, 0.0);
-     cov = cov / (it->second - it->first);
-     if(cov < kMinExonDoc) {
-        //std::cerr<<"1 remove exon: "<<it->first<<"-"<<it->second<<std::endl;
+     float intron_support = 0.0;
+     for (auto const & intron : intron_counter) {
+        if (overlaps_locally(intron.first.first, intron.first.second, it->first, it->second)) {
+            intron_support = std::max(intron.second.total_junc_reads, intron_support);
+        }
+     }
+     if (exon_covs[i] < intron_support * kMinIsoformFrac || exon_covs[i] < median * kMinIsoformFrac) {
+        //std::cerr<<"1 remove exon: "<<it->first<<"-"<<it->second<<" for cov "<<exon_covs[i] << " below median cov " << median << " or below intron cov: " << intron_support<<std::endl;
         it = exon_boundaries.erase(it);
      }
 
-     else if(it->second - it->first + 1 < SmallExonLen && cov < 5.0) {
-        //std::cerr<<"2 remove exon: "<<it->first<<"-"<<it->second<<std::endl;
-        it =  exon_boundaries.erase(it);
-     }
-     else
+     else {
         ++it;
+     }
+     i++;
   }
 }
 
@@ -325,7 +350,9 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    std::vector<std::pair<uint,uint>> paired_bars; // two end intron boundaries
    std::vector<std::pair<uint,bool>> single_bars; // single intron boundaries
 
+   //std::cerr<< "num intron: " << intron_counter.size() << std::endl;
    for(auto i= intron_counter.cbegin(); i != intron_counter.cend(); ++i){
+      //std::cerr<< i->first.first << "-" << i->first.second <<" num reads " << i->second.total_junc_reads << std::endl;
       paired_bars.push_back(std::pair<uint, uint> (i->first.first, i->first.second));
       single_bars.push_back(std::pair<uint, bool> (i->first.first, true));
       single_bars.push_back(std::pair<uint, bool> (i->first.second, false));
@@ -373,6 +400,9 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    if( l != 0 && l < left+exon_doc.size() )
       exon_boundaries.push_back(std::pair<uint,uint>(l, left+exon_doc.size()-1));
 
+//   for (const auto& e : exon_boundaries) {
+//      std::cerr<< "preliminary exon: " << e.first << "-" << e.second << std::endl;
+//   }
    /*
     * When some exonic coverage gaps exist due to low sequncing coverages.
     * This loop tries to fill in gaps and bring together separated exons.
@@ -488,13 +518,14 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    }
    #endif
 
-   remove_low_cov_exon(left, exon_doc, exon_boundaries);
+   remove_low_cov_exon(left, exon_doc, intron_counter, exon_boundaries);
 
 //   std::cerr<<"befter filter\n";
 //   for (auto e : exon_boundaries) {
 //      std::cout<<e.first<<"-"<<e.second<<std::endl;
 //   }
 
+   //filter exon segs if no intron support
    filter_exon_segs(paired_bars, exon_boundaries);
 //   std::cerr<<"after filter\n";
 //   for (auto e : exon_boundaries) {
@@ -509,6 +540,7 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    }
    sort(exons.begin(), exons.end());
    compute_exon_doc(left, exon_doc, exons);
+   //filter intron if no exon support
    filter_intron(exons, intron_counter);
    return true;
 }
@@ -522,7 +554,7 @@ bool FlowNetwork::createNetwork(
       Graph::ArcMap<int> &min_flow_map,
       std::vector<std::vector<Graph::Arc>> &path_cstrs)
 {
-#ifdef DEBUG
+//#ifdef DEBUG
    std::cerr<<std::endl;
    for(auto e: exons){
       std::cerr<<"i exon: "<<e.left()<<"-"<<e.right()<<std::endl;
@@ -531,7 +563,7 @@ bool FlowNetwork::createNetwork(
        const IntronTable &intron = i.second;
        std::cerr<<"i intron: "<<intron.left<< "-" << intron.right<<std::endl;
    }
-#endif
+//#endif
    assert(!hits.empty());
    if(exons.size() == 1) {
       //std::cout<<exons[0].left()<<"-"<<exons[0].right()<<std::endl;
