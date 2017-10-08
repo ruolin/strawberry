@@ -11,6 +11,7 @@
 #include <lemon/network_simplex.h>
 #include <lemon/dijkstra.h>
 #include <lemon/core.h>
+#include <lemon/bfs.h>
 #include <stack>
 
 using namespace lemon;
@@ -554,7 +555,7 @@ bool FlowNetwork::createNetwork(
       Graph::ArcMap<int> &min_flow_map,
       std::vector<std::vector<Graph::Arc>> &path_cstrs)
 {
-//#ifdef DEBUG
+#ifdef DEBUG
    std::cerr<<std::endl;
    for(auto e: exons){
       std::cerr<<"i exon: "<<e.left()<<"-"<<e.right()<<std::endl;
@@ -563,7 +564,7 @@ bool FlowNetwork::createNetwork(
        const IntronTable &intron = i.second;
        std::cerr<<"i intron: "<<intron.left<< "-" << intron.right<<std::endl;
    }
-//#endif
+#endif
    assert(!hits.empty());
    if(exons.size() == 1) {
       //std::cout<<exons[0].left()<<"-"<<exons[0].right()<<std::endl;
@@ -602,8 +603,7 @@ bool FlowNetwork::createNetwork(
 
    // 2) add arc defined by consecutive exons
    for(size_t i=0; i < exons.size()-1; ++i){
-      uint right = exons[i]._genomic_offset + exons[i]._match_op._len -1;
-      if(exons[i+1]._genomic_offset - right == 1){
+      if(exons[i+1].left() == exons[i].right() + 1){
          const Graph::Node &node_a = feat2node[&exons[i]];
          const Graph::Node &node_b = feat2node[&exons[i+1]];
          Graph::Arc a = _g.addArc(node_a, node_b);
@@ -620,6 +620,7 @@ bool FlowNetwork::createNetwork(
     * paired-end path constraint algorithm.
     */
 
+   Bfs<ListDigraph> bfs(_g);
    std::vector<std::vector<size_t>> constraints = findConstraints(exons, hits);
    for(auto c: constraints){
       std::vector<Graph::Arc> path_cstr;
@@ -631,34 +632,51 @@ bool FlowNetwork::createNetwork(
 
       //At least one of the internal nodes have >1 out-degree and >1 in-degree
       bool is_valid = false;
-      for(size_t idx = 1; idx<c.size()-1; ++idx){
+      for(size_t idx = 1; idx < c.size()-1; ++idx){
          const Graph::Node &n = feat2node[&exons[c[idx]]];
          if(inDeg[n] > 1 && outDeg[n] > 1)
             is_valid = true;
       }
 
       if(ArcLookUp<ListDigraph>(_g)(s,t) == INVALID && is_valid){ // no existing edge and valid constraint
+         //std::cerr << "in constaints: ";
+         for(size_t i = 0; i< c.size(); ++i) {
+            const Graph::Node &pre = feat2node[&exons[c[i]]];
+            const Graph::Node &sec = feat2node[&exons[c[i + 1]]];
+            //std::cerr << _g.id(pre) << "-" << _g.id(sec) << "\t";
+         }
+         //std::cerr<<"\n";
+
 
          for(size_t i = 0; i< c.size()-1; ++i){
             const Graph::Node &pre = feat2node[&exons[c[i]]];
             const Graph::Node &sec = feat2node[&exons[c[i+1]]];
-//#ifdef DEBUG
-//            cout<<exons[c[i]]._genomic_offset<<"---"<<exons[c[i+1]]._genomic_offset<<endl;
-//#endif
+#ifdef DEBUG
+            std::cout<<exons[c[i]]._genomic_offset<<"---"<<exons[c[i+1]]._genomic_offset<<std::endl;
+#endif
             Graph::Arc arc_found = ArcLookUp<ListDigraph>(_g)(pre, sec);
             if(arc_found == INVALID){
-               //Bfs<ListDigraph> bfs(_g);
-               Dijkstra<ListDigraph> dijkstra(_g, cost_map);
-               dijkstra.init();
-               dijkstra.addSource(pre);
-               dijkstra.run(pre, sec);
-               //std::cerr<<"source: " <<_g.id(pre) <<" to sink: " << _g.id(sec) << std::endl;
+               bfs.run(pre);
+//               Dijkstra<ListDigraph> dijkstra(_g, cost_map);
+//               dijkstra.init();
+//               dijkstra.addSource(pre);
+//               dijkstra.run(pre, sec);
+//               //std::cerr<<"source: " <<_g.id(pre) <<" to sink: " << _g.id(sec) << std::endl;
                std::vector<Graph::Node> node_vec;
-               if(!dijkstra.emptyQueue()) {
-                  for (Graph::Node v = sec; v != pre; v = dijkstra.predNode(v)) {
-                     node_vec.push_back(v);
+
+               //std::cerr <<"looking for connection between nodes : " << _g.id(pre) << "-"<< _g.id(sec) << std::endl;
+               //if(!dijkstra.emptyQueue()) {
+               if (bfs.reached(sec)) {
+                  node_vec.push_back(sec);
+                  Graph::Node prev = bfs.predNode(sec);
+                  while (prev != INVALID) {
+                     //std::cerr<<" put in node: " << _g.id(prev) << std::endl;
+                     node_vec.push_back(prev);
+                     prev = bfs.predNode(prev);
                   }
-                  node_vec.push_back(pre);
+//                  for (Graph::Node v = sec; v != pre; v = dijkstra.predNode(v)) {
+//                     node_vec.push_back(v);
+//                  }
                   assert(node_vec.size() > 2);
                   for (size_t jj = node_vec.size() - 1; jj > 0; --jj) {
                      Graph::Arc a = ArcLookUp<ListDigraph>(_g)(node_vec[jj], node_vec[jj-1]);
@@ -670,9 +688,12 @@ bool FlowNetwork::createNetwork(
 //                                 << node2feat[node_vec[jj-1]]->right();
 //                        std::cerr<<"\n";
                      } else {
+                        //std::cerr<<"add path: " << _g.id(a) << std::endl;
                         path_cstr.push_back(a);
                      }
                   }
+               } else {
+                  LOG(WARNING)<<"no path connects between nodes : " << _g.id(pre) << "-"<< _g.id(sec);
                }
 
             } else {
@@ -686,7 +707,7 @@ bool FlowNetwork::createNetwork(
 
 
    if(path_cstrs.empty()){
-      for(auto arc: arcs){
+      for(const auto& arc: arcs){
          min_flow_map[arc] = 1;
       }
       return true;
@@ -698,9 +719,10 @@ bool FlowNetwork::createNetwork(
     * duplications ( path constraints already contains edges)
     */
    std::vector<Graph::Arc> one_d_path_cstrs;
-   for(auto p: path_cstrs){
-     for(auto e: p)
+   for(const auto& p: path_cstrs){
+     for(const auto& e: p) {
         one_d_path_cstrs.push_back(e);
+     }
    }
    sort(one_d_path_cstrs.begin(), one_d_path_cstrs.end());
    auto new_end = unique(one_d_path_cstrs.begin(), one_d_path_cstrs.end());
@@ -708,6 +730,9 @@ bool FlowNetwork::createNetwork(
 
    for(auto edge: arcs){
       if(find(one_d_path_cstrs.begin(), one_d_path_cstrs.end(), edge) == one_d_path_cstrs.end()){
+         const Graph::Node s = _g.source(edge);
+         const Graph::Node t = _g.target(edge);
+         //std::cerr<<"arc: "<<node2feat[s]->left() << "-"<< node2feat[s]->right()<<" to "<<node2feat[t]->left() << "-"<< node2feat[t]->right()<<std::endl;
          std::vector<Graph::Arc> path;
          path.push_back(edge);
          path_cstrs.push_back(path);
@@ -715,6 +740,14 @@ bool FlowNetwork::createNetwork(
    }
 
    for(auto p: path_cstrs){
+      //std::cerr<<"constraint: ";
+      for (auto e: p) {
+         const Graph::Node s = _g.source(e);
+         const Graph::Node t = _g.target(e);
+         //std::cerr<<_g.id(s)<<"-"<<_g.id(t);
+         //std::cerr<<"\t";
+      }
+      //std::cerr<<"\n";
       assert(!p.empty());
       if(p.size()>1){
          // a subpath
@@ -887,7 +920,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
    }
    digraphWriter(_g).                  // write g to the standard output
            arcMap("cost", cost_map).          // write 'cost' for for arcs
-           arcMap("flow", min_flow_map).          // write 'flow' for for arcs
+           arcMap("min_flow", min_flow_map).          // write 'flow' for for arcs
            node("source", _source).             // write s to 'source'
            node("target", _sink).             // write t to 'target'
            run();
@@ -905,7 +938,7 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
       //++i;
       std::vector<GenomicFeature> tscp;
       for(size_t i = 1; i <p.size(); ++i){
-         const Graph::Arc e = p[i];
+         const Graph::Arc& e = p[i];
          const Graph::Node &arc_s = _g.source(e);
          const Graph::Node &arc_t = _g.target(e);
          bool is_edge = true;
@@ -914,19 +947,15 @@ bool FlowNetwork::solveNetwork(const Graph::NodeMap<const GenomicFeature*> &node
             const Graph::Node &path_s = _g.source(cstr.front());
             const Graph::Node &path_t = _g.target(cstr.back());
             if(arc_s == path_s && arc_t == path_t){
-
                is_edge = false;
 
                for(size_t idx = 0; idx<cstr.size()-1; ++idx){
                   const Graph::Node &n1 = _g.source(cstr[idx]);
                   const Graph::Node &n2 = _g.source(cstr[idx+1]);
-                  //cout<<" inside constraint exon: "<< node_map[n1]->left()<<"-"<<node_map[n1]->right()<<endl;
                   tscp.push_back(*node_map[n1]);
-                  //if(idx+1 < cstr.size()-1)
-                     if(node_map[n2]->left()-node_map[n1]->right() > 1){
-                        //cout<<" inside constriant intron "<<node_map[n1]->right()+1<<"-"<<node_map[n2]->left()<<endl;
-                        tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[n1]->right()+1, node_map[n2]->left()-1-node_map[n1]->right()));
-                     }
+                  if(node_map[n2]->left()-node_map[n1]->right() > 1){
+                     tscp.push_back(GenomicFeature(Match_t::S_INTRON, node_map[n1]->right()+1, node_map[n2]->left()-1-node_map[n1]->right()));
+                  }
                }
 
                const Graph::Node &n1 = _g.source(cstr.back());
