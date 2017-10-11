@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8.12)
 
-project( strawberry )
+project( strawberry LANGUAGES CXX)
+set( CMAKE_CXX_STANDARD 14 )
+set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Debug)
 
 set(CPACK_PACKAGE_VERSION "0.9.0")
 set(CPACK_PACKAGE_VERSION_MAJOR "0")
@@ -17,7 +20,9 @@ set(CPACK_SOURCE_PACKAGE_FILE_NAME
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 #MESSAGE( STATUS "CMAKE_MODULE_DIR:         " ${CMAKE_MODULE_PATH} )
-set(CMAKE_CXX_FLAGS "-g -pthread -Ofast -funroll-loops -fPIC -fomit-frame-pointer -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -funroll-loops -fPIC -fomit-frame-pointer -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
+set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -march=native")
+#set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -g")
 add_definitions(-DELPP_THREAD_SAFE)
 
 if (APPLE)
@@ -33,9 +38,9 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     # If we're on OSX
     if (APPLE AND NOT (GCC_VERSION VERSION_GREATER 4.8.2 OR GCC_VERSION VERSION_EQUAL 4.8.2))
         message(FATAL_ERROR "When building under OSX, ${PROJECT_NAME} requires "
-                            "g++ >= 4.8.2")
+                            "g++ >= 5.3.0")
     elseif (NOT (GCC_VERSION VERSION_GREATER 4.8.2 OR GCC_VERSION VERSION_EQUAL 4.8.2))
-        message(FATAL_ERROR "${PROJECT_NAME} requires g++ 4.8.2 or greater.")
+        message(FATAL_ERROR "${PROJECT_NAME} requires g++ 5.3.0 or greater.")
     endif ()
 
     set (GCC TRUE)
@@ -45,7 +50,8 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
     # If we're on Linux (i.e. not OSX) and we're using
     # gcc, then set the -static-libstdc++ flag
     if (NOT APPLE)
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
+        set( CMAKE_EXE_LINKER_FLAGS " -static-libgcc -static-libstdc++ -L. ")
+        #set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static-libstdc++")
     endif()
 
     set (WARNING_IGNORE_FLAGS "${WARNING_IGNORE_FLAGS} -Wno-unused-local-typedefs")
@@ -147,7 +153,7 @@ ExternalProject_Add(samtools
 # PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19
   BUILD_IN_SOURCE TRUE
   CONFIGURE_COMMAND ""
-  BUILD_COMMAND make CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER}
+  BUILD_COMMAND make
   INSTALL_COMMAND ""
 )
 

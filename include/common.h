@@ -15,6 +15,8 @@
 #include <memory>
 #include <cmath>
 #include <iomanip>
+#include <algorithm>
+#include <numeric>
 #include "logger.hpp"
 typedef void* pointer;
 typedef uint64_t ReadID;
@@ -98,7 +100,7 @@ inline std::pair<double, double> getMeanAndSd(const std::vector<T>& v) {
    double mean = sum / v.size();
    std::vector<double> diff(v.size());
    std::transform(v.begin(), v.end(), diff.begin(), [mean](double x) {return x - mean;});
-   double sq_sum = inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
+   double sq_sum = std::inner_product(diff.begin(), diff.end(), diff.begin(), 0.0);
    double stdev = std::sqrt(sq_sum / v.size());
    return std::make_pair(mean, stdev);
 }
