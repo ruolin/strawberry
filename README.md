@@ -14,7 +14,11 @@ Documentation
 The preprint of Strawberry paper is availble [here](http://biorxiv.org/content/early/2016/03/16/043802).
 <hr />
 
-Prerequisites if you want to install Strawberry from stratch
+Latest Linux x86_64 Binary release
+====================
+https://github.com/ruolin/strawberry/releases/download/0.9.0/strawberry
+
+Prerequisites if you want to install Strawberry from scratch
 ===================
 * A C++14 conformant compiler (currently tested with GCC>=5.3).
 
@@ -22,7 +26,7 @@ Prerequisites if you want to install Strawberry from stratch
   * And for ubuntu user, please refer to the post for how to install gcc 5+,
 https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-in-ubuntucurrently-14-04.
 
-* Strawberry uses [CMake](https://cmake.org/)(2.8.12+) build system to check and install dependencies and to compile and install Strawberry. Make sure the CMake version is at least 2.8.12. 
+* Strawberry uses [CMake](https://cmake.org/)(3.5+) build system to check and install dependencies and to compile and install Strawberry.
 * [Samtools](http://samtools.sourceforge.net/). Strawberry uses an older version of Samtools(v0.1.19) as a dependent library.   
   * If a different version of Samtools (currently Samtools split into 3 projects now and has been updated to v1.3) has been installed, or your system does not have Samtools installed at all, please let Strawberry automatically download and install Samtools for you. You *DONOT* need to do anything.
   * If you have installed Samtools v0.1.19 and want to use it, please make sure that *libbam.a* is in the Samtools source directory and set an environmental variable SAMTOOLS_ROOT to that location. 
@@ -37,9 +41,17 @@ https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-
 Download
 ========
 
-`git clone https://github.com/ruolin/Strawberry.git`
+`git clone --recursive https://github.com/ruolin/Strawberry.git`
 
-Precompiled binary is available on the [release page] (https://github.com/ruolin/Strawberry/releases) for the latest version. 
+If you miss --recusive when you clone, you can do 
+
+`git submodule init`
+
+and then 
+
+`git submodule update`
+
+Note: Precompiled binary is available on the [release page] (https://github.com/ruolin/Strawberry/releases) for the latest version. 
 
 Installation
 ============
