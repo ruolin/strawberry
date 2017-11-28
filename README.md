@@ -11,7 +11,7 @@ Strawberry consists of two modules: assembly module and quantification module. T
 
 Documentation
 ===================
-Strawberry is now published in [PLoS Computational Biology](http://biorxiv.org/content/early/2016/03/16/043802).
+Strawberry is now published in [PLoS Computational Biology](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1005851).
 <hr />
 
 Latest Linux x86_64 Binary release
