@@ -639,7 +639,9 @@ void Contig::print2gtf(FILE *pFile,
                        const string tpm,
                        string gene_id, string tscp_id) const {
 
-   const char* ref = ref_lookup.ref_real_name(_ref_id).c_str();
+   const string& ref_str = ref_lookup.ref_real_name(_ref_id);
+   char * ref = new char [ref_str.length() + 1];
+   std::strcpy(ref, ref_str.c_str());
 
    char strand = 0;
    switch(_strand){
@@ -691,5 +693,5 @@ void Contig::print2gtf(FILE *pFile,
             ref, "Strawberry", "exon", gfeat.left(), gfeat.right(), 1000, strand, '.', exon_gff_attr);
       }
    }
-
+   delete []ref;
 }

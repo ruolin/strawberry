@@ -35,7 +35,7 @@ static struct option long_options[] = {
       {"min-junction-splice-size",        required_argument,      0,       'j'},
       {"min-mapping-qual",                required_argument,      0,       'q'},
       {"num-reads-4-prerun",              required_argument,      0,       'n'},
-      {"allow-multiple-his",              no_argument,            0,       OPT_ALLOW_MULTIPLE_HITS},
+      {"allow-multimapped-hits",              no_argument,            0,       OPT_ALLOW_MULTIPLE_HITS},
 #if ENABLE_THREADS
       {"num-threads",                      required_argument,      0,       'p'},
 #endif
@@ -80,7 +80,7 @@ void print_help()
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
    fprintf(stderr, "   -m/--min-isoform-frac                 Minimum isoform fraction.                                                                            [default:     0.01]\n");
    //fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
-   fprintf(stderr, "   --allow-multiple-his                  By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
+   fprintf(stderr, "   --allow-multimapped-hits              By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
    fprintf(stderr, "\n Assembly Options:\n");
    fprintf(stderr, "   -t/--min-transcript-size              Minimun transcript size to be assembled.                                                             [default:     200]\n");
    fprintf(stderr, "   -d/--max-overlap-distance             Maximum distance between read clusters to be merged.                                                 [default:     30]\n");
