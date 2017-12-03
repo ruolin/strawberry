@@ -1439,7 +1439,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 
 
 void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
-                 const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile, FILE *fragfile) const {
+                 const vector<Contig> &assembled_transcripts, vector<Isoform> & isoforms, FILE *plogfile, FILE *fragfile) const {
 
 
    LocusContext est(*this, plogfile, cluster, assembled_transcripts);
@@ -1460,11 +1460,9 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #endif
      cerr << ref_t.ref_real_name(cluster->ref_id()) << "\t" << cluster->left() << "\t" << cluster->right()
           << " finishes abundances estimation" << endl;
-
-     for (const auto &iso: est.transcripts()) {
-        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
-                                 iso._frac_s, iso._gene_str, iso._isoform_str);
-     }
+      for (const auto &iso: est.transcripts()) {
+         isoforms.push_back(iso);
+      }
 
       if (fragfile != NULL) {
          //if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
@@ -1668,6 +1666,8 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
  */
    NO_LOGGING = true;
    _hit_factory->reset();
+   vector<Isoform> isoforms;
+   isoforms.reserve(1024);
    reset_refmRNAs();
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    int current_ref_id = INT_MAX;
@@ -1681,7 +1681,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
       if (fragfile != NULL) pretty_print(fragfile, header, "\t");
       //}
    }
-
    while(true){
      //++_num_cluster;
      shared_ptr<HitCluster> cluster (new HitCluster());
@@ -1719,14 +1718,14 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
          this_thread::sleep_for(chrono::milliseconds(3));
        }
        ++curr_thread_num;
-       thread worker ([=] {
+       thread worker ([&] {
             finalizeCluster(cluster, true);
-            this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile, fragfile);
+            quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), isoforms, plogfile, fragfile);
        });
        worker.detach();
      }else {
        finalizeCluster(cluster, true);
-       this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile, fragfile);
+       quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), isoforms, plogfile, fragfile);
      }
 #else
      finalizeCluster(last_cluster, true);
@@ -1744,7 +1743,19 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
      }
    }
 #endif
+   double total_fpkm = 0.0;
+   for (const auto & iso : isoforms) {
+      total_fpkm += iso._FPKM;
+   }
+   for (auto & iso: isoforms) {
+      iso._TPM = 1e6 * iso._FPKM / total_fpkm;
+      iso._TPM_s = to_string(iso._TPM);
+   }
 
+  for (const auto &iso: isoforms) {
+     iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
+                              iso._frac_s, iso._TPM_s, iso._gene_str, iso._isoform_str);
+  }
 }
 
 

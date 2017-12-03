@@ -635,8 +635,9 @@ bool Contig::is_compatible(const Contig &isoform, const GenomicFeature &feat)
 
 void Contig::print2gtf(FILE *pFile,
                        const RefSeqTable &ref_lookup,
-                       const string fpkm,
-                       const string tpm,
+                       const string& fpkm,
+                       const string& frac,
+                       const string& tpm,
                        string gene_id, string tscp_id) const {
 
    const string& ref_str = ref_lookup.ref_real_name(_ref_id);
@@ -657,9 +658,12 @@ void Contig::print2gtf(FILE *pFile,
    }
    char gff_attr[200];
    char fpkm_c[12];
+   char frac_c[12];
    char tpm_c[12];
    strncpy(fpkm_c, fpkm.c_str(), sizeof(fpkm_c));
    fpkm_c[sizeof(fpkm_c) - 1] = 0;
+   strncpy(frac_c, frac.c_str(), sizeof(frac_c));
+   frac_c[sizeof(frac_c) - 1] = 0;
    strncpy(tpm_c, tpm.c_str(), sizeof(tpm_c));
    tpm_c[sizeof(tpm_c) - 1] = 0;
 
@@ -672,6 +676,9 @@ void Contig::print2gtf(FILE *pFile,
    strcat(gff_attr, fpkm_c);
    strcat(gff_attr, "\";");
    strcat(gff_attr, "Frac \"");
+   strcat(gff_attr, frac_c);
+   strcat(gff_attr, "\";");
+   strcat(gff_attr, "TPM \"");
    strcat(gff_attr, tpm_c);
    strcat(gff_attr, "\";");
 
@@ -679,8 +686,8 @@ void Contig::print2gtf(FILE *pFile,
          ref, "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);
 
    int exon_num = 0;
-   for(auto gfeat : _genomic_feats){
-      if(gfeat._match_op._code == Match_t::S_MATCH){
+   for (auto gfeat : _genomic_feats) {
+      if (gfeat._match_op._code == Match_t::S_MATCH) {
          ++exon_num;
          char exon_gff_attr[200];
          char exon_id[5];

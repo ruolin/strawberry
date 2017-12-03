@@ -20,8 +20,8 @@ set(CPACK_SOURCE_PACKAGE_FILE_NAME
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/bin")
 #set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 #MESSAGE( STATUS "CMAKE_MODULE_DIR:         " ${CMAKE_MODULE_PATH} )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -funroll-loops -fPIC -fomit-frame-pointer -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
-set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -funroll-loops -fPIC -Wall -Wno-reorder -Wno-unused-variable -Wreturn-type -Werror=return-type")
+set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -march=native -pg")
 #set(CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -g")
 add_definitions(-DELPP_THREAD_SAFE)
 

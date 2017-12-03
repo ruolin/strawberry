@@ -15,13 +15,13 @@
 #include "read.hpp"
 #include "contig.h"
 #include "gff.h"
+#include "isoform.h"
 
 class Sample;
 
 class FaInterface;
 
 class FaSeqGetter;
-
 using IntronMap = std::map<std::pair<uint, uint>, IntronTable>;
 
 struct Segment {
@@ -251,7 +251,7 @@ public:
     //void compute_doc_4_cluster(const HitCluster & hit_cluster, std::vector<float> &exon_doc,
     //map<std::pair<uint,uint>,IntronTable>& intron_counter, uint &small_overhang);
     void quantifyCluster(const RefSeqTable &ref_t, const std::shared_ptr<HitCluster> cluster,
-                         const std::vector<Contig> &assembled_transcripts, FILE* pfile, FILE* plogfile, FILE* fragfile) const;
+                         const std::vector<Contig> &assembled_transcripts, std::vector<Isoform> & iso, FILE* plogfile, FILE* fragfile) const;
 
 
     void procSample(FILE *f, FILE *log, FILE* fragfile);

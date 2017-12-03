@@ -327,9 +327,9 @@ bool LocusContext::estimate_abundances()
             _transcripts[i]._frac_s = "nan";
             continue;
          }
-         double tpm = _transcripts[i]._FPKM/sum_fpkm ;
-         _transcripts[i]._frac = tpm;
-         _transcripts[i]._frac_s = to_string(tpm);
+         double frac = _transcripts[i]._FPKM/sum_fpkm ;
+         _transcripts[i]._frac = frac;
+         _transcripts[i]._frac_s = to_string(frac);
       }
       if(filter_by_expression){
          for(auto it = _transcripts.begin() ; it != _transcripts.end();){
