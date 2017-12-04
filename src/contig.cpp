@@ -641,8 +641,6 @@ void Contig::print2gtf(FILE *pFile,
                        string gene_id, string tscp_id) const {
 
    const string& ref_str = ref_lookup.ref_real_name(_ref_id);
-   char * ref = new char [ref_str.length() + 1];
-   std::strcpy(ref, ref_str.c_str());
 
    char strand = 0;
    switch(_strand){
@@ -683,7 +681,7 @@ void Contig::print2gtf(FILE *pFile,
    strcat(gff_attr, "\";");
 
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
-         ref, "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);
+         ref_str.c_str(), "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);
 
    int exon_num = 0;
    for (auto gfeat : _genomic_feats) {
@@ -697,8 +695,7 @@ void Contig::print2gtf(FILE *pFile,
          strcat(exon_gff_attr, exon_id);
          strcat(exon_gff_attr, "\";");
          fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
-            ref, "Strawberry", "exon", gfeat.left(), gfeat.right(), 1000, strand, '.', exon_gff_attr);
+            ref_str.c_str(), "Strawberry", "exon", gfeat.left(), gfeat.right(), 1000, strand, '.', exon_gff_attr);
       }
    }
-   delete []ref;
 }
