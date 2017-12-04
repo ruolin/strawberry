@@ -1,5 +1,13 @@
-Strawberry source code current version: 0.9.0 beta. 
+Strawberry source code current version: 0.9.1. 
 ==================
+
+News
+==================
+#### Strawberry 0.9.1 released.
+1. Fix a bug when the reference sequence names (e.g., contig or chromosome names) are long. This bug affects assembled_transcripts.gtf and sometimes make the first column unreadable. 
+2. Add TPM (Transcript Per Million mapped reads) to the output. 
+
+#### Strawberry first release: 0.9.0.
 
 What is Strawberry?
 ==================
