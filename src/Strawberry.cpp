@@ -266,7 +266,7 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
    if (no_quant) {
       for (const auto &iso: read_sample._assembly) {
          iso.print2gtf(pFile, read_sample._hit_factory->_ref_table, "NA",
-                               "NA", iso.parent_id(), iso.annotated_trans_id());
+                               "NA", "NA", iso.parent_id(), iso.annotated_trans_id());
       }
       return 0;
    }

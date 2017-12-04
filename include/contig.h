@@ -215,8 +215,9 @@ public:
    void mass(float m);
    void print2gtf(FILE *pFile,
                   const RefSeqTable &ref_lookup,
-                  const std::string fpkm,
-                  const std::string tpm,
+                  const std::string& fpkm,
+                  const std::string& frac,
+                  const std::string& tpm,
                   std::string gene_id, std::string tscp_id) const;
 
    SingleOrit_t single_read_orit() const;
