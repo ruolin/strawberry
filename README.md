@@ -28,7 +28,7 @@ Strawberry is now published in [PLoS Computational Biology](http://journals.plos
 
 Latest Linux x86_64 Binary release
 ====================
-https://github.com/ruolin/strawberry/releases/download/0.9.0/strawberry
+https://github.com/ruolin/strawberry/releases/download/0.9.1/strawberry
 
 Prerequisites if you want to install Strawberry from scratch
 ===================
