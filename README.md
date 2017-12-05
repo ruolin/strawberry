@@ -3,7 +3,7 @@ Strawberry source code current version: 0.9.1.
 
 Important Notes
 ==================
-If you download Strawberry 0.9.1 at 12/04/2017. There is a serious bug in terms of the output. The assembled_transcripts.gtf will be empty if you use default number of threads with is 1. This bug has been fixed at 12/05/2017. Please update your repo. 
+**If you download Strawberry 0.9.1 at 12/04/2017. There is a serious bug in terms of the output. The assembled_transcripts.gtf will be empty if you use default number of threads which is 1. This bug has been fixed at 12/05/2017. Please update your repo.** 
 
 News
 ==================
