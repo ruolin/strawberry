@@ -1,6 +1,10 @@
 Strawberry source code current version: 0.9.1. 
 ==================
 
+Important Notes
+==================
+If you download Strawberry 0.9.1 at 12/04/2017. There is a serious bug in terms of the output. The assembled_transcripts.gtf will be empty if you use default number of threads with is 1. This bug has been fixed at 12/05/2017. Please update your repo. 
+
 News
 ==================
 #### Strawberry 0.9.1 released.
@@ -85,15 +89,15 @@ User Manual
 ===================
 Strawberry can be run in three different modes. The default mode is to do assembly and quantification without reference annotation. 
 
-`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir`
+`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -p 8`
 
 You can also run strawberry with the help of reference annotation. In this mode, Strawberry uses the known gene models to guide assembly. Novel isoform discovery are still allowed. If you have a good quality reference annotation but also want to detect novel isoforms, this is the ideal mode. 
 
-`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -g reference.gtf`
+`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -g reference.gtf -p 8`
 
 If you truth your gene annotation completely and do not want to assembly any new isoforms, you can skip the assembly step and just do quantification against provided gene models.
 
-`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -g reference.gtf -r`
+`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -g reference.gtf -r -p 8`
 
 Good luck!
 
