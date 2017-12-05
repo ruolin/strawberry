@@ -10,6 +10,7 @@
 #include <numeric>
 #include "contig.h"
 #include "kmer.h"
+#include "fasta.h"
 
 
 template<typename Item>
@@ -49,8 +50,10 @@ public:
    double _bais_factor;
    double _frac = 0.0;
    double _FPKM = 0.0;
+   double _TPM = 0.0;
    std::string _frac_s = "nan";
    std::string _FPKM_s = "nan";
+   std::string _TPM_s = "nan";
    //Isoform() = default;
    Isoform(const std::vector<GenomicFeature>& exons, Contig contig,
            std::string gene_name, std::string iso_name, int gene_id):

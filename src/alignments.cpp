@@ -640,7 +640,6 @@ int HitCluster::collapseAndFilterHits()
    if(_hits.empty())
      return 0;
 
-   sort(_hits.begin(), _hits.end());
    auto mean = this->read_ref_span_mean_sd().first;
    auto sd = this->read_ref_span_mean_sd().second * 5;
    LOG(WARNING)<< "\n mean and sd read reference span: " << mean<<", " <<sd;
@@ -1119,6 +1118,7 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
 //   if (clusterOut.size() > 0) {
 //      std::cout<<num_added_refmRNA<<" transcript added\n";
 //   }
+   sort(clusterOut._hits.begin(), clusterOut._hits.end());
    return clusterOut.size();
 }
 
@@ -1438,10 +1438,11 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
 }
 
 
-void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
-                 const vector<Contig> &assembled_transcripts, FILE *pfile, FILE *plogfile, FILE *fragfile) const {
+vector<Isoform> Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitCluster> cluster,
+                 const vector<Contig> &assembled_transcripts, FILE *plogfile, FILE *fragfile) const {
 
 
+   vector<Isoform> isoforms;
    LocusContext est(*this, plogfile, cluster, assembled_transcripts);
 
    //est.set_empirical_bin_weight(iso_2_bins_map, iso_2_len_map, cluster->collapse_mass(), exon_bin_map);
@@ -1453,6 +1454,9 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 
    if(success){
       //cout<<"assembled transcripts size: "<<assembled_transcripts.size()<<endl;
+      for (const auto &iso: est.transcripts()) {
+         isoforms.push_back(iso);
+      }
 #if ENABLE_THREADS
      if(use_threads) {
         out_file_lock.lock();
@@ -1460,12 +1464,6 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #endif
      cerr << ref_t.ref_real_name(cluster->ref_id()) << "\t" << cluster->left() << "\t" << cluster->right()
           << " finishes abundances estimation" << endl;
-
-     for (const auto &iso: est.transcripts()) {
-        iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
-                                 iso._frac_s, iso._gene_str, iso._isoform_str);
-     }
-
       if (fragfile != NULL) {
          //if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
             printContext(est, cluster, _fasta_getter, fragfile);
@@ -1475,9 +1473,9 @@ void Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_ptr<HitClust
 #if ENABLE_THREADS
    if(use_threads) {
      out_file_lock.unlock();
-     decr_pool_count();
    }
 #endif
+   return isoforms;
 }
 
 
@@ -1620,7 +1618,7 @@ void Sample::assembleSample(FILE *plogfile)
             finalizeCluster(cur_cluster, true);
             vector<Contig> asmb = this-> assembleCluster(ref_t, cur_cluster, plogfile);
             this->addAssembly(asmb);
-            --curr_thread_num;
+            decr_pool_count();
             });
        //thread worker{&Sample::finalizeAndassembleCluster, this, ref_t, cur_cluster, NULL, NULL};
        worker.detach();
@@ -1668,6 +1666,8 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
  */
    NO_LOGGING = true;
    _hit_factory->reset();
+   vector<Isoform> isoforms;
+   isoforms.reserve(1024);
    reset_refmRNAs();
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    int current_ref_id = INT_MAX;
@@ -1681,7 +1681,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
       if (fragfile != NULL) pretty_print(fragfile, header, "\t");
       //}
    }
-
    while(true){
      //++_num_cluster;
      shared_ptr<HitCluster> cluster (new HitCluster());
@@ -1709,7 +1708,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
        }
      }
      //end load fasta genome
-
 #if ENABLE_THREADS
      if(use_threads){
        while(true){
@@ -1719,14 +1717,20 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
          this_thread::sleep_for(chrono::milliseconds(3));
        }
        ++curr_thread_num;
-       thread worker ([=] {
+       thread worker ([&isoforms, this, ref_t, cluster, plogfile, fragfile] {
             finalizeCluster(cluster, true);
-            this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile, fragfile);
+            auto iso = quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), plogfile, fragfile);
+
+            out_file_lock.lock();
+            isoforms.insert(isoforms.end(), iso.begin(), iso.end());
+            out_file_lock.unlock();
+            decr_pool_count();
        });
        worker.detach();
      }else {
        finalizeCluster(cluster, true);
-       this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), pfile, plogfile, fragfile);
+       auto iso = quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), plogfile, fragfile);
+       isoforms.insert(isoforms.end(), iso.begin(), iso.end());
      }
 #else
      finalizeCluster(last_cluster, true);
@@ -1744,7 +1748,19 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
      }
    }
 #endif
+   double total_fpkm = 0.0;
+   for (const auto & iso : isoforms) {
+      total_fpkm += iso._FPKM;
+   }
+   for (auto & iso: isoforms) {
+      iso._TPM = 1e6 * iso._FPKM / total_fpkm;
+      iso._TPM_s = to_string(iso._TPM);
+   }
 
+  for (const auto &iso: isoforms) {
+     iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
+                              iso._frac_s, iso._TPM_s, iso._gene_str, iso._isoform_str);
+  }
 }
 
 
