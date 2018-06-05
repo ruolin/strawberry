@@ -1,13 +1,20 @@
-Strawberry source code current version: 0.9.1. 
+Strawberry source code current version: 0.9.2. 
 ==================
-
-Important Notes
-==================
-**If you download Strawberry 0.9.1 at 12/04/2017. There is a serious bug in terms of the output. The assembled_transcripts.gtf will be empty if you use default number of threads which is 1. This bug has been fixed at 12/05/2017. Please update your repo.** 
 
 News
 ==================
-#### Strawberry 0.9.1 released.
+#### Strawberry 0.9.2 released. 06/05/2018
+1. Add Strand-specific options
+
+`--fr assume stranded library fr-secondstrand`
+
+`--rf assume stranded library rf-firststrand`
+
+![alt text](http://4.bp.blogspot.com/-Ocn91gy9E5M/UBc1emNFh9I/AAAAAAAAAVY/E6vmshsdeZ4/s1600/Project+log+(BU_HD)+(1).pngg)
+
+Figure from [One Tipe Per Day](http://onetipperday.sterding.com/2012/07/how-to-tell-which-library-type-to-use.html)
+
+#### Strawberry 0.9.1 released. 12/05/2017
 1. Fix a bug when the reference sequence names (e.g., contig or chromosome names) are long. This bug affects assembled_transcripts.gtf and sometimes make the first column unreadable. 
 2. Add TPM (Transcript Per Million mapped reads) to the output. 
 
@@ -28,7 +35,7 @@ Strawberry is now published in [PLoS Computational Biology](http://journals.plos
 
 Latest Linux x86_64 Binary release
 ====================
-https://github.com/ruolin/strawberry/releases/download/0.9.0/strawberry
+https://github.com/ruolin/strawberry/releases/download/0.9.1/strawberry
 
 Prerequisites if you want to install Strawberry from scratch
 ===================
