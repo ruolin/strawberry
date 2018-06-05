@@ -80,6 +80,8 @@ extern bool use_only_unique_hits;
 extern bool use_threads;
 extern bool filter_by_expression;
 extern bool weight_bias;
+extern bool fr_strand; // assume stranded library fr-secondstrand
+extern bool rf_strand; // assume stranded library fr-firststrand
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 #define ENABLE_THREADS 1
 

@@ -23,6 +23,8 @@
 #define OPT_ALLOW_MULTIPLE_HITS   263
 #define OPT_MIN_EXON_COV   264
 #define OPT_NO_QUANT 265
+#define OPT_FR_STRAND 266
+#define OPT_RF_STRAND 267
 //#define OPT_NO_ASSEMBLY 260
 using namespace std;
 
@@ -36,6 +38,8 @@ static struct option long_options[] = {
       {"min-mapping-qual",                required_argument,      0,       'q'},
       {"num-reads-4-prerun",              required_argument,      0,       'n'},
       {"allow-multimapped-hits",              no_argument,            0,       OPT_ALLOW_MULTIPLE_HITS},
+      {"fr",                               no_argument,            0,       OPT_FR_STRAND},
+      {"rf",                               no_argument,            0,       OPT_RF_STRAND},
 #if ENABLE_THREADS
       {"num-threads",                      required_argument,      0,       'p'},
 #endif
@@ -76,6 +80,8 @@ void print_help()
    fprintf(stderr, "   -p/--num-threads                      number of threads used for Strawberry                                                                [default:     1]\n");
    fprintf(stderr, "   -v/--verbose                          Strawberry starts to gives more information.                                                         [default:     false]\n");
    fprintf(stderr, "   -q/--min-mapping-qual                 Minimum mapping quality to be included in the analyses.                                              [default:     0]\n");
+   fprintf(stderr, "   --fr                                  assume stranded library fr-secondstrand.                                                             [default:     false]\n");
+   fprintf(stderr, "   --rf                                  assume stranded library rf-firststrand.                                                              [default:     false]\n");
    fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     300000]\n");
    fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
    fprintf(stderr, "   -m/--min-isoform-frac                 Minimum isoform fraction.                                                                            [default:     0.01]\n");
@@ -147,6 +153,15 @@ int parse_options(int argc, char** argv)
                         no_assembly = true;
                         enforce_ref_models = true;
                         break;
+
+               case OPT_FR_STRAND:
+                        fr_strand = true;
+                        break;
+
+               case OPT_RF_STRAND:
+                        rf_strand = true;
+                        break;
+
                case OPT_NO_QUANT:
                         no_quant = true;
                         break;

@@ -127,6 +127,8 @@ public:
    double raw_mass() const;
    void mass(double m);
    bool is_first() const;
+   bool is_second() const;
+
    bool reverseCompl() const;
    bool operator==(const ReadHit& rhs) const; // not considering read orientation
    bool operator!=(const ReadHit& rhs) const;

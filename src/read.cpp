@@ -135,7 +135,12 @@ bool ReadHit::contains_splice()const{
 
 bool ReadHit::is_first() const
 {
-   return _sam_flag & 0x40;
+   return _sam_flag & BAM_FREAD1;
+}
+
+bool ReadHit::is_second() const
+{
+   return _sam_flag & BAM_FREAD2;
 }
 
 ReadID ReadHit::read_id() const {return _read_id;}
@@ -173,7 +178,8 @@ bool ReadHit::is_singleton() const
 
 bool ReadHit::reverseCompl() const
 {
-   return _sam_flag  & 0x10;
+   //this is the raw alignment strand, NOT the transcription (XS) strand
+   return _sam_flag  & BAM_FREVERSE;
 }
 
 // not considering read orientation and cigar string
@@ -634,6 +640,23 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          break;
       default:
          break;
+      }
+   }
+
+   bool rev_strand = sam_flag & BAM_FREVERSE;
+   if (source_strand == Strand_t::StrandUnknown && (fr_strand || rf_strand) ) {
+      if (sam_flag & 0x40) { // first read in pair
+         if ((rf_strand && rev_strand) || (fr_strand && !rev_strand)) {
+            source_strand = Strand_t::StrandPlus;
+         } else {
+            source_strand = Strand_t::StrandMinus;
+         }
+      } else {
+         if ((rf_strand && rev_strand) || (fr_strand && !rev_strand)) {
+            source_strand = Strand_t::StrandMinus;
+         } else {
+            source_strand = Strand_t::StrandPlus;
+         }
       }
    }
 
