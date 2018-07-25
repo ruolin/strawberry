@@ -898,6 +898,11 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
             feats.push_back(GenomicFeature(Match_t::S_INTRON, ex._iv.right()+1, next_ex._iv.left()-1-ex._iv.right() ));
          }
        }
+//       for (auto f :feats) {
+//         if (f.right() <= f.left()) {
+//            std::cerr << f << std::endl;
+//         }
+//       }
        Contig ref_contig(ref_id, 0, strand,1.0, feats, true);
        ref_contig.annotated_trans_id(mrna->_transcript_id);
        ref_contig.parent_id() = mrna->getParentGene()->_gene_id;
@@ -1373,7 +1378,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       return result;
    }
    cluster->refine_cluster();
-   if (cluster->hasRefmRNAs() && utilize_ref_models ) {
+   if (cluster->hasRefmRNAs() && utilize_ref_models ) { // has reference
       uint cluster_left = std::numeric_limits<uint>::max();
       vector<Contig> hits;
       uint cluster_right = 0;
@@ -1786,7 +1791,7 @@ double compute_doc(const uint left, const uint right,
          if(gf.left() < left || gf.right() > right) {
             continue;
          }
-         assert(gf.right() > gf.left());
+         assert(gf.right() >= gf.left());
          IntronTable cur_intron(gf.left(), gf.right());
          pair<uint,uint> coords(cur_intron.left, cur_intron.right);
          if(intron_counter.empty()){
