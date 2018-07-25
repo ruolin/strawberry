@@ -898,6 +898,11 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
             feats.push_back(GenomicFeature(Match_t::S_INTRON, ex._iv.right()+1, next_ex._iv.left()-1-ex._iv.right() ));
          }
        }
+//       for (auto f :feats) {
+//         if (f.right() <= f.left()) {
+//            std::cerr << f << std::endl;
+//         }
+//       }
        Contig ref_contig(ref_id, 0, strand,1.0, feats, true);
        ref_contig.annotated_trans_id(mrna->_transcript_id);
        ref_contig.parent_id() = mrna->getParentGene()->_gene_id;
@@ -906,6 +911,12 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
        ref_mrna_for_chr.push_back(ref_contig);
      }// end while loop
      sort(ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
+//      for(auto const& ref_contig : ref_mrna_for_chr) {
+//         std::cout << ref_contig << std::endl;
+//         if (ref_contig.left() > 10830000) {
+//            exit(0);
+//         }
+//      }
      _ref_mRNAs.insert(_ref_mRNAs.end(), ref_mrna_for_chr.begin(), ref_mrna_for_chr.end());
 
      ref_mrna_for_chr.clear();
@@ -926,7 +937,9 @@ double Sample::next_valid_alignment(ReadHit& readin){
      }
 
      if(!_hit_factory->getHitFromBuf(hit_buf, readin)) continue;
-     if(readin.ref_id() == -1) continue; // unmapped read
+     if(readin.ref_id() == -1) {
+       continue; // unmapped read
+     }
      raw_mass += readin.mass(); // suck in read mass for future if mask_gtf is used.
 
 //     if(_prev_hit_ref_id != -1){
@@ -1117,6 +1130,7 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
    //roger
 //   if (clusterOut.size() > 0) {
 //      std::cout<<num_added_refmRNA<<" transcript added\n";
+//      std::cout<<"cluster: " << clusterOut.left() <<"-"<<clusterOut.right() << std::endl;
 //   }
    sort(clusterOut._hits.begin(), clusterOut._hits.end());
    return clusterOut.size();
@@ -1186,7 +1200,10 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
      while(true){
        ReadHitPtr new_hit(new ReadHit());
        double mass = next_valid_alignment(*new_hit);
-
+       //cout<<" hit chr:"<<new_hit->ref_id()<<" hit name "<<new_hit->read_name()<<"\t cluster: "<<clusterOut.left() << "-" << clusterOut.right()<<endl;
+       if (!_hit_factory->recordsRemain()) {
+         break;
+       }
        if(hit_lt_cluster(*new_hit, clusterOut, kMaxOlapDist)){ // hit hasn't reach reference region
          rewindHit();
          if(_has_load_all_refs){
@@ -1199,7 +1216,6 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
             uint next_ref_start_pos = _ref_mRNAs[_refmRNA_offset].left();
             uint next_ref_start_ref = _ref_mRNAs[_refmRNA_offset].ref_id();
    //#ifdef DEBUG
-   //         cout<<"next:"<<next_ref_start_pos<<"\t hit chr:"<<new_hit->ref_id()<<"\thit left "<<new_hit->left()<<"\t previous:\t"<<clusterOut.left()<<endl;
    //#endif
             rewindReference(clusterOut, num_added_refmRNA);
             return nextCluster_denovo(clusterOut, next_ref_start_pos, next_ref_start_ref);
@@ -1213,9 +1229,9 @@ int Sample::nextCluster_refGuide(HitCluster &clusterOut)
 
        clusterOut.addOpenHit(new_hit, false, false);
        clusterOut.addRawMass(mass);
-       if (!_hit_factory->recordsRemain()) return clusterOut.size();
      } // end while loop
    } // end loadRefmRNAs
+   //std::cout <<"summary cluster : " << clusterOut.left() <<"-" << clusterOut.right() << "\t" << clusterOut.size() << std::endl;
    return clusterOut.size();
 }
 
@@ -1373,7 +1389,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       return result;
    }
    cluster->refine_cluster();
-   if (cluster->hasRefmRNAs() && utilize_ref_models ) {
+   if (cluster->hasRefmRNAs() && utilize_ref_models ) { // has reference
       uint cluster_left = std::numeric_limits<uint>::max();
       vector<Contig> hits;
       uint cluster_right = 0;
@@ -1660,9 +1676,6 @@ int Sample::total_mapped_reads() const
 void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
 {
 /*
- * The major function which calls nextCluster() and finalizes cluster and
- * assemble each cluster-> Right now only nextCluster_refGuide() is implemented.
- * if no reference mRNA than nextCluster_refGuide will call nextCluster_denovo()
  */
    NO_LOGGING = true;
    _hit_factory->reset();
@@ -1786,7 +1799,7 @@ double compute_doc(const uint left, const uint right,
          if(gf.left() < left || gf.right() > right) {
             continue;
          }
-         assert(gf.right() > gf.left());
+         assert(gf.right() >= gf.left());
          IntronTable cur_intron(gf.left(), gf.right());
          pair<uint,uint> coords(cur_intron.left, cur_intron.right);
          if(intron_counter.empty()){
@@ -1931,10 +1944,10 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
    for(auto i= intron_counter.begin(); i !=intron_counter.end();){
      uint start = i->first.first - cluster_left;
      uint end = i->first.second - cluster_left;
-     assert(end > start);
+     assert(end >= start);
 
      float avg_intron_doc = accumulate(intron_doc.begin()+start, intron_doc.begin()+end,0.0);
-     avg_intron_doc /= (end-start);
+     avg_intron_doc /= (end-start) + 1;
      vector<float> exon_doc_dup(end-start+1);
      copy(exon_doc.begin()+start, exon_doc.begin()+end, exon_doc_dup.begin());
 
