@@ -829,11 +829,13 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
        rt.set_id(gseqs[i]->_g_seq_name);
      }
    } else{
+     int error_count = 0;
      for(uint i = 0; i<gseqs.size(); ++i){
        int idx = gseqs[i]->get_gseq_id();
        int ref_table_id = rt.get_id(gseqs[i]->_g_seq_name);
        if (ref_table_id == -1) {
-           cerr<<"Warning: the gff file contains seq name "<<gseqs[i]->_g_seq_name<<" which is not found in the bam file"<<endl;
+           cerr<<"Warning: the gff/gtf file contains seq name "<<gseqs[i]->_g_seq_name<<" which is not found in the bam file"<<endl;
+           error_count++;
        }
        else if(idx != ref_table_id ){
          cerr<<"Warning: Sam file and Gff file are not sorted in the same order!\n";
@@ -841,6 +843,10 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
          gseqs[i]->set_gseq_id(ref_table_id);
        }
      }
+      if (error_count == gseqs.size()) {
+         cerr << "Error: the gff/gtf file and the bam file have different chromosome naming\n";
+         exit(0);
+      }
      sort(gseqs.begin(),gseqs.end(),
          [](const unique_ptr<GffTree> &lhs, const unique_ptr<GffTree> &rhs){
             return lhs->get_gseq_id() < rhs->get_gseq_id();
@@ -940,6 +946,7 @@ double Sample::next_valid_alignment(ReadHit& readin){
      if(readin.ref_id() == -1) {
        continue; // unmapped read
      }
+     //std::cerr <<readin.read_name() <<"\t" << readin.interval() << std::endl;
      raw_mass += readin.mass(); // suck in read mass for future if mask_gtf is used.
 
 //     if(_prev_hit_ref_id != -1){

@@ -193,8 +193,8 @@ private:
    std::unordered_map<std::string, int> _name2id;
 public:
    RefSeqTable(bool keep_seq) : _keep_seq(keep_seq){}
-   int get_id(std::string& name);
-   int set_id(std::string& name);
+   int get_id(std::string name);
+   int set_id(std::string name);
    int size() const{
       return _name2id.size();
    }

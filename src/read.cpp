@@ -960,7 +960,7 @@ bool PairedHit::operator<(const PairedHit& rhs) const
 //   }
 //}
 
-int RefSeqTable::set_id(string& name) {
+int RefSeqTable::set_id(string name) {
    /*
     * return id
     */
@@ -981,12 +981,14 @@ int RefSeqTable::set_id(string& name) {
    return 0;
 }
 
-int RefSeqTable::get_id(string& name) {
-   string raw_name = name;
+int RefSeqTable::get_id(string name) {
    str2lower(name);
-   if (name.size() < 4) { // no chr
-     name = "chr" + name;
-   }
+//   if (name.size() < 4) { // no chr
+//     name = "chr" + name;
+//   }
+//   for (auto const& it : _name2id) {
+//      std::cerr << it.first <<": " << it.second << "\n";
+//   }
    unordered_map<string,int>::const_iterator it = _name2id.find(name);
    if(it != _name2id.end()) {
       return it->second;
