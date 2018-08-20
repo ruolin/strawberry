@@ -145,8 +145,20 @@ class ReadTable
 	 
    // This function should NEVER return zero
    ReadID get_id(const std::string& name);
-   uint _read_len_abs = 0;
    std::vector<int> _frag_dist;
+   std::unordered_map<uint, uint> _read_len_abs;
+   int read_len_mode() const {
+      int max = 0;
+      int mode = 0;
+      for (auto it = _read_len_abs.cbegin(); it != _read_len_abs.cend(); ++it) {
+         if (it->second > max) {
+            max = it->second;
+            mode = it->first;
+         }
+      }
+      return mode;
+   }
+
 private:
    // This is FNV-1, see http://en.wikipedia.org/wiki/Fowler_Noll_Vo_hash
    inline uint64_t hashString(const char* __s)

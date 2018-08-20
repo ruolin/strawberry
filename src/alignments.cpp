@@ -82,7 +82,7 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
 //     std::cerr<<h;
 //   }
    avg_dep = compute_doc(l, r, hits, exon_doc, intron_counter, kMinAnchor);
-   //cout<<avg_dep<<endl;
+   //cout<<"average dep: " << avg_dep<<endl;
 
 //#ifdef DEBUG
 //   cout<<"cluster starts at: "<<l<<endl;
@@ -96,8 +96,8 @@ vector<Contig> Sample::assembleContig(const uint l, const uint r, const Strand_t
       return result;
    }
 
-   //std::cerr<< "num intron: " << intron_counter.size() << std::endl;
-   filter_intron(this->_current_chrom, l, this->_hit_factory->_reads_table._read_len_abs, exon_doc, intron_counter);
+   //std::cerr << "read len mode: " << this->_hit_factory->_reads_table.read_len_mode() << std::endl;
+   filter_intron(this->_current_chrom, l, this->_hit_factory->_reads_table.read_len_mode(), exon_doc, intron_counter);
 
    //local variables
    FlowNetwork flow_network;
@@ -496,8 +496,8 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
 
    if(abs((int)hit_right - (int)hit_left) > kMaxFragSpan){
      reset(orig_left, orig_right, orig_ref_id);
-      if (!NO_LOGGING) {
-         LOG(WARNING)<<"Hit start at "<<hit_left<< "  is longer than max gene length<< skipping";
+      if (verbose) {
+         std::cerr<<"Hit start at "<<hit_left<< "  is longer than max gene length<< skipping" << std::endl;
       }
      return false;
    }
@@ -531,8 +531,8 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        if(hit->partner_pos() > hit->left()){
          if(hit->reverseCompl())
          {
-            if (!NO_LOGGING) {
-               LOG(WARNING)<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos();
+            if (verbose) {
+               std::cerr<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos() << std::endl;
             }
          }
          PairedHit open_hit(hit, nullptr);
@@ -546,8 +546,8 @@ bool HitCluster::addOpenHit(const ReadHitPtr hit, bool extend_by_hit, bool exten
        else if(hit->partner_pos() < hit->left()){
          if(!hit->reverseCompl())
          {
-            if (!NO_LOGGING) {
-               LOG(WARNING)<<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos();
+            if (verbose) {
+               std::cerr <<"Possible wrong read orientation at chr: "<< hit->ref_id()<< " for read start at "<< hit->left()<< " and his partner at "<<hit->partner_pos() << std::endl;
             }
          }
 
@@ -637,6 +637,9 @@ void HitCluster::clearOpenMates()
 int HitCluster::collapseAndFilterHits()
 {
    assert(!_hits.empty());
+   assert(_uniq_hits.empty());
+   sort(_hits.begin(), _hits.end());
+   //std::cerr << "hits size" << _hits.size() << std::endl;
    if(_hits.empty())
      return 0;
 
@@ -668,17 +671,18 @@ int HitCluster::collapseAndFilterHits()
          _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
       }
       else{
-         if(_uniq_hits.back() != _hits[i]){
-            _uniq_hits.push_back(_hits[i]);
+         if(_uniq_hits.back() == _hits[i]){
             _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
          }
          else{
+            _uniq_hits.push_back(_hits[i]);
             _uniq_hits.back().add_2_collapse_mass(_hits[i].weighted_mass());
          }
      }
    }
    //sort(_uniq_hits.begin(),_uniq_hits.end());
    //_hits.clear();
+   //std::cerr << "uniq hits size" << _uniq_hits.size() << std::endl;
    return _uniq_hits.size();
 }
 
@@ -933,6 +937,25 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
    return true;
 }
 
+void Sample::inspect_read_len() {
+
+   int itnum= 0;
+   while(true) {
+      if (itnum >= kMaxReadNum4RL) {
+         break;
+      }
+      ReadHitPtr new_hit(new ReadHit());
+      double mass = next_valid_alignment(*new_hit);
+      //cout<<" hit chr:"<<new_hit->ref_id()<<" hit name "<<new_hit->read_name()<<"\t cluster: "<<clusterOut.left() << "-" << clusterOut.right()<<endl;
+      if (!_hit_factory->recordsRemain()) {
+         break;
+      }
+      _hit_factory->_reads_table._read_len_abs[new_hit->read_len()]++;
+      itnum ++;
+   }
+   _hit_factory->reset();
+}
+
 double Sample::next_valid_alignment(ReadHit& readin){
    const char* hit_buf=NULL;
    size_t hit_buf_size = 0;
@@ -965,7 +988,6 @@ double Sample::next_valid_alignment(ReadHit& readin){
 //     _prev_hit_pos = readin.left();
      break;
    }
-   _hit_factory->_reads_table._read_len_abs = max(_hit_factory->_reads_table._read_len_abs, readin.read_len());
    return raw_mass;
 }
 
@@ -1139,7 +1161,6 @@ int Sample::nextClusterRefDemand(HitCluster &clusterOut){
 //      std::cout<<num_added_refmRNA<<" transcript added\n";
 //      std::cout<<"cluster: " << clusterOut.left() <<"-"<<clusterOut.right() << std::endl;
 //   }
-   sort(clusterOut._hits.begin(), clusterOut._hits.end());
    return clusterOut.size();
 }
 
@@ -1815,6 +1836,7 @@ double compute_doc(const uint left, const uint right,
                 g_feats[j+1]._match_op._len < smallOverHang){
               cur_intron.small_span_read += hits[i].mass();
             }
+            //roger
             intron_counter.emplace(coords, cur_intron);
             continue;
          }
@@ -1877,10 +1899,10 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
         }
         if( min_junc / (depth_i + depth_j) < kMinIsoformFrac * scale){
            bad_intron_pos.push_back(bad);
-           if (!NO_LOGGING) {
-              LOG(INFO)<<"Filtering overlapping intron by depth: "<< current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
+           if (verbose) {
+              std::cerr <<"Filtering overlapping intron by depth: "<< current_chrom<<":"<<i->first.first<<"-"<<i->first.second<< " has "<<
                        depth_i<<" read supporting. "<<"Intron at "<< current_chrom<<":"<<j->first.first<< "-"<<
-                       j->first.second<< " has "<< depth_j<< " read supporting. ";
+                       j->first.second<< " has "<< depth_j<< " read supporting. " << std::endl;
            }
         }
      } // end for
@@ -1904,17 +1926,17 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
 //     cout<<intron_counter[i].left<<" vs "<<intron_counter[i].right<<"\t"<<total_read<<endl;
 //#endif
      if (total_read < kMinJuncSupport && !enforce_ref_models) {
-        if (!NO_LOGGING) {
-           LOG(INFO)<<"Filtering intron at by overall read support: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
-                    " has only "<< total_read<< " total read.";
+        if (verbose) {
+           std::cerr <<"Filtering intron at by overall read support: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has only "<< total_read<< " total read." << std::endl;
         }
         i = intron_counter.erase(i);
         continue;
      }
      if(i->first.second - i->first.first > LongJuncLength && total_read < kMinSupportForLongJunc && !enforce_ref_models){
-        if (!NO_LOGGING) {
-           LOG(INFO)<<"Filtering long intron at by overall read support: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
-                    " has only "<< total_read<< " total read.";
+        if (verbose) {
+           std::cerr<<"Filtering long intron at by overall read support: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has only "<< total_read<< " total read." << std::endl;
         }
        i = intron_counter.erase(i);
        continue;
@@ -1937,9 +1959,9 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
      double x = (small_read-0.5 - normal_mean)/normal_sd;
      prob_not_lt_observed = 1.0 - standard_normal_cdf(x);
      if(prob_not_lt_observed < kBinomialOverHangAlpha) {
-        if (!NO_LOGGING) {
-           LOG(INFO)<<"Filtering intron at by small anchor: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
-                    " has "<< small_read<< " small overhang read vs "<< total_read<< " total read.";
+        if (verbose) {
+           std::cerr <<"Filtering intron at by small anchor: "<< current_chrom<<":"<< i->first.first<<"-"<<i->first.second<<
+                    " has "<< small_read<< " small overhang read vs "<< total_read<< " total read." << std::endl;
         }
        i = intron_counter.erase(i);
        continue;
@@ -1968,9 +1990,9 @@ void filter_intron(const std::string& current_chrom, const uint cluster_left,
      avg_intron_exonic_doc /= (end-start);
      if(avg_intron_exonic_doc != 0){
        if( avg_intron_doc / avg_intron_exonic_doc < kMinIsoformFrac){
-         if (!NO_LOGGING) {
-            LOG(INFO)<<"Filtering intron at by exonic coverage: "<< current_chrom<< ":"<<i->first.first<<"-"<<i->first.second<<
-                      " averaged intron doc: "<< avg_intron_doc<< " vs averaged exonic doc on intron: "<< avg_intron_exonic_doc<< ".";
+         if (verbose) {
+            std::cerr <<"Filtering intron at by exonic coverage: "<< current_chrom<< ":"<<i->first.first<<"-"<<i->first.second<<
+                      " averaged intron doc: "<< avg_intron_doc<< " vs averaged exonic doc on intron: "<< avg_intron_exonic_doc<< "." << std::endl;
          }
          i = intron_counter.erase(i);
          continue;

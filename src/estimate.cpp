@@ -160,30 +160,30 @@ void LocusContext::assign_exon_bin(
             //Bias::iso_bias(*mp, *iso);
             /*For singleton, we random generate the other end */
             if(mp->is_single_read()){
-               if(infer_the_other_end){ // currently infer_the_other_end is always disabled
-                  Contig new_read;
-                  if(mp->single_read_orit() == SingleOrit_t::Forward){
-                     uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Forward, new_read);
-                     if(other_end == 0) continue;
-                     coords = overlap_exons(exon_segs, new_read);
-                  }
+//               if(infer_the_other_end){ // currently infer_the_other_end is always disabled
+//                  Contig new_read;
+//                  if(mp->single_read_orit() == SingleOrit_t::Forward){
+//                     uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Forward, new_read);
+//                     if(other_end == 0) continue;
+//                     coords = overlap_exons(exon_segs, new_read);
+//                  }
+//
+//                  else if (mp->single_read_orit() == SingleOrit_t::Reverse) {
+//
+//                     uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Reverse, new_read);
+//                     if(other_end == 0) continue;
+//                     assert(coords.empty());
+//                     coords = overlap_exons(exon_segs, new_read);
+//                  }
+//                  frag_len = Contig::exonic_overlaps_len(iso->_contig, new_read.left(), new_read.right());
+//                  set_maps(iso->id(), frag_len, new_read.mass(), new_read, coords);
+//               } // end if infer the other
 
-                  else if (mp->single_read_orit() == SingleOrit_t::Reverse) {
-
-                     uint other_end = generate_pair_end(iso->_contig, *mp, (int)sr_fg_len - _read_len, SingleOrit_t::Reverse, new_read);
-                     if(other_end == 0) continue;
-                     assert(coords.empty());
-                     coords = overlap_exons(exon_segs, new_read);
-                  }
-                  frag_len = Contig::exonic_overlaps_len(iso->_contig, new_read.left(), new_read.right());
-                  set_maps(iso->id(), frag_len, new_read.mass(), new_read, coords);
-               } // end if infer the other
-
-               else{
+               //else{
                   coords = overlap_exons(exon_segs, *mp);
                   frag_len = Contig::exonic_overlaps_len(iso->_contig, mp->left(), mp->right());
                   set_maps(iso->id(), frag_len, mp->mass(), *mp, coords);
-               }
+               //}
             } // and and single end
 
             else{
@@ -231,6 +231,19 @@ void LocusContext::set_theory_bin_weight() {
 
       }
    }
+}
+
+void LocusContext::set_bin_weight_without_frag_dist() {
+   for(auto it = iso_2_bins_map.cbegin(); it != iso_2_bins_map.cend(); ++it){
+      assert(_transcripts[it->first].id() == it->first);
+      for(auto const &bin_idx: it->second){
+         double weight = 1.0 / _transcripts[it->first]._length;
+         //double weight = 1.0 ;
+         exon_bins.at(bin_idx)._bin_weight_map[it->first] = weight;
+
+      }
+   }
+
 }
 
 
@@ -353,7 +366,8 @@ bool EmSolver::init(const int num_iso,
                   const vector<int> &count,
                   const vector<vector<double>> &model)
 {
-   //std::cerr << "count size: " << count.size() << std::endl;
+   //std::cerr << "count size: " << count;
+   //std::cerr << "model: " << model << std::endl;
    int nrow = count.size();
    int ncol = num_iso;
    double total_count = accumulate(count.begin(), count.end(), 0.0);

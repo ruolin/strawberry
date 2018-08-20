@@ -29,7 +29,7 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
          break;
       case DEL:
          if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
-            LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious DELETION\n";
+            //LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious DELETION\n";
             return false;
          }
          feats.back()._match_op._len += cig[i]._length;
@@ -37,14 +37,14 @@ bool readhit_2_genomicFeats(const ReadHit & rh, vector<GenomicFeature> & feats){
          break;
       case INS:
          if(i<1 || i+1 == cig.size() || cig[i-1]._type != MATCH || cig[i+1]._type != MATCH){
-            LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious INSERTION\n";
+            //LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has suspicious INSERTION\n";
             return false;
          }
          break;
       case SOFT_CLIP:
          break;
       default:
-         LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has unknown CIGAR\n";
+         //LOG(WARNING)<<"Read at reference id: "<< rh.ref_id()+1 << " and position "<< rh.left()<<" has unknown CIGAR\n";
          return false;
       }
    }

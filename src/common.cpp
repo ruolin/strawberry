@@ -18,7 +18,7 @@ int kMaxFragSpan = 1000000;
 //int kMaxFragPerCluster = 1000000;
 int kMinMapQual = 0;
 int kMaxIntronLength = 300000; // max-junction-splice-distance
-int kMinIntronLength = 50; // min-junction-splice-distance
+int kMinIntronLength = 20; // min-junction-splice-distance
 int kMinReadForAssemb = 5; // min number of reads for assembly
 unsigned int SmallExonLen = 10;
 
@@ -39,7 +39,7 @@ double kMinDepth4Locus = 1.0; //used in ClusterFactory::finalizeCluster() to
 double kMinDepth4Contig = 1.0;
 int kMaxCoverGap1 = 30; // cover gap due the read depth.
 int kMaxCoverGap2 = 10;
-int kMaxReadNum4FD = 500000;
+int kMaxReadNum4RL = 50000;
 int num_threads = 1;
 bool NO_LOGGING = false;
 //bool singleExon4FD = false;
@@ -49,7 +49,7 @@ double kInsertSizeMean = 0;
 //double bothStrandCutoff = 0.05 // Depracated. Now use kMinIsoformFrac
 double kInsertSizeSD = 0;
 bool infer_the_other_end = false;
-bool verbose = true;
+bool verbose = false;
 bool kCombineShrotTransfrag = false;
 std::string output_dir = "./strawberry_out";
 std::string ref_gtf_filename = "";
@@ -69,6 +69,7 @@ bool rf_strand = false;
 //bool use_only_paired_hits = false;
 bool use_threads = false;
 bool filter_by_expression = true;
+bool long_read_sample = false;
 double standard_normal_cdf(double x)
 /*
  * Implementation from http://www.johndcook.com/blog/cpp_phi/
@@ -416,8 +417,7 @@ bool GenomicInterval::contain(const GenomicInterval &d, bool nonStrandness) cons
 uint GenomicInterval::overlapLen(const GenomicInterval& other) const
 {
      if (!other.overlap(*this)) {
-        LOG(ERROR)<<"Calling overlapLen for two non-overlapping interval: "<< _left<< "-"<< _right<<
-              "\t"<<other._left<<"-"<<other._right;
+        throw std::runtime_error("Calling overlapLen for two non-overlapping interval");
      }
      if (_left<other._left) {
         if (other._left>_right) return 0;

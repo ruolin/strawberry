@@ -95,7 +95,7 @@ bool FaIndex::add_record(string seqname, const uint seqlen, const off_t fpos, co
    res = _records.insert( make_pair(seqname, FaRecord(seqname, seqlen, fpos, linelen, lineblen) ) );
    if(!res.second){
       if (NO_LOGGING) {
-         LOG(WARNING)<<"duplicated seqname "<<seqname<< " in fasta file";
+         std::cerr<<"duplicated seqname "<<seqname<< " in fasta file" << std::endl;
       }
    }
 

@@ -65,7 +65,7 @@ public:
          _sample(s),  _p_log_file(tracker)
    {
       assert(transcripts.size());
-      _read_len = _sample._hit_factory->_reads_table._read_len_abs;
+      _read_len = _sample._hit_factory->_reads_table.read_len_mode();
 
       std::vector<Contig> hits;
       for (auto r = cluster->uniq_hits().cbegin(); r != cluster->uniq_hits().cend(); ++r) {
@@ -74,7 +74,7 @@ public:
            hits.push_back(hit);
         }
         else {
-           LOG(WARNING)<<"paired reads "<<r->_left_read->read_name()<<" and "<<r->_right_read->read_name()<<" are not compatible";
+           fprintf(tracker, "paired reads %s and %s are not compatible\n", r->left_read_obj().read_name().c_str(), r->_right_read->read_name().c_str());
         }
       }
 
@@ -100,7 +100,11 @@ public:
       }
 
       assign_exon_bin(hits, _exon_segs);
-      set_theory_bin_weight();
+      if (long_read_sample) {
+         set_bin_weight_without_frag_dist();
+      } else {
+         set_theory_bin_weight();
+      }
 
    }
 
@@ -147,6 +151,7 @@ public:
 
    void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);
 
+   void set_bin_weight_without_frag_dist();
    void calculate_raw_iso_counts();
 
    bool estimate_abundances();

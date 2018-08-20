@@ -504,7 +504,7 @@ bool FlowNetwork::splicingGraph(const RefID & ref_id, const int &left, const std
    auto it = exon_boundaries.begin();
    while(it != exon_boundaries.end()){
      if(it->second <= it->first){
-        LOG(WARNING)<<"Unreal exon seg on "<<ref_id<<":"<<it->first<< "-"<< it->second;
+        //std::cerr<<"Unreal exon seg on "<<ref_id<<":"<<it->first<< "-"<< it->second << std::endl;;
         //exit(0);
         it = exon_boundaries.erase(it);
      }
@@ -693,7 +693,7 @@ bool FlowNetwork::createNetwork(
                      }
                   }
                } else {
-                  LOG(WARNING)<<"no path connects between nodes : " << _g.id(pre) << "-"<< _g.id(sec);
+                  //std::cerr<<"no path connects between nodes : " << _g.id(pre) << "-"<< _g.id(sec) << std::endl;
                }
 
             } else {

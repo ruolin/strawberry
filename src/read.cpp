@@ -67,6 +67,7 @@ uint ReadHit::read_len() const
       case MATCH:
       case SOFT_CLIP:
       case INS:
+      case HARD_CLIP:
          len +=_cigar[i]._length;
          break;
       default:
@@ -196,10 +197,13 @@ bool ReadHit::operator==(const ReadHit& rhs) const
 {
    //assert(!_cigar.empty() && !rhs._cigar.empty());
    //return (_iv == rhs.interval());
-   if(left() == rhs.left())
-      return right() == rhs.right();
-   else
-      return false;
+//   if(left() == rhs.left())
+//      return right() == rhs.right();
+//   else
+//      return false;
+   if (left() != rhs.left()) return false;
+   if (cigar() != rhs.cigar()) return false;
+   return true;
 }
 
 bool ReadHit::operator!=(const ReadHit& rhs) const
@@ -520,7 +524,7 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
    }
 
    if (qual < kMinMapQual) {
-      LOG(WARNING)<<"Read "<< bam1_qname(hit_buf)<< " has not reach min map qual: "<< kMinMapQual;
+      std::cerr <<"Read "<< bam1_qname(hit_buf)<< " has not reached min mapq: "<< kMinMapQual << std::endl;
    }
 
    string text_name = _hit_file->header->target_name[target_id];
@@ -569,10 +573,13 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
          is_spliced_alignment = true;
          read_len += length;
          cigar.push_back(CigarOp(_type, length));
-         if(length > kMaxIntronLength || length < kMinIntronLength){
-            if (!NO_LOGGING) {
-               LOG(WARNING)<<"At read "<< bam1_qname(hit_buf)<< " has unreasonable intron size: "<< length;
-            }
+         if(length > kMaxIntronLength ){
+//            std::cerr<<"Filter Read "<< bam1_qname(hit_buf)<< " which has intron size "<< length <<
+//                    " larger than MaxIntronLength(" << kMaxIntronLength << ")" << std::endl;
+            return false;
+         } else if (length < kMinIntronLength) {
+//            std::cerr<<"Filter Read "<< bam1_qname(hit_buf)<< " which has intron size "<< length <<
+//                     " less than MinIntronLength(" << kMinIntronLength << ")" << std::endl;
             return false;
          }
          break;
@@ -604,23 +611,9 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
       }
       else {
          if(sam_flag & 0x8){ // next segment unmapped
-            if (!NO_LOGGING) {
-               LOG(ERROR)<<"read "<<bam1_qname(hit_buf)<<" is ill-formed";
+            if (verbose) {
+               std::cerr<<"read "<<bam1_qname(hit_buf)<<" has unmapped pair\n";
             }
-         }
-         else{
-            if (!NO_LOGGING) {
-               LOG(WARNING)<<"At read "<< bam1_qname(hit_buf)<< " read pair aligns to different chromosome";
-            }
-            return false;
-         }
-
-      }
-   }
-   else{ // single-end read
-      if( mate_pos != 0 || mate_target_id >= 0) {
-         if (!NO_LOGGING) {
-            LOG(ERROR)<<"read "<<bam1_qname(hit_buf)<<" is ill-formed";
          }
       }
    }
@@ -684,8 +677,10 @@ bool BAMHitFactory::getHitFromBuf(const char* orig_bwt_buf, ReadHit &bh){
 //         fprintf(stderr, "BAM record error: Unknown strand for spliced alignment, XS attribute is missing\n");
 //   }
 
-   if(use_only_unique_hits && num_hits > 1) {
-      LOG(INFO)<<"Ignoring read "<< bam1_qname(hit_buf)<<" has multiple hits";
+   if(use_only_unique_hits && (num_hits > 1 || sam_flag & BAM_FSECONDARY )) {
+      if (verbose) {
+         std::cerr<<"Ignoring read "<< bam1_qname(hit_buf)<<" has multiple hits\n";
+      }
       return false;
    }
 //   if(use_only_paired_hits && ( sam_flag & 0x8 || mate_target_id != target_id ))

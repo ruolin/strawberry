@@ -53,7 +53,7 @@ extern double kMinExonDoc;
 extern int kMaxCoverGap1;
 extern int kMaxCoverGap2;
 extern int kMinReadForAssemb; // min number of reads for assembly
-extern int kMaxReadNum4FD;
+extern int kMaxReadNum4RL;
 //extern int kMinExonLen4FD;
 //extern int kMinExonCov4FD;
 //extern bool singleExon4FD;
@@ -82,6 +82,8 @@ extern bool filter_by_expression;
 extern bool weight_bias;
 extern bool fr_strand; // assume stranded library fr-secondstrand
 extern bool rf_strand; // assume stranded library fr-firststrand
+extern bool long_read_sample;
+const static int long_read_len = 1000;
 #define SFREE(ptr)       SFree((pointer*)(&ptr))
 #define ENABLE_THREADS 1
 

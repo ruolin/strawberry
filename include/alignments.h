@@ -257,6 +257,7 @@ public:
     void procSample(FILE *f, FILE *log, FILE* fragfile);
 
     void assembleSample(FILE *log);
+    void inspect_read_len();
 
     std::vector<Contig> runFlowAlgorithm(const Strand_t& strand, const std::vector<Contig>& hits,
                                       const std::map<std::pair<uint,uint>, IntronTable> &intron_counter,

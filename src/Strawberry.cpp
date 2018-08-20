@@ -83,7 +83,7 @@ void print_help()
    fprintf(stderr, "   --fr                                  assume stranded library fr-secondstrand.                                                             [default:     false]\n");
    fprintf(stderr, "   --rf                                  assume stranded library rf-firststrand.                                                              [default:     false]\n");
    fprintf(stderr, "   -J/--max-junction-splice-size         Maximum spliced junction.                                                                            [default:     300000]\n");
-   fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     50]\n");
+   fprintf(stderr, "   -j/--min-junction-splice-size         Minimum spliced junction size.                                                                       [default:     20]\n");
    fprintf(stderr, "   -m/--min-isoform-frac                 Minimum isoform fraction.                                                                            [default:     0.01]\n");
    //fprintf(stderr, "   -n/--num-read-4-prerun                Use this number of reads to calculate empirical insert size distribution.                            [default:     500000]\n");
    fprintf(stderr, "   --allow-multimapped-hits              By default, Strawberry only use reads which map to unique position in the genome.                    [default:     false]\n");
@@ -143,7 +143,7 @@ int parse_options(int argc, char** argv)
                         kMinIntronLength = parseInt(optarg, 1, "-j/--min-intron-size must be at least 1", print_help);
                         break;
                case 'n':
-                        kMaxReadNum4FD = parseInt(optarg, 50000, "-n/--num-read-4-prerun is suggested to be at least 50000", print_help);
+                        kMaxReadNum4RL = parseInt(optarg, 50000, "-n/--num-read-4-prerun is suggested to be at least 50000", print_help);
                         break;
                case 'g':
                         ref_gtf_filename = optarg;
@@ -272,11 +272,31 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
          read_sample._fasta_getter = move(fsg);
       //}
    }
+
+   read_sample.inspect_read_len();
+   const auto read_len_dist = read_sample._hit_factory->_reads_table._read_len_abs;
+   int count = 0;
+   for (auto it = read_len_dist.cbegin(); it != read_len_dist.cend(); ++it) {
+      if (it->first > long_read_len) {
+         count ++ ;
+      }
+      if (count > 10) {
+         long_read_sample = true;
+         break;
+      }
+   }
+
    if(verbose){
       cerr<<"Inspecting sample......"<<endl;
+//      for (auto i : read_sample._hit_factory->_reads_table._read_len_abs){
+//         std::cerr << i.first <<", " << i.second << std::endl;
+//      }
+      cerr << "read len mode: " <<read_sample._hit_factory->_reads_table.read_len_mode() << endl;
    }
    if (no_assembly) read_sample.preProcess(plogfile);
    else read_sample.assembleSample(plogfile);
+
+
 
    if (no_quant) {
       for (const auto &iso: read_sample._assembly) {
@@ -296,22 +316,27 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
       infer_the_other_end = false;
    }
 
-   if(kInsertSizeMean !=0 && kInsertSizeSD != 0){
-      if(verbose){
-         cerr<<"Using user specified insert size mean: "<<kInsertSizeMean<<" and standard deviation: "<<kInsertSizeSD<<endl;
+
+   if (long_read_sample) {
+      cerr << "Invoking long read workflow\n";
+   } else {
+      if(kInsertSizeMean !=0 && kInsertSizeSD != 0){
+         if(verbose){
+            cerr<<"Using user specified insert size mean: "<<kInsertSizeMean<<" and standard deviation: "<<kInsertSizeSD<<endl;
+         }
+         unique_ptr<InsertSize> insert_size(new InsertSize(kInsertSizeMean, kInsertSizeSD));
+         read_sample._insert_size_dist = move(insert_size);
       }
-      unique_ptr<InsertSize> insert_size(new InsertSize(kInsertSizeMean, kInsertSizeSD));
-      read_sample._insert_size_dist = move(insert_size);
-   }
-   else{
-      const vector<int> & fd = read_sample._hit_factory->_reads_table._frag_dist;
-      unique_ptr<InsertSize> insert_size(new InsertSize(fd));
-      if(verbose){
-         cerr<<"Using empirical insert size distribution "<<endl;
-         //cerr<<"Mean insert size mean: "<<insert_size->_mean<<endl;
-         //cerr<<"Mean insert size standard deviation: "<<insert_size->_sd<<endl;
+      else{
+         const vector<int> & fd = read_sample._hit_factory->_reads_table._frag_dist;
+         unique_ptr<InsertSize> insert_size(new InsertSize(fd));
+         if(verbose){
+            cerr<<"Using empirical insert size distribution "<<endl;
+            //cerr<<"Mean insert size mean: "<<insert_size->_mean<<endl;
+            //cerr<<"Mean insert size standard deviation: "<<insert_size->_sd<<endl;
+         }
+         read_sample._insert_size_dist = move(insert_size);
       }
-      read_sample._insert_size_dist = move(insert_size);
    }
 
 

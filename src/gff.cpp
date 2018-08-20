@@ -51,7 +51,7 @@ void GffLine::extractAttr(const string attr, string &val) {
    char* vp=pos+attrlen;
    while (*vp==' ') vp++;
    if (*vp==';' || *vp==0)
-      LOG(WARNING)<<"Error parsing value of GFF attribute "<<attr<< "on line "<< _dupline;
+      std::cerr<<"Error parsing value of GFF attribute "<<attr<< "on line "<< _dupline << std::endl;
    bool dq_enclosed=false; //value string enclosed by double quotes
    if (*vp=='"') {
       dq_enclosed=true;
@@ -122,13 +122,13 @@ GffLine::GffLine(const char* l)
    char* p=t[3];
    _start = (uint) atol(p);
    if(_start == 0){
-      LOG(WARNING)<<"invalid start coordinate at line:\n"<<l;
+      std::cerr<<"invalid start coordinate at line:\n"<<l << std::endl;
       return;
    }
    p=t[4];
    _end = (uint) atol(p);
    if (_end == 0){
-      LOG(WARNING)<<"invalid end coordinate at line:\n"<<l;
+      std::cerr <<"invalid end coordinate at line:\n"<<l << std::endl;
       return;
    }
    if (_end<_start) {
@@ -143,7 +143,7 @@ GffLine::GffLine(const char* l)
    else{
       _score = atof(p);
       if(_score == 0.0)
-         LOG(WARNING)<<"invalid feature score at line:\n"<<l;
+         std::cerr<<"invalid feature score at line:\n"<<l << std::endl;
          return;
    }
    switch(*t[6]){
@@ -336,7 +336,7 @@ GffmRNA* GffLoci::getRNA(const string rna) {
       for(auto it = _mrnas.begin(); it != _mrnas.end(); ++it){
          if((*it)->_transcript_id == rna) return *it;
       }
-      LOG(ERROR)<<"Can not find the parent of mRNA "<< rna;
+      std::cerr<<"Can not find the parent of mRNA "<< rna << std::endl;
    }
    return NULL;
 }
