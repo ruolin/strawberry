@@ -1,8 +1,12 @@
-Strawberry source code current version: 0.9.3. 
+Strawberry source code current version: 1.0.1. 
 ==================
 
 News
 ==================
+#### Strawberry 1.0.1 released. 08/25/2018
+1. **Support Pacbio CCS reads**.
+2. Update logging. 
+
 #### Strawberry 0.9.3 released. 08/06/2018
 1. Fix bug for 1bp intron from gff file. 
 2. Fix a bug when a bam file contains number only contig/scaffold names. This bug caused dropping all reads.  
