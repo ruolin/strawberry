@@ -3,8 +3,9 @@ Strawberry source code current version: 0.9.3.
 
 News
 ==================
-#### Strawberry 0.9.3 released. 07/24/2018
-Fix bug for 1bp intron from gff file. 
+#### Strawberry 0.9.3 released. 08/06/2018
+1. Fix bug for 1bp intron from gff file. 
+2. Fix a bug when a bam file contains number only contig/scaffold names. This bug caused dropping all reads.  
 
 #### Strawberry 0.9.2 released. 06/05/2018
 1. Add Strand-specific options
