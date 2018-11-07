@@ -1026,6 +1026,10 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
       while (_refmRNA_offset < _ref_mRNAs.size() && _ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
          cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset++]);
       }
+      if (_refmRNA_offset == _ref_mRNAs.size()) {
+         _has_load_all_refs = true;
+         return cluster_out._ref_mRNAs.size();
+      }
       size_t mark_next_gene = _refmRNA_offset;
       //continue search a few forward
       int over = 0;
