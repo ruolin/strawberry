@@ -1,8 +1,12 @@
-Strawberry source code current version: 1.0.1. 
+Strawberry source code current version: 1.0.2. 
 ==================
 
 News
-==================
+#### Strawberry 1.0.2 released. 11/07/2018
+1. Fix a bug when loading the last transcript is out of bound. This is an edge case when used the `-g` option. 
+Credit goes to [47Lies](https://github.com/47Lies) for reporting the bug and providing
+the test case. 
+
 #### Strawberry 1.0.1 released. 08/25/2018
 1. **Support Pacbio CCS reads**.
 2. Update logging. 
