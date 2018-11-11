@@ -47,10 +47,11 @@ Strawberry is now published in [PLoS Computational Biology](http://journals.plos
 
 Latest Linux x86_64 Binary release
 ====================
-https://github.com/ruolin/strawberry/releases/download/0.9.1/strawberry
+https://github.com/ruolin/strawberry/releases/download/1.0.2/strawberry
 
 Prerequisites if you want to install Strawberry from scratch
 ===================
+
 * A C++14 conformant compiler (currently tested with GCC>=5.3).
 
   * Here is wiki about how to install GCC, https://gcc.gnu.org/wiki/InstallingGCC.
@@ -68,6 +69,9 @@ https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-
     * If you use bash, at the shell promet, enter 
     
      `export SAMTOOLS_ROOT /path/to/samtools-source-dir`.
+
+* Some user reported that libncurses5 is missing in the system for Ubuntu 16.04LTS and 18.04LTS
+   * sudo apt-get install libncurses5-dev
 
 Download
 ========
