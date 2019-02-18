@@ -312,7 +312,6 @@ bool LocusContext::estimate_abundances()
          fprintf(_p_log_file, "isoform %d has %f raw read count.\n", i+1, em._theta[i]);
       }
       double sum_fpkm = 0.0;
-      //cout<<"num of iso: "<<niso<<endl;
       for(uint i=0; i< niso; ++i){
          double kb = 0.0;
          if(effective_len_norm){
@@ -346,10 +345,12 @@ bool LocusContext::estimate_abundances()
       }
       if(filter_by_expression){
          for(auto it = _transcripts.begin() ; it != _transcripts.end();){
-            if(it->_frac < _kMinFrac)
+            if(it->_frac < kMinIsoformFrac) {
                it = _transcripts.erase(it);
-            else
+            }
+            else {
                ++it;
+            }
          }
       }
    }

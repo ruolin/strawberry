@@ -147,6 +147,16 @@ public:
       return _sample.sample_name();
    }
 
+   
+   std::vector<std::string> fpkms() const {
+      std::vector<std::string> fpkms;
+      assert(!_transcripts.empty());
+      for (const auto& t: _transcripts) {
+         fpkms.push_back(t._FPKM_s);
+      }
+      return fpkms;
+   } 
+
    std::set<std::pair<uint,uint>> overlap_exons(const std::vector<GenomicFeature>& exons, const Contig& read) const;
 
    void set_empirical_bin_weight(const std::map<int, int> &iso_2_len_map, const int m);

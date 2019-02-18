@@ -1501,7 +1501,7 @@ vector<Isoform> Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_p
    bool success = est.estimate_abundances();
 
    if(success){
-      //cout<<"assembled transcripts size: "<<assembled_transcripts.size()<<endl;
+      //cout<<"assembled transcripts size: "<<est.transcripts().size()<<endl;
       for (const auto &iso: est.transcripts()) {
          isoforms.push_back(iso);
       }
@@ -1529,6 +1529,7 @@ vector<Isoform> Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_p
 
 void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> cluster,
                           const std::shared_ptr<FaSeqGetter> & fa_getter, FILE *fragfile) const {
+
    /* Print locus coordinates*/
    map<set<pair<uint,uint>>, uint> eb_count_map;
    map<set<pair<uint,uint>>, vector<double>> eb_prob_map;
@@ -1563,6 +1564,14 @@ void Sample::printContext(const LocusContext& est, const shared_ptr<HitCluster> 
       }
       iso_names.pop_back();
       info.push_back(iso_names);
+
+      string fpkms;
+      for (const string fpkm : est.fpkms()) {
+        fpkms += fpkm;
+        fpkms += ",";
+      }
+      fpkms.pop_back();
+      info.push_back(fpkms);
 
       string cond_prop;
       for (const double prob:it->second) {
@@ -1716,16 +1725,15 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
    reset_refmRNAs();
    const RefSeqTable & ref_t = _hit_factory->_ref_table;
    int current_ref_id = INT_MAX;
-
    if (fragfile != NULL) {
-      //if (est.num_transcripts() > 1 && est.num_exon_bins() > 1) {
       std::vector<string> header = {"sample", "sample_frag_count", "gene_id", "gene_frag_count",
-      "transcripts", "conditonal_probabilites", "class_probabilites", "path_symbol", "path_count",
-      "path_gc_content", "path_hexmer_entropy", "gc_strecth_0.8_20", "gc_strecth_0.9_20", "gc_strecth_0.8_40",
-      "gc_strecth_0.9_40"};
-      if (fragfile != NULL) pretty_print(fragfile, header, "\t");
-      //}
+      "transcripts", "FPKMs", "conditional_probabilities", "class_probabilities", "path_symbol", "path_count",
+      "path_gc_content", "path_hexmer_entropy", "gc_stretch_0.8_20", "gc_stretch_0.9_20", "gc_stretch_0.8_40",
+      "gc_stretch_0.9_40"};
+      pretty_print(fragfile, header, "\t");
    }
+
+
    while(true){
      //++_num_cluster;
      shared_ptr<HitCluster> cluster (new HitCluster());
@@ -1779,7 +1787,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
      }
 #else
      finalizeCluster(last_cluster, true);
-     this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
+     auto iso = this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
 #endif
    } //end while(true)
 
@@ -1798,6 +1806,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
       total_fpkm += iso._FPKM;
    }
    for (auto & iso: isoforms) {
+
       iso._TPM = 1e6 * iso._FPKM / total_fpkm;
       iso._TPM_s = to_string(iso._TPM);
    }
