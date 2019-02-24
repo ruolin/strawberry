@@ -2,6 +2,10 @@ Strawberry source code current version: 1.0.2.
 ==================
 
 News
+#### Strawberry 1.0.3 released. 2/24/2018
+1. Fix a bug when outputing fragment context using -f. 
+2. Allow the fragment context output to contain FPKM column which is passed to Strawberry2.
+
 #### Strawberry 1.0.2 released. 11/07/2018
 1. Fix a bug when loading the last transcript is out of bound. This is an edge case when used the `-g` option. 
 Credit goes to [47Lies](https://github.com/47Lies) for reporting the bug and providing
