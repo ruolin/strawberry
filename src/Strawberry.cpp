@@ -130,6 +130,7 @@ int parse_options(int argc, char** argv)
                case 'f':
                         print_frag_context = true;
                         frag_context_out = optarg;
+                        break;
                case 'v':
                         verbose = true;
                         break;
@@ -152,6 +153,7 @@ int parse_options(int argc, char** argv)
                case 'r':
                         no_assembly = true;
                         enforce_ref_models = true;
+                        kMinIsoformFrac = 0.0;
                         break;
 
                case OPT_FR_STRAND:
@@ -194,7 +196,8 @@ int parse_options(int argc, char** argv)
                         kCombineShrotTransfrag = true;
                         break;
                case 'm':
-                        kMinIsoformFrac = parseFloat(optarg, 0.001, 999999.0, "--min-isoform-frac must be at least 0.001", print_help);
+                        kMinIsoformFrac = parseFloat(optarg, 0.0, 1.0, "--min-isoform-frac must be at between 0.0 and 1.0", print_help);
+                        if (no_assembly) kMinIsoformFrac = 0.0;
                         break;
                case 'b':
                         ref_fasta_file = optarg;
