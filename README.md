@@ -1,8 +1,12 @@
-Strawberry source code current version: 1.0.2. 
+Strawberry current release version: 1.0.5. 
 ==================
 
 News
-#### Strawberry 1.0.3 released. 2/24/2018
+#### Strawberry 1.0.5 released. 4/3/2019
+1. Update -g option. When using reference annotations, the closest gene id/symbol will be added to the output gtf file. If no reference gene is found, a new gene id will be assigned. Credit goes to Chris for suggesting this new feature https://github.com/ruolin/strawberry/issues/30. 
+2. Bug fix for loading transcripts.
+
+#### Strawberry 1.0.3 released. 2/24/2019
 1. Fix a bug when outputing fragment context using -f. 
 2. Allow the fragment context output to contain FPKM column which is passed to Strawberry2.
 
