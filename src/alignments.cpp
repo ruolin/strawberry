@@ -1033,7 +1033,7 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
       size_t mark_next_gene = _refmRNA_offset;
       //continue search a few forward
       int over = 0;
-      while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 10) {
+      while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 100) {
          if (_ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
             cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset]);
          }
@@ -1425,6 +1425,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       uint cluster_left = std::numeric_limits<uint>::max();
       vector<Contig> hits;
       uint cluster_right = 0;
+      assert(!cluster->_ref_mRNAs.empty());
       for (const auto& i: cluster->_ref_mRNAs) {
          cluster_left = min(cluster_left, i.left());
          cluster_right = max(cluster_right, i.right());
@@ -1446,7 +1447,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       int tid=0;
       for (Contig& asmb: assembled_transcripts) {
          ++tid;
-         asmb.parent_id() = "gene."+to_string(cluster->_id);
+         asmb.parent_id() = cluster->_ref_mRNAs[0].parent_id();
          asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
       }
       this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
@@ -1733,7 +1734,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
       pretty_print(fragfile, header, "\t");
    }
 
-
    while(true){
      //++_num_cluster;
      shared_ptr<HitCluster> cluster (new HitCluster());
@@ -1786,8 +1786,8 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
        isoforms.insert(isoforms.end(), iso.begin(), iso.end());
      }
 #else
-     finalizeCluster(last_cluster, true);
-     auto iso = this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
+     finalizeCluster(cluster, true);
+     auto iso = this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), plogfile, fragfile);
 #endif
    } //end while(true)
 
