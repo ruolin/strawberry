@@ -1033,7 +1033,7 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
       size_t mark_next_gene = _refmRNA_offset;
       //continue search a few forward
       int over = 0;
-      while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 10) {
+      while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 100) {
          if (_ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
             cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset]);
          }
@@ -1078,8 +1078,9 @@ void Sample::reset_refmRNAs()
       _ref_mRNAs.clear();
      move(_assembly.begin(), _assembly.end(), back_inserter(_ref_mRNAs));
      _assembly.clear();
-     sort(_ref_mRNAs.begin(), _ref_mRNAs.end());
    }
+   sort(_ref_mRNAs.begin(), _ref_mRNAs.end()); 
+   //sort(_ref_mRNAs.begin(), _ref_mRNAs.end(), [](const Contig& left, const Contig& right) -> bool {return left.parent_id() < right.parent_id();});
 }
 
 int Sample::nextCluster_denovo(HitCluster &clusterOut,
@@ -1733,7 +1734,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
       pretty_print(fragfile, header, "\t");
    }
 
-
    while(true){
      //++_num_cluster;
      shared_ptr<HitCluster> cluster (new HitCluster());
@@ -1786,8 +1786,8 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
        isoforms.insert(isoforms.end(), iso.begin(), iso.end());
      }
 #else
-     finalizeCluster(last_cluster, true);
-     auto iso = this->quantifyCluster(ref_t, last_cluster, transcripts, pfile, plogfile);
+     finalizeCluster(cluster, true);
+     auto iso = this->quantifyCluster(ref_t, cluster, cluster->ref_mRNAs(), plogfile, fragfile);
 #endif
    } //end while(true)
 
