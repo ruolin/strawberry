@@ -1426,6 +1426,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       uint cluster_left = std::numeric_limits<uint>::max();
       vector<Contig> hits;
       uint cluster_right = 0;
+      assert(!cluster->_ref_mRNAs.empty());
       for (const auto& i: cluster->_ref_mRNAs) {
          cluster_left = min(cluster_left, i.left());
          cluster_right = max(cluster_right, i.right());
@@ -1447,7 +1448,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       int tid=0;
       for (Contig& asmb: assembled_transcripts) {
          ++tid;
-         asmb.parent_id() = "gene."+to_string(cluster->_id);
+         asmb.parent_id() = cluster->_ref_mRNAs[0].parent_id();
          asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
       }
       this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
