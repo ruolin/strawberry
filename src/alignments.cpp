@@ -1078,9 +1078,8 @@ void Sample::reset_refmRNAs()
       _ref_mRNAs.clear();
      move(_assembly.begin(), _assembly.end(), back_inserter(_ref_mRNAs));
      _assembly.clear();
+     sort(_ref_mRNAs.begin(), _ref_mRNAs.end());
    }
-   sort(_ref_mRNAs.begin(), _ref_mRNAs.end()); 
-   //sort(_ref_mRNAs.begin(), _ref_mRNAs.end(), [](const Contig& left, const Contig& right) -> bool {return left.parent_id() < right.parent_id();});
 }
 
 int Sample::nextCluster_denovo(HitCluster &clusterOut,
