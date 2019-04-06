@@ -17,7 +17,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
-#include "logger.hpp"
+#include <iostream>
 typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;

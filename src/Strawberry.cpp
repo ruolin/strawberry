@@ -7,7 +7,6 @@
 #include "fasta.h"
 #include "gff.h"
 #include "alignments.h"
-#include "logger.hpp"
 #include "StrawberryConfig.hpp"
 #include "interval.hpp"
 #include "isoform.h"
@@ -360,7 +359,6 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
 }
 
 
-INITIALIZE_EASYLOGGINGPP
 int main(int argc, char** argv){
    string cmdline;
    for(int i=0; i<argc; i++){
@@ -380,8 +378,6 @@ int main(int argc, char** argv){
          exit(1);
       }
    }
-   string exec_log_file = output_dir + "/" + "execution.log";
-   CreateLogger(exec_log_file);
    string assembled_file = output_dir + "/";// assembled_transcripts.gtf 25 characters
    assembled_file += string("assembled_transcripts.gtf");
    string tracker = output_dir + "/" + tracking_log;
