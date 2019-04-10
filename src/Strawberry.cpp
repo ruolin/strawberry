@@ -7,7 +7,6 @@
 #include "fasta.h"
 #include "gff.h"
 #include "alignments.h"
-#include "logger.hpp"
 #include "StrawberryConfig.hpp"
 #include "interval.hpp"
 #include "isoform.h"
@@ -30,7 +29,8 @@ using namespace std;
 
 
 static struct option long_options[] = {
-      {"output-dir",                      required_argument,      0,       'o'},
+      {"output-gtf",                      required_argument,      0,       'o'},
+      {"logfile",                        required_argument,      0,       'T'},
       {"verbose",                         no_argument,            0,       'v'},
       {"max-insert-size",                 required_argument,      0,       'I'},
       {"max-junction-splice-size",        required_argument,      0,       'J'},
@@ -65,7 +65,7 @@ static struct option long_options[] = {
       {0, 0, 0, 0} // terminator
 };
 
-const char *short_options = "m:q:p:o:i:j:J:n:g:t:d:s:a:b:f:e:crvGc";
+const char *short_options = "m:q:p:o:i:j:J:n:g:t:d:s:a:b:f:e:T:crvGc";
 
 void print_help()
 {
@@ -73,7 +73,8 @@ void print_help()
    fprintf(stderr, "--------------------------------------\n");
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
-   fprintf(stderr, "   -o/--output-dir                       Output files directory.                                                                              [default:     ./strawberry_out ]\n");
+   fprintf(stderr, "   -o/--output-gtf                       Output gtf file.                                                                                     [default:     ./strawberry_assembled.gtf ]\n");
+   fprintf(stderr, "   -T/--logfile                          Log file.                                                                                            [default:     ./strawberry.log ]\n");
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current support gff3 and gtf format.                          [default:     NULL]\n");
    fprintf(stderr, "   -r/--no-assembly                      Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   --no-quant                            Skip quantification                                                                                  [default:     false]\n");
@@ -118,7 +119,10 @@ int parse_options(int argc, char** argv)
                case  -1:
                         break;
                case 'o':
-                        output_dir = optarg;
+                        assembled_file = optarg;
+                        break;
+               case 'T':
+                        tracker = optarg;
                         break;
                case OPT_ALLOW_MULTIPLE_HITS:
                         use_only_unique_hits = false;
@@ -360,7 +364,6 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
 }
 
 
-INITIALIZE_EASYLOGGINGPP
 int main(int argc, char** argv){
    string cmdline;
    for(int i=0; i<argc; i++){
@@ -373,31 +376,20 @@ int main(int argc, char** argv){
       print_help();
       return 1;
    }
-   int ret = mkpath(output_dir.c_str(), 0777);
-   if(ret == -1){
-      if(errno != EEXIST){
-         fprintf(stderr, "ERROR: cannot create directory %s\n", output_dir.c_str());
-         exit(1);
-      }
-   }
-   string exec_log_file = output_dir + "/" + "execution.log";
-   CreateLogger(exec_log_file);
-   string assembled_file = output_dir + "/";// assembled_transcripts.gtf 25 characters
-   assembled_file += string("assembled_transcripts.gtf");
-   string tracker = output_dir + "/" + tracking_log;
-   string fragfile = output_dir + "/" + frag_context_out;
 
-   if(verbose){
-      fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
-      fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
+   if (fileExists(assembled_file.c_str())) {
+     std::cerr << assembled_file << " exists! Exit.\n";
+     return 1; 
    }
    FILE *pFile = fopen(assembled_file.c_str(), "w");
+   fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
+   FILE *plogfile = fopen(tracker.c_str(), "w");
+   fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
    fprintf(pFile, "#%s\n", cmdline.c_str());
    fprintf(pFile, "#########################################\n");
-   FILE *plogfile = fopen(tracker.c_str(), "w");
 
    FILE* pfragfile = NULL;
-   if (print_frag_context) pfragfile = fopen(fragfile.c_str(), "w");
+   if (print_frag_context) pfragfile = fopen(frag_context_out.c_str(), "w");
 
    char* bam_file = argv[optind++];
    driver(bam_file, pFile, plogfile, pfragfile);

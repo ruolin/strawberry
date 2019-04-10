@@ -645,22 +645,17 @@ int HitCluster::collapseAndFilterHits()
 
    auto mean = this->read_ref_span_mean_sd().first;
    auto sd = this->read_ref_span_mean_sd().second * 5;
-   LOG(WARNING)<< "\n mean and sd read reference span: " << mean<<", " <<sd;
 
    for(size_t i = 0; i < _hits.size(); ++i){
       if (_hits[i]._left_read) {
          double x = (_hits[i]._left_read->interval().len() - mean)/ sd;
          if (phi(x) > 0.999) {
-            LOG(WARNING) << "filter outlier read : " << _hits[i]._left_read->interval()<<"\t by ref span len "
-                      <<_hits[i]._left_read->interval().len();
             continue;
          }
       }
       if (_hits[i]._right_read) {
          double y = (_hits[i]._right_read->interval().len() - mean)/ sd;
          if (phi(y) > 0.999) {
-            LOG(WARNING) << "filter outlier read : " << _hits[i]._right_read->interval()<<"\t by ref span len "
-                      <<_hits[i]._right_read->interval().len();
             continue;
          }
       }
@@ -1348,7 +1343,7 @@ void Sample::fragLenDist(const RefSeqTable &ref_t,
                FILE *plogfile) {
 
    if (transcripts.empty()) {
-      LOG(WARNING) << "no reference transcripts are found";
+      //std::cerr<<"no reference transcripts are found\n";
       return;
    }
    _total_mapped_reads += (int) cluster->weighted_mass();
@@ -1719,7 +1714,6 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
 {
 /*
  */
-   NO_LOGGING = true;
    _hit_factory->reset();
    vector<Isoform> isoforms;
    isoforms.reserve(1024);

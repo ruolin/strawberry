@@ -17,7 +17,7 @@
 #include <iomanip>
 #include <algorithm>
 #include <numeric>
-#include "logger.hpp"
+#include <iostream>
 typedef void* pointer;
 typedef uint64_t ReadID;
 typedef int RefID;
@@ -67,10 +67,10 @@ extern bool verbose;
 extern double kSimDepthCorrect;
 extern bool kCombineShrotTransfrag;
 extern double bothStrandCutoff;
-extern std::string output_dir;
+extern std::string assembled_file;
+extern std::string tracker;
 extern std::string ref_gtf_filename;
 extern std::string ref_fasta_file;
-extern std::string tracking_log;
 extern std::string frag_context_out;
 extern bool print_frag_context;
 extern bool effective_len_norm;

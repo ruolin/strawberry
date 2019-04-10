@@ -9,7 +9,6 @@ set_property(TARGET bam PROPERTY IMPORTED_LOCATION ${BAM_LIBRARY})
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/external/eigen3
-  ${PROJECT_SOURCE_DIR}/external/easyloggingpp/src
 )
 
 set( STRAWBERRY_MAIN_SRCS
@@ -22,7 +21,6 @@ estimate.cpp
 alignments.cpp
 assembly.cpp
 Strawberry.cpp
-${PROJECT_SOURCE_DIR}/external/easyloggingpp/src/easylogging++.cc
 bias.cpp 
 ../include/isoform.h 
 ../include/utils.h 
