@@ -1444,10 +1444,10 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       int tid=0;
       for (Contig& asmb: assembled_transcripts) {
          ++tid;
-         asmb.parent_id() = "gene."+to_string(cluster->_id);
+         asmb.parent_id() = sample_name() + "." +to_string(cluster->_id);
          asmb.ref_gene_id() = cluster->_ref_mRNAs[0].ref_gene_id();
          asmb.ref_gene_name() = cluster->_ref_mRNAs[0].ref_gene_name();
-         asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
+         asmb.annotated_trans_id( asmb.parent_id() + "." + to_string(tid));
       }
       this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
       return assembled_transcripts;
@@ -1475,8 +1475,8 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       int tid=0;
       for (Contig& asmb: assembled_transcripts) {
          ++tid;
-         asmb.parent_id() = "gene."+to_string(cluster->_id);
-         asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
+         asmb.parent_id() = sample_name() + "." +to_string(cluster->_id);
+         asmb.annotated_trans_id( asmb.parent_id() + "." + to_string(tid));
       }
       result.insert(result.end(), assembled_transcripts.begin(), assembled_transcripts.end());
    }

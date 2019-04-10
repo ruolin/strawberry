@@ -143,8 +143,12 @@ public:
       return (exon_bins);
    }
 
+   std::string sample_path() const {
+      return _sample.sample_path();
+   }
+
    std::string sample_name() const {
-      return _sample.sample_name();
+     return _sample.sample_name();
    }
 
    

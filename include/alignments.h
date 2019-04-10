@@ -211,8 +211,14 @@ public:
     //int max_inner_dist() const;
     int total_mapped_reads() const;
 
+    std::string sample_path() const {
+        return _hit_factory->sample_path();
+    }
+
     std::string sample_name() const {
-        return _hit_factory->sample_name();
+        std::vector<std::string> fields;
+        split(fileName(sample_path()), ".", fields);
+        return fields.front();
     }
 
     bool load_chrom_fasta(RefID seq_id);

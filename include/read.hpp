@@ -245,7 +245,7 @@ public:
    virtual bool parse_header_line(const std::string& hline);
    virtual bool inspect_header() = 0;
    virtual void reset() = 0;
-   virtual std::string sample_name() const {
+   virtual std::string sample_path() const {
       return _hit_file_name;
    }
    virtual void return2Pos(int64_t pos) = 0;
