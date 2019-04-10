@@ -248,6 +248,11 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
          fprintf(stderr, "Error: cannot open refernce gtf file %s for reading\n", ref_gtf_filename.c_str());
          exit(1);
       }
+      string fext = ref_gtf_filename.substr(ref_gtf_filename.find_last_of(".") + 1);
+      if (fext != "gtf" && fext != "gff3") {
+         fprintf(stderr, "Error: reference annotation file must be .gtf or .gff3. Please make sure you unzip.\n");
+         exit(1);
+      }
       greader = new GffReader(ref_gtf_filename.c_str(), gff);
       greader->readAll(); fclose(gff);
       // count 2-isoform genes
@@ -307,8 +312,8 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
 
    if (no_quant) {
       for (const auto &iso: read_sample._assembly) {
-         iso.print2gtf(pFile, read_sample._hit_factory->_ref_table, "NA",
-                               "NA", "NA", iso.parent_id(), iso.annotated_trans_id());
+         iso.print2gtf(pFile, read_sample._hit_factory->_ref_table, "",
+                               "", "", iso.parent_id(), iso.annotated_trans_id(), iso.ref_gene_id(), iso.ref_gene_name());
       }
       return 0;
    }

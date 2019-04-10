@@ -94,7 +94,7 @@ public:
       _exon_segs = reduced_exons;
 
       for(const auto &t: transcripts){
-        Isoform iso(_exon_segs, t, t.parent_id(), t.annotated_trans_id(), cluster->id());
+        Isoform iso(_exon_segs, t, t.parent_id(), t.annotated_trans_id(), t.ref_gene_id(), t.ref_gene_name());
         iso._length = t.exonic_length();
         int idx = PushAndReturnIdx<Isoform>(iso, _transcripts);
       }
@@ -143,8 +143,12 @@ public:
       return (exon_bins);
    }
 
+   std::string sample_path() const {
+      return _sample.sample_path();
+   }
+
    std::string sample_name() const {
-      return _sample.sample_name();
+     return _sample.sample_name();
    }
 
    
