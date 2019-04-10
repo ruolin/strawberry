@@ -149,8 +149,11 @@ class Contig{
    Strand_t _strand;
    std::string _annotated_trans_id;
    std::string _parent_id;
+   std::string _ref_gene_id;
+   std::string _ref_gene_name;
    double _mass = 0.0;
    SingleOrit_t _single_read_orit = SingleOrit_t::NotSingle;
+
 public:
    bool _is_ref;
    std::vector<GenomicFeature> _genomic_feats;
@@ -181,6 +184,12 @@ public:
 
    decltype(auto) parent_id() {return (_parent_id);}
    decltype(auto) parent_id() const {return (_parent_id);}
+
+   decltype(auto) ref_gene_id() {return (_ref_gene_id);}
+   decltype(auto) ref_gene_id() const {return (_ref_gene_id);}
+
+   decltype(auto) ref_gene_name() {return (_ref_gene_name);}
+   decltype(auto) ref_gene_name() const {return (_ref_gene_name);}
    uint left() const;
    uint right() const;
    uint gap_left() const; // left coordinate of gap if exists; otherwise return 0
@@ -218,7 +227,8 @@ public:
                   const std::string& fpkm,
                   const std::string& frac,
                   const std::string& tpm,
-                  std::string gene_id, std::string tscp_id) const;
+                  std::string gene_id, std::string tscp_id,
+                  std::string ref_gene_id, std::string ref_gene_name) const;
 
    SingleOrit_t single_read_orit() const;
    double avg_doc() const;

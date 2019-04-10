@@ -638,7 +638,8 @@ void Contig::print2gtf(FILE *pFile,
                        const string& fpkm,
                        const string& frac,
                        const string& tpm,
-                       string gene_id, string tscp_id) const {
+                       string gene_id, string tscp_id,
+                       string ref_gene_id, string ref_gene_name) const {
 
    const string& ref_str = ref_lookup.ref_real_name(_ref_id);
 
@@ -654,31 +655,50 @@ void Contig::print2gtf(FILE *pFile,
       strand = '.';
       break;
    }
-   char gff_attr[200];
-   char fpkm_c[12];
-   char frac_c[12];
-   char tpm_c[12];
-   strncpy(fpkm_c, fpkm.c_str(), sizeof(fpkm_c));
-   fpkm_c[sizeof(fpkm_c) - 1] = 0;
-   strncpy(frac_c, frac.c_str(), sizeof(frac_c));
-   frac_c[sizeof(frac_c) - 1] = 0;
-   strncpy(tpm_c, tpm.c_str(), sizeof(tpm_c));
-   tpm_c[sizeof(tpm_c) - 1] = 0;
+
+   char gff_attr[300];
 
    strcpy(gff_attr, "gene_id \"");
    strcat(gff_attr, gene_id.c_str());
-   strcat(gff_attr, "\"; transcript_id \"");
+   strcat(gff_attr, "\";");
+   strcat(gff_attr, "transcript_id \"");
    strcat(gff_attr, tscp_id.c_str());
    strcat(gff_attr, "\";");
-   strcat(gff_attr, "FPKM \"");
-   strcat(gff_attr, fpkm_c);
-   strcat(gff_attr, "\";");
-   strcat(gff_attr, "Frac \"");
-   strcat(gff_attr, frac_c);
-   strcat(gff_attr, "\";");
-   strcat(gff_attr, "TPM \"");
-   strcat(gff_attr, tpm_c);
-   strcat(gff_attr, "\";");
+   if (!ref_gene_id.empty()) {
+      strcat(gff_attr, "ref_gene_id \""); 
+      strcat(gff_attr, ref_gene_id.c_str());
+      strcat(gff_attr, "\";"); 
+   }
+   if (!ref_gene_name.empty()) {
+      strcat(gff_attr, "ref_gene_name \""); 
+      strcat(gff_attr, ref_gene_name.c_str());
+      strcat(gff_attr, "\";"); 
+   }
+   if (!fpkm.empty()) {
+      char fpkm_c[12];
+      strncpy(fpkm_c, fpkm.c_str(), sizeof(fpkm_c));
+      fpkm_c[sizeof(fpkm_c) - 1] = 0;
+      strcat(gff_attr, "FPKM \"");
+      strcat(gff_attr, fpkm_c);
+      strcat(gff_attr, "\";");
+   }
+   if (!frac.empty()) {
+      char frac_c[12];
+      strncpy(frac_c, frac.c_str(), sizeof(frac_c));
+      frac_c[sizeof(frac_c) - 1] = 0;
+      strcat(gff_attr, "Frac \"");
+      strcat(gff_attr, frac_c);
+      strcat(gff_attr, "\";");
+
+   }
+   if (!tpm.empty()) {
+      char tpm_c[12];
+      strncpy(tpm_c, tpm.c_str(), sizeof(tpm_c));
+      tpm_c[sizeof(tpm_c) - 1] = 0;
+      strcat(gff_attr, "TPM \"");
+      strcat(gff_attr, tpm_c);
+      strcat(gff_attr, "\";");
+   }
 
    fprintf(pFile, "%s\t%s\t%s\t%d\t%d\t%d\t%c\t%c\t%s\n", \
          ref_str.c_str(), "Strawberry", "transcript", left(), right(), 1000, strand, '.', gff_attr);

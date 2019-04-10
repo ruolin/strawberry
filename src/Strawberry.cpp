@@ -302,8 +302,8 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
 
    if (no_quant) {
       for (const auto &iso: read_sample._assembly) {
-         iso.print2gtf(pFile, read_sample._hit_factory->_ref_table, "NA",
-                               "NA", "NA", iso.parent_id(), iso.annotated_trans_id());
+         iso.print2gtf(pFile, read_sample._hit_factory->_ref_table, "",
+                               "", "", iso.parent_id(), iso.annotated_trans_id(), iso.ref_gene_id(), iso.ref_gene_name());
       }
       return 0;
    }

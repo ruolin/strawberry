@@ -317,7 +317,7 @@ bool LocusContext::estimate_abundances()
          if(effective_len_norm){
             kb = _transcripts[i]._length - _sample._insert_size_dist->_mean;
             if (kb < 0){
-               _transcripts[i]._FPKM_s = "nan";
+               _transcripts[i]._FPKM_s = "NA";
                continue;
             }
             kb =1e3/kb;
@@ -335,8 +335,8 @@ bool LocusContext::estimate_abundances()
          _transcripts[i]._FPKM_s = to_string(fpkm);
       }
       for(uint i=0; i< niso; ++i){
-         if(_transcripts[i]._FPKM_s == "nan"){
-            _transcripts[i]._frac_s = "nan";
+         if(_transcripts[i]._FPKM_s == "NA"){
+            _transcripts[i]._frac_s = "NA";
             continue;
          }
          double frac = _transcripts[i]._FPKM/sum_fpkm ;

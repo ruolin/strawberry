@@ -911,6 +911,8 @@ bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
        Contig ref_contig(ref_id, 0, strand,1.0, feats, true);
        ref_contig.annotated_trans_id(mrna->_transcript_id);
        ref_contig.parent_id() = mrna->getParentGene()->_gene_id;
+       ref_contig.ref_gene_id() = mrna->getParentGene()->_gene_id;
+       ref_contig.ref_gene_name() = mrna->getParentGene()->_gene_name;
        ref_contig.mass(1.0);
        //cout<<"ref contig left pos "<<ref_contig.left()<<endl;
        ref_mrna_for_chr.push_back(ref_contig);
@@ -1442,7 +1444,9 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       int tid=0;
       for (Contig& asmb: assembled_transcripts) {
          ++tid;
-         asmb.parent_id() = cluster->_ref_mRNAs[0].parent_id();
+         asmb.parent_id() = "gene."+to_string(cluster->_id);
+         asmb.ref_gene_id() = cluster->_ref_mRNAs[0].ref_gene_id();
+         asmb.ref_gene_name() = cluster->_ref_mRNAs[0].ref_gene_name();
          asmb.annotated_trans_id("transcript." + to_string(cluster->_id) + "." + to_string(tid));
       }
       this->fragLenDist(ref_t, assembled_transcripts, cluster, plogfile);
@@ -1807,7 +1811,7 @@ void Sample::procSample(FILE *pfile, FILE *plogfile, FILE *fragfile)
 
   for (const auto &iso: isoforms) {
      iso._contig.print2gtf(pfile, _hit_factory->_ref_table, iso._FPKM_s,
-                              iso._frac_s, iso._TPM_s, iso._gene_str, iso._isoform_str);
+                              iso._frac_s, iso._TPM_s, iso._gene_str, iso._isoform_str, iso._ref_gene_id, iso._ref_gene_name);
   }
 }
 
