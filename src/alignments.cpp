@@ -1438,7 +1438,6 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
    if (cluster->num_uniq_hits() < kMinReadForAssemb) {
       return result;
    }
-   cluster->refine_cluster();
    if (cluster->hasRefmRNAs() && utilize_ref_models ) { // has reference
       uint cluster_left = std::numeric_limits<uint>::max();
       vector<Contig> hits;
@@ -1459,7 +1458,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
          }
       }
       //sort(hits.begin(), hits.end());
-      assembled_transcripts = this->assembleContig(cluster_left, cluster_right, cluster->strand(), hits);
+      assembled_transcripts = this->assembleContig(cluster_left, cluster_right, cluster->ref_strand(), hits);
 
       cluster->_id = ++_num_cluster;
       int tid=0;
@@ -1474,6 +1473,7 @@ vector<Contig> Sample::assembleCluster(const RefSeqTable &ref_t, shared_ptr<HitC
       return assembled_transcripts;
    }
 
+   cluster->refine_cluster();
    //std::cerr << "uniq hit size: " << cluster->_uniq_hits.size() << std::endl;
    for (auto const & seg: cluster->_segs) {
       //std::cerr << "left read idx : "<<seg.left_read_idx << " right read idx: " << seg.right_read_idx<< std::endl;
@@ -1523,9 +1523,7 @@ vector<Isoform> Sample::quantifyCluster(const RefSeqTable &ref_t, const shared_p
 
    if(success){
       //cout<<"assembled transcripts size: "<<est.transcripts().size()<<endl;
-      for (const auto &iso: est.transcripts()) {
-         isoforms.push_back(iso);
-      }
+      isoforms = std::move(est.transcripts());
 #if ENABLE_THREADS
      if(use_threads) {
         out_file_lock.lock();

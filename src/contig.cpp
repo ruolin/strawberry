@@ -656,7 +656,7 @@ void Contig::print2gtf(FILE *pFile,
       break;
    }
 
-   char gff_attr[300];
+   char gff_attr[1000];
 
    strcpy(gff_attr, "gene_id \"");
    strcat(gff_attr, gene_id.c_str());
@@ -707,7 +707,7 @@ void Contig::print2gtf(FILE *pFile,
    for (auto gfeat : _genomic_feats) {
       if (gfeat._match_op._code == Match_t::S_MATCH) {
          ++exon_num;
-         char exon_gff_attr[200];
+         char exon_gff_attr[1100];
          char exon_id[5];
          Sitoa(exon_num, exon_id, 10);
          strcpy(exon_gff_attr, gff_attr);

@@ -157,7 +157,7 @@ class Contig{
 public:
    bool _is_ref;
    std::vector<GenomicFeature> _genomic_feats;
-   Contig() = default;
+   Contig() = delete;
 
    Contig(const PairedHit& ph);
 
@@ -175,6 +175,7 @@ public:
            _genomic_feats(feats),
            _is_ref(is_ref)
    {
+      assert(strand == Strand_t::StrandUnknown || strand == Strand_t::StrandPlus || strand == Strand_t::StrandMinus || strand == Strand_t::StrandBoth);
       assert(_genomic_feats.front()._match_op._code == Match_t::S_MATCH);
       assert(_genomic_feats.back()._match_op._code == Match_t::S_MATCH);
    }

@@ -639,13 +639,6 @@ bool FlowNetwork::createNetwork(
       }
 
       if(ArcLookUp<ListDigraph>(_g)(s,t) == INVALID && is_valid){ // no existing edge and valid constraint
-         //std::cerr << "in constaints: ";
-         for(size_t i = 0; i< c.size(); ++i) {
-            const Graph::Node &pre = feat2node[&exons[c[i]]];
-            const Graph::Node &sec = feat2node[&exons[c[i + 1]]];
-            //std::cerr << _g.id(pre) << "-" << _g.id(sec) << "\t";
-         }
-         //std::cerr<<"\n";
 
 
          for(size_t i = 0; i< c.size()-1; ++i){

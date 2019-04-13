@@ -47,7 +47,6 @@ private:
     RefID _ref_id = -1;
     bool _final; // HitCluster is finished
     double _raw_mass = 0.0;
-    Strand_t _strand;
     std::unordered_map<ReadID, std::list<PairedHit>> _open_mates;
     std::vector<PairedHit> _hits;
     std::vector<PairedHit> _uniq_hits;
@@ -106,10 +105,6 @@ public:
     Strand_t ref_strand() const;
 
     Strand_t guessStrand() const;
-
-    Strand_t strand() const {
-        return _strand;
-    }
 
     bool addHit(const PairedHit &hit);
 
