@@ -221,8 +221,10 @@ GffLine::GffLine(const char* l)
       extractAttr("gene_name", _gene_name);
       extractAttr("transcript_id", _transcript_id);
       // crazy hack
-      if (_feat_type == GENE) _ID = _gene_id;
-      else if (_feat_type == mRNA) _ID = _transcript_id;
+      if (_feat_type == GENE) {
+         _ID = _gene_id;
+         _name = _gene_name;
+      }
       else {
          _ID = _transcript_id;
       }
