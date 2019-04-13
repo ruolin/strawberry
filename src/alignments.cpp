@@ -169,7 +169,7 @@ void HitCluster::refine_cluster(){
    std::vector<size_t> intron_read_idx;
    plus_minus.reserve(1024);
    intron_read_idx.reserve(2048);
-   for (size_t i = 1; i != _uniq_hits.size(); ++i) {
+   for (size_t i = 0; i != _uniq_hits.size(); ++i) {
       auto it = _uniq_hits.begin() + i;
       if (bound.first <= it->left_pos() && bound.second >= it->left_pos()) {
          if (it->contains_splice() ) {
@@ -187,12 +187,10 @@ void HitCluster::refine_cluster(){
          bound.first = std::min(bound.first, it->left_pos());
          bound.second = std::max(bound.second, it->right_pos());
       } else {
-         //float max_strand_count = max(plus_strand_count, minus_strand_count);
-         //float min_strand_count = min(plus_strand_count, minus_strand_count);
-         //if (min_strand_count / max_strand_count > kMinIsoformFrac) {
+         int first_class = -1;
          int sep = one_d_binary_clustering(plus_minus);
-         int  first_class = plus_minus[sep];
          if (sep != -1 && sep + 1 != plus_minus.size() ) {
+            first_class = plus_minus[sep];
             size_t separator_read_idx_left = intron_read_idx[sep];
             size_t separator_read_idx_right = intron_read_idx[sep + 1];
 //            std::cerr<<plus_minus<<std::endl;
@@ -223,7 +221,13 @@ void HitCluster::refine_cluster(){
                _segs.emplace_back(second_left, second_right, separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
             }
          } else {
-            if (first_class == 0) {
+            if (!plus_minus.empty()) {
+               first_class = plus_minus.back();
+            }
+
+            if (first_class == -1) {
+               _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandUnknown);
+            } else if (first_class == 0) {
                _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandPlus);
             } else {
                _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandMinus);
@@ -236,18 +240,31 @@ void HitCluster::refine_cluster(){
          //minus_strand_count = 0;
          plus_minus.clear();
          intron_read_idx.clear();
+
+         if (it->contains_splice() ) {
+            if (it->strand() == Strand_t::StrandPlus) {
+               //plus_strand_count++;
+               plus_minus.push_back(0);
+            }
+            else if (it->strand() == Strand_t::StrandMinus) {
+               //minus_strand_count++;
+               plus_minus.push_back(1);
+            }
+            intron_read_idx.push_back(i);
+         }
       }
    }
 
    //float max_strand_count = max(plus_strand_count, minus_strand_count);
    //float min_strand_count = min(plus_strand_count, minus_strand_count);
    auto sep = one_d_binary_clustering(plus_minus);
-   int  first_class = plus_minus[sep];
+   int  first_class = -1;
 //   std::cerr << plus_minus << std::endl;
 //   std::cerr<<"sep idx: " << sep << std::endl;
 //   std::cerr<<"first class: " <<first_class << std::endl;
    //if (min_strand_count / max_strand_count > kMinIsoformFrac) {
    if (sep != -1 && sep + 1 != plus_minus.size() ) {
+       first_class = plus_minus[sep];
       size_t separator_read_idx_left = intron_read_idx[sep];
       size_t separator_read_idx_right = intron_read_idx[sep + 1];
 //      std::cerr<<plus_minus<<std::endl;
@@ -276,8 +293,12 @@ void HitCluster::refine_cluster(){
          _segs.emplace_back(second_left, second_right, separator_read_idx_left + 1, end + 1, Strand_t::StrandPlus);
       }
    } else {
-      if (first_class == 0) {
-      //if (plus_strand_count > minus_strand_count) {
+      if (!plus_minus.empty()) {
+         first_class = plus_minus.back();
+      }
+      if (first_class == -1) {
+         _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandUnknown);
+      } else if (first_class == 0) {
          _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandPlus);
       } else {
          _segs.emplace_back(bound.first, bound.second, start, end + 1, Strand_t::StrandMinus);
