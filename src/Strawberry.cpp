@@ -269,6 +269,9 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
 //      exit(0);
       greader->sortExonOrderInMinusStrand();
       read_sample.loadRefmRNAs(greader->_g_seqs, ref_seq_table);
+      cerr<<"Has loaded transcripts from "<<greader->_g_seqs.size()<<" Chromosomes/Scaffolds"<<endl;
+      delete greader;
+      greader = NULL;
    }
 
 
@@ -360,8 +363,6 @@ int driver(const char* const bam_file, FILE* pFile, FILE* plogfile, FILE* pfragf
    pFile = NULL;
    plogfile = NULL;
    pfragfile = NULL;
-   delete greader;
-   greader = NULL;
    auto end = chrono::steady_clock::now();
    auto diff = end - start;
    cerr << "Finished in " << chrono::duration <double, milli> (diff).count() << " ms" << endl;

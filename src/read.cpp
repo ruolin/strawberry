@@ -780,6 +780,7 @@ Strand_t PairedHit::strand() const {
       return _right_read->strand();
    else
       assert(false);
+      return Strand_t::StrandUnknown;
 }
 
 void PairedHit::set_left_read(ReadHitPtr lr)

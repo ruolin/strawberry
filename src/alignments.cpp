@@ -836,7 +836,6 @@ string Sample::get_iso_seq(const shared_ptr<FaSeqGetter> &fa_getter, const Conti
 
 bool Sample::loadRefmRNAs(vector<unique_ptr<GffTree>> &gseqs, RefSeqTable &rt)
 {
-   cerr<<"Has loaded transcripts from "<<gseqs.size()<<" Chromosomes/Scaffolds"<<endl;
    /*
    * Parse transcripts in GffTree to a vector of Contig objects.
    */

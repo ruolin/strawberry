@@ -277,7 +277,7 @@ void FlowNetwork::filter_exon_segs(const std::vector<std::pair<uint,uint>>& pair
       else{
          no_intron_on_left = true;
       }
-      if(no_intron_on_left && no_intron_on_right){
+      if(no_intron_on_left && no_intron_on_right && e_boundaries.size() > 1){
          if(ex == 0){
             if( e_boundaries[ex].second +1 != e_boundaries[ex+1].first){
                dropoff.push_back(ex);
