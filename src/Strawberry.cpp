@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <chrono>
 #include <fstream>
+#include <libgen.h>
 
 #include "fasta.h"
 #include "gff.h"
@@ -387,7 +388,24 @@ int main(int argc, char** argv){
      std::cerr << assembled_file << " exists! Exit.\n";
      return 1; 
    }
+
+   char *filename_cp = strdup(assembled_file.c_str());
+   const char *dname = dirname(filename_cp);
+   int ret = mkpath(dname, 0777);
+   if(ret == -1){
+      if(errno != EEXIST){
+         perror("ERROR");
+         fprintf(stderr, "ERROR: cannot create directory %s\n", dname);
+         exit(1);
+      }
+      
+   }
    FILE *pFile = fopen(assembled_file.c_str(), "w");
+   if (pFile == NULL) {
+      perror("ERROR");
+      fprintf(stderr,"ERROR: cannot create file %s\n", assembled_file.c_str());
+      exit(1);
+   }
    fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
    FILE *plogfile = fopen(tracker.c_str(), "w");
    fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());

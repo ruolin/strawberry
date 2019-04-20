@@ -198,6 +198,24 @@ double getMedian(const std::vector<T> &vec){
    return median;
 }
 
+static void mkdir(const char *dir) {
+        char tmp[256];
+        char *p = NULL;
+        size_t len;
+
+        snprintf(tmp, sizeof(tmp),"%s",dir);
+        len = strlen(tmp);
+        if(tmp[len - 1] == '/')
+                tmp[len - 1] = 0;
+        for(p = tmp + 1; *p; p++)
+                if(*p == '/') {
+                        *p = 0;
+                        mkdir(tmp, S_IRWXU);
+                        *p = '/';
+                }
+        mkdir(tmp, S_IRWXU);
+}
+
 int stricmp(const char* a, const char* b, int n);
 
 inline bool overlaps_locally(uint lhs_left, uint lhs_right, uint rhs_left, uint rhs_right)
