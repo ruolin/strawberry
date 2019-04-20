@@ -4,9 +4,9 @@ Strawberry current release version: 1.1.0.
 News
 #### Strawberry 1.1.0 released. 4/19/2019
 1. Adding ref_gene_id and ref_gene_name fields to output gtf file, if reference guided assembly is used. These are taken from the matched reference loci. 
-2. When runing with `--no-quant` flag, TPM and FPKM parts from the output gtf file will be omitted.
+2. When running with `--no-quant` flag, TPM and FPKM parts from the output gtf file will be omitted.
 3. The `--output-dir` option is changed to `--output-gtf` option. 
-4. The logfile now by default is save to `/tmp/strawberry.log`
+4. The logfile now by default is saved to `/tmp/strawberry.log`
 5. Fix mem bugs. 
 Some details see: https://github.com/ruolin/strawberry/issues/33 and https://github.com/ruolin/strawberry/issues/36. 
 
