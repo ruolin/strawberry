@@ -75,7 +75,7 @@ void print_help()
    fprintf(stderr, "Usage: strawberry [options] <input.bam> \n");
    fprintf(stderr, "General Options:\n");
    fprintf(stderr, "   -o/--output-gtf                       Output gtf file.                                                                                     [default:     ./strawberry_assembled.gtf ]\n");
-   fprintf(stderr, "   -T/--logfile                          Log file.                                                                                            [default:     ./strawberry.log ]\n");
+   fprintf(stderr, "   -T/--logfile                          Log file.                                                                                            [default:     /tmp/strawberry.log ]\n");
    fprintf(stderr, "   -g/--GTF                              Reference transcripts annotation file. Current support gff3 and gtf format.                          [default:     NULL]\n");
    fprintf(stderr, "   -r/--no-assembly                      Skip assembly and use reference annotation to quantify transcript abundance (only use with -g)       [default:     false]\n");
    fprintf(stderr, "   --no-quant                            Skip quantification                                                                                  [default:     false]\n");
