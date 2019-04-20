@@ -1,4 +1,4 @@
-Strawberry current release version: 1.0.5. 
+Strawberry current release version: 1.1.0. 
 ==================
 
 News
