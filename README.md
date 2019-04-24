@@ -92,7 +92,7 @@ https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-
 Download
 ========
 
-`git clone https://github.com/ruolin/Strawberry.git`
+`git clone https://github.com/ruolin/strawberry.git`
 
 Note: Precompiled binary is available on the [release page] (https://github.com/ruolin/Strawberry/releases) for the latest version. 
 
