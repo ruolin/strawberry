@@ -92,15 +92,7 @@ https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-
 Download
 ========
 
-`git clone --recursive https://github.com/ruolin/Strawberry.git`
-
-If you miss --recusive when you clone, you can do 
-
-`git submodule init`
-
-and then 
-
-`git submodule update`
+`git clone https://github.com/ruolin/Strawberry.git`
 
 Note: Precompiled binary is available on the [release page] (https://github.com/ruolin/Strawberry/releases) for the latest version. 
 
