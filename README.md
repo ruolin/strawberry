@@ -1,7 +1,15 @@
-Strawberry current release version: 1.0.5. 
+Strawberry current release version: 1.1.0. 
 ==================
 
 News
+#### Strawberry 1.1.0 released. 4/19/2019
+1. Adding ref_gene_id and ref_gene_name fields to output gtf file, if reference guided assembly is used. These are taken from the matched reference loci. 
+2. When running with `--no-quant` flag, TPM and FPKM parts from the output gtf file will be omitted.
+3. The `--output-dir` option is changed to `--output-gtf` option. 
+4. The logfile now by default is saved to `/tmp/strawberry.log`
+5. Fix mem bugs. 
+Some details see: https://github.com/ruolin/strawberry/issues/33 and https://github.com/ruolin/strawberry/issues/36. 
+
 #### Strawberry 1.0.5 released. 4/3/2019
 1. Update -g option. When using reference annotations, the closest gene id/symbol will be added to the output gtf file. If no reference gene is found, a new gene id will be assigned. Credit goes to Chris for suggesting this new feature https://github.com/ruolin/strawberry/issues/30. 
 2. Bug fix for loading transcripts.
@@ -84,15 +92,7 @@ https://askubuntu.com/questions/618474/how-to-install-the-latest-gcurrently-5-1-
 Download
 ========
 
-`git clone --recursive https://github.com/ruolin/Strawberry.git`
-
-If you miss --recusive when you clone, you can do 
-
-`git submodule init`
-
-and then 
-
-`git submodule update`
+`git clone https://github.com/ruolin/strawberry.git`
 
 Note: Precompiled binary is available on the [release page] (https://github.com/ruolin/Strawberry/releases) for the latest version. 
 
