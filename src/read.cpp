@@ -354,7 +354,6 @@ bool HitFactory::parse_header_line(const string& hline){
          split(i, ":", fields);
          if(fields[0] == "PL"){
             platform_t p = str2platform(fields[1]);
-            assert(_assay_props._platform == UNKNOWN_PLATFORM);
             _assay_props._platform = p;
          }
       }
