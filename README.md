@@ -1,5 +1,10 @@
-Strawberry current release version: 1.1.0. 
+Strawberry current release version: 1.1.1. 
 ==================
+
+News
+#### Strawberry 1.1.1 released. 5/18/2019
+1. Remove unnecessary assert https://github.com/ruolin/strawberry/issues/25.
+2. Fix segfault when log file path does not exist. https://github.com/ruolin/strawberry/issues/37
 
 News
 #### Strawberry 1.1.0 released. 4/19/2019
