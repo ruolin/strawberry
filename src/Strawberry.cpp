@@ -407,8 +407,25 @@ int main(int argc, char** argv){
       exit(1);
    }
    fprintf(stderr, "OUTPUT gtf file: \n%s\n", assembled_file.c_str());
+
+   char *logfilename_cp = strdup(tracker.c_str());
+   const char *logdname = dirname(logfilename_cp);
+   ret = mkpath(logdname, 0777);
+   if(ret == -1){
+      if(errno != EEXIST){
+         perror("ERROR");
+         fprintf(stderr, "ERROR: cannot create directory %s\n", logdname);
+         exit(1);
+      }
+      
+   }
    FILE *plogfile = fopen(tracker.c_str(), "w");
-   fprintf(stderr, "see %s for the progress of the program \n", tracker.c_str());
+   if (plogfile == NULL) {
+      perror("ERROR");
+      fprintf(stderr, "ERROR: cannot create file %s\n", tracker.c_str());
+      exit(1);
+   }
+   fprintf(stderr, "see %s for the log of the program \n", tracker.c_str());
    fprintf(pFile, "#%s\n", cmdline.c_str());
    fprintf(pFile, "#########################################\n");
 
