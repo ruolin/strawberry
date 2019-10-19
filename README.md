@@ -1,12 +1,13 @@
 Strawberry current release version: 1.1.1. 
 ==================
+Release News
+#### Docker Image release for version 1.1.1. 10/19/2019
+1. docker pull ruolinliu/strawberry:v1.1.1
 
-News
 #### Strawberry 1.1.1 released. 5/18/2019
 1. Remove unnecessary assert https://github.com/ruolin/strawberry/issues/25.
 2. Fix segfault when log file path does not exist. https://github.com/ruolin/strawberry/issues/37
 
-News
 #### Strawberry 1.1.0 released. 4/19/2019
 1. Adding ref_gene_id and ref_gene_name fields to output gtf file, if reference guided assembly is used. These are taken from the matched reference loci. 
 2. When running with `--no-quant` flag, TPM and FPKM parts from the output gtf file will be omitted.
@@ -116,24 +117,30 @@ You can add this directory to your PATH variable to complete the installation by
 Running Strawberry
 ==================
 
+## Using Docker
+`docker pull ruolinliu/strawberry:v1.1.1`
+after pulling the docker image, run, for example:
+`docker run -v /home/ruolin/:/mnt ruolinliu/strawberry:v1.1.1 /home/strawberry/bin/strawberry /mnt/git/strawberry/examples/geuvadis_300/sample_01.sorted.bam -o /mnt/sample_01.gtf`
+
+
+User Manual
+===================
 Running Strawberry is relatively easy. You need to have an alignment file in BAM format. This step can be done using any splice-awareness aligner, e.g. Tophat 2, GSNAP, HISAT 2. The BAM file needs to be sorted according to the genomic positions. If you use Tophat, the default output is already sorted. For other software, you might have to sort their outputs before running Strawberry. This can be done using Samtools command `samtools sort`.
 
 I provide a toy bam file for testing the instalation. 
 Under the root directory of your installation, type  `bin/strawberry examples/geuvadis_300/sample_01.sorted.bam` to run the program on the default parameters. This bam files contains read from 300 genes. And if everything is fine, Strawberry will finish in seconds. 
 
-User Manual
-===================
 Strawberry can be run in three different modes. The default mode is to do assembly and quantification without reference annotation. 
 
-`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -p 8`
+`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output.gtf -p 8`
 
 You can also run strawberry with the help of reference annotation. In this mode, Strawberry uses the known gene models to guide assembly. Novel isoform discovery are still allowed. If you have a good quality reference annotation but also want to detect novel isoforms, this is the ideal mode. 
 
-`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -g reference.gtf -p 8`
+`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output.gtf -g reference.gtf -p 8`
 
 If you truth your gene annotation completely and do not want to assembly any new isoforms, you can skip the assembly step and just do quantification against provided gene models.
 
-`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output_dir -g reference.gtf -r -p 8`
+`bin/strawberry examples/geuvadis_300/sample_01.sorted.bam -o output.gtf -g reference.gtf -r -p 8`
 
 Good luck!
 
