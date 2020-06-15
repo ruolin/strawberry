@@ -1,6 +1,5 @@
 bin/
 Build/
-external/
 #CLion setting folder
 .idea/
 .idea/vcs.xml

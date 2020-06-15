@@ -1842,6 +1842,7 @@ double compute_doc(const uint left, const uint right,
 
    assert(right > left);
    for(size_t i = 0; i<hits.size(); ++i){
+     if (hits[i]._is_ref) continue;
      const vector<GenomicFeature> & g_feats = hits[i]._genomic_feats;
      for(size_t j = 0; j<g_feats.size(); ++j){
        const GenomicFeature & gf = g_feats[j];

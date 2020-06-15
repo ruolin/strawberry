@@ -108,20 +108,6 @@ endif()
 # ############################
 
 include(ExternalProject)
-ExternalProject_Add(eigen
-  DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
-  URL http://bitbucket.org/eigen/eigen/get/3.3.3.tar.bz2 
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/eigen3
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND ""
-  INSTALL_COMMAND ""
-  LOG_DOWNLOAD ON
-)
-
-
-#set(BAM_INCLUDE /usr/local/include/bam)
-
-
 find_library(BAM_LIBRARY 
     NAMES libbam bam bamlib
 	HINTS
@@ -138,11 +124,8 @@ else()
 	message("-- samtools library not found! ")
     message("-- will attempt to fetch and build samtools on version 0.1.19")
 ExternalProject_Add(samtools
-  DOWNLOAD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external
-  URL https://sourceforge.net/projects/samtools/files/samtools/0.1.19/samtools-0.1.19.tar.bz2
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19
-# INSTALL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/install
-# PREFIX ${CMAKE_CURRENT_SOURCE_DIR}/external/samtools-0.1.19
+  DOWNLOAD_COMMAND ""
   BUILD_IN_SOURCE TRUE
   CONFIGURE_COMMAND ""
   BUILD_COMMAND make
