@@ -1051,8 +1051,9 @@ int Sample::addRef2Cluster(HitCluster &cluster_out){
       //continue search a few forward
       int over = 0;
       while (++_refmRNA_offset < _ref_mRNAs.size() && over++ < 100) {
-         if (_ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id()) {
-            cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset]);
+         if (_ref_mRNAs[_refmRNA_offset].parent_id() == cluster_out.gene_id() &&
+            _ref_mRNAs[_refmRNA_offset].ref_id() == cluster_out.ref_id()) {
+           cluster_out.addRefContig(_ref_mRNAs[_refmRNA_offset]);
          }
       }
       _refmRNA_offset = mark_next_gene;

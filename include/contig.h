@@ -238,6 +238,7 @@ public:
 inline std::ostream& operator<<(std::ostream& os, const Contig& contig){
     os<<"contig<"<<contig.contig_id()<<">(" << contig.strand() << ")" ;
     os<<contig.ref_id()<<":"<<contig.left()<<"-"<<contig.right()<<"\t";
+    os << contig.annotated_trans_id() << "\t";
     for (const auto& gf: contig._genomic_feats) {
         os<<gf;
     }
