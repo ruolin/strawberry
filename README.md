@@ -1,6 +1,9 @@
-Strawberry current release version: 1.1.1. 
+Strawberry current release version: 1.1.2. 
 ==================
 Release News
+#### Docker Image release for version 1.1.2. 6/19/2020
+Fix a bug related to annotation file processing. This is a rare case when a gene occurs at multiple chromosomes but closed enough in the gtf file. Related to an issue https://github.com/ruolin/strawberry/issues/42 
+
 #### Docker Image release for version 1.1.1. 10/19/2019
 1. docker pull ruolinliu/strawberry:v1.1.1
 
