@@ -47,7 +47,7 @@ the test case.
 
 `--rf assume stranded library rf-firststrand`
 
-![alt text](http://4.bp.blogspot.com/-Ocn91gy9E5M/UBc1emNFh9I/AAAAAAAAAVY/E6vmshsdeZ4/s1600/Project+log+(BU_HD)+(1).pngg)
+![alt text](https://github.com/ruolin/strawberry/blob/master/strandspecific.png)
 
 Figure from [One Tipe Per Day](http://onetipperday.sterding.com/2012/07/how-to-tell-which-library-type-to-use.html)
 
